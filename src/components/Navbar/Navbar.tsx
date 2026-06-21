@@ -96,6 +96,14 @@ const IconPlus = () => (
   </svg>
 )
 
+// ─── Admin Icon ──────────────────────────────────────────────────────────────
+const IconAdmin = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+    <polyline points="9 12 11 14 15 10"/>
+  </svg>
+)
+
 // ─── Shimmer button ──────────────────────────────────────────────────────────
 function ShimmerButton({ to, children }: { to: string; children: React.ReactNode }) {
   const [hovered, setHovered] = useState(false)
@@ -478,10 +486,12 @@ function DropdownItem({ to, icon, label }: { to: string; icon: React.ReactNode; 
 // ─── MAIN NAVBAR ─────────────────────────────────────────────────────────────
 export const Navbar: React.FC = () => {
   const location = useLocation()
+  const navigate = useNavigate()
   const [scrolled, setScrolled] = useState(false)
   const [scrollY, setScrollY] = useState(0)
   const [mounted, setMounted] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
+  const [userRole, setUserRole] = useState<string>('')
 
   // ─── Get unread message count ─────────────────────────────────────────────
   const getUnreadCount = async () => {
@@ -496,21 +506,39 @@ export const Navbar: React.FC = () => {
     }
   }
 
+  // ─── Get user role for admin access ──────────────────────────────────────
+  const getUserRole = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      const { data } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+      setUserRole(data?.role || '')
+    }
+  }
+
   useEffect(() => {
     getUnreadCount()
+    getUserRole()
 
     // Refresh unread count every 10 seconds
-    const interval = setInterval(getUnreadCount, 10000)
+    const interval = setInterval(() => {
+      getUnreadCount()
+      getUserRole()
+    }, 10000)
 
     // Also refresh when page becomes visible again
     const handleVisibilityChange = () => {
       if (!document.hidden) {
         getUnreadCount()
+        getUserRole()
       }
     }
     document.addEventListener('visibilitychange', handleVisibilityChange)
 
-    // ─── Listen for custom refresh event from Messages component ────────────
+    // Listen for custom refresh event from Messages component
     const handleRefresh = () => {
       getUnreadCount()
     }
@@ -527,6 +555,7 @@ export const Navbar: React.FC = () => {
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
       getUnreadCount()
+      getUserRole()
     })
 
     return () => subscription.unsubscribe()
@@ -542,6 +571,7 @@ export const Navbar: React.FC = () => {
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
+  // ─── Navigation Items ─────────────────────────────────────────────────────
   const navItems: NavItem[] = [
     { path: '/',                label: 'Home',     icon: <IconHome /> },
     { path: '/find-players',    label: 'Players',  icon: <IconUsers /> },
@@ -549,6 +579,11 @@ export const Navbar: React.FC = () => {
     { path: '/marketplace',     label: 'Market',   icon: <IconShop /> },
     { path: '/messages',        label: 'Chat',     icon: <IconMessages /> },
   ]
+
+  // Add Admin link only if user has Admin role
+  if (userRole === 'Admin') {
+    navItems.push({ path: '/admin', label: 'Admin', icon: <IconAdmin /> })
+  }
 
   const shrink = Math.min(scrollY / 120, 1)
   const paddingV = 14 - shrink * 5

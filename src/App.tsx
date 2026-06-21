@@ -14,6 +14,7 @@ import { SessionDetail } from './components/sessions/SessionDetail'
 import { Profile } from './components/profile/Profile'
 import { Messages } from './components/messages/Messages'  // ← ADD THIS
 import { BackgroundMusic } from './components/common/BackgroundMusic'
+import { AdminPanel } from './components/admin/AdminPanel'
 import './premiumMotion.css'
 
 // ─── Placeholder page ─────────────────────────────────────────────────────────
@@ -348,6 +349,7 @@ function AppInner({ user }: { user: any }) {
           <Route path="/profile" element={user ? <Profile /> : <Navigate to="/login" />} />
           <Route path="/session/:id" element={user ? <SessionDetail /> : <Navigate to="/login" />} />
           <Route path="/messages" element={user ? <Messages /> : <Navigate to="/login" />} />  {/* ← ADD THIS */}
+          <Route path="/admin" element={user ? <AdminPanel /> : <Navigate to="/login" />} />
         </Routes>
       </main>
     </>
