@@ -1,0 +1,729 @@
+/*
+ * TeamSynk Premium Motion System
+ * Drop this file and import it once in your App.tsx / index.tsx:
+ *   import './premiumMotion.css'
+ *
+ * This file adds:
+ *  1. Global CSS custom properties (design tokens)
+ *  2. All keyframe animations
+ *  3. Scroll-reveal utility classes (.ts-reveal, .ts-reveal-left, etc.)
+ *  4. Global element enhancements (buttons, cards, inputs)
+ *  5. Animated background system
+ *  6. Premium scrollbar
+ *  7. Page transition wrapper
+ *  8. Reduced-motion safety
+ */
+
+/* ─── Google Fonts ─────────────────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+/* ─── Design Tokens ────────────────────────────────────────────────────────── */
+:root {
+  --gold-100: #fff8e0;
+  --gold-300: #FFD700;
+  --gold-400: #e8b800;
+  --gold-500: #c8a200;
+  --gold-600: #9a7b00;
+  --gold-glow: rgba(200, 162, 0, 0.35);
+  --gold-glow-strong: rgba(255, 215, 0, 0.55);
+
+  --surface-0: #0D0D0F;
+  --surface-1: rgba(16,16,22,0.9);
+  --surface-2: rgba(22,22,30,0.95);
+  --surface-3: rgba(30,30,40,0.98);
+
+  --border-subtle: rgba(255,255,255,0.05);
+  --border-gold: rgba(200,162,0,0.2);
+  --border-gold-active: rgba(200,162,0,0.45);
+
+  --text-primary: #f9fafb;
+  --text-secondary: #9ca3af;
+  --text-muted: #4b5563;
+
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+
+  --transition-fast: 0.18s cubic-bezier(0.4,0,0.2,1);
+  --transition-base: 0.28s cubic-bezier(0.4,0,0.2,1);
+  --transition-slow: 0.45s cubic-bezier(0.4,0,0.2,1);
+  --transition-bounce: 0.4s cubic-bezier(0.34,1.56,0.64,1);
+}
+
+/* ─── Base Reset & Font ────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--surface-0);
+  color: var(--text-primary);
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ─── Premium Scrollbar ────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: rgba(0,0,0,0.3); }
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--gold-500), var(--gold-600));
+  border-radius: 99px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, var(--gold-300), var(--gold-500));
+  box-shadow: 0 0 8px var(--gold-glow);
+}
+
+/* ─── Selection ────────────────────────────────────────────────────────────── */
+::selection {
+  background: rgba(200,162,0,0.25);
+  color: #FFD700;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   KEYFRAME ANIMATIONS
+══════════════════════════════════════════════════════════════════════════════ */
+
+@keyframes ts-fadeUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes ts-fadeDown {
+  from { opacity: 0; transform: translateY(-16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes ts-fadeLeft {
+  from { opacity: 0; transform: translateX(24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes ts-fadeRight {
+  from { opacity: 0; transform: translateX(-24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes ts-scaleIn {
+  from { opacity: 0; transform: scale(0.92); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes ts-glowPulse {
+  0%, 100% { box-shadow: 0 0 12px var(--gold-glow); }
+  50%       { box-shadow: 0 0 28px var(--gold-glow-strong), 0 0 60px rgba(200,162,0,0.15); }
+}
+
+@keyframes ts-borderGlow {
+  0%, 100% { border-color: rgba(200,162,0,0.2); }
+  50%       { border-color: rgba(200,162,0,0.6); }
+}
+
+@keyframes ts-float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-8px); }
+}
+
+@keyframes ts-shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position:  200% center; }
+}
+
+@keyframes ts-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes ts-spinSlow {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes ts-blobFloat {
+  0%, 100% { transform: translateY(0) scale(1) rotate(0deg); }
+  33%       { transform: translateY(-20px) scale(1.04) rotate(2deg); }
+  66%       { transform: translateY(10px) scale(0.97) rotate(-1deg); }
+}
+
+@keyframes ts-spotlightSweep {
+  0%   { background-position: -200% center; }
+  100% { background-position:  200% center; }
+}
+
+@keyframes ts-goldTextShimmer {
+  0%   { background-position: 0% center; }
+  100% { background-position: 200% center; }
+}
+
+@keyframes ts-dash {
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes ts-ping {
+  0%   { transform: scale(1); opacity: 1; }
+  75%, 100% { transform: scale(2); opacity: 0; }
+}
+
+@keyframes ts-appear {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes ts-gradientShift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   SCROLL REVEAL SYSTEM
+   Add .ts-reveal (or variant) to any element.
+   JavaScript: use IntersectionObserver to add .ts-visible when in view.
+   Or use the useScrollReveal hook below.
+══════════════════════════════════════════════════════════════════════════════ */
+
+.ts-reveal,
+.ts-reveal-left,
+.ts-reveal-right,
+.ts-reveal-scale,
+.ts-reveal-fade {
+  opacity: 0;
+  transition:
+    opacity var(--transition-slow),
+    transform var(--transition-slow);
+}
+
+.ts-reveal         { transform: translateY(28px); }
+.ts-reveal-left    { transform: translateX(28px); }
+.ts-reveal-right   { transform: translateX(-28px); }
+.ts-reveal-scale   { transform: scale(0.9); }
+.ts-reveal-fade    { transform: none; }
+
+.ts-reveal.ts-visible,
+.ts-reveal-left.ts-visible,
+.ts-reveal-right.ts-visible,
+.ts-reveal-scale.ts-visible,
+.ts-reveal-fade.ts-visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* Stagger delays for groups */
+.ts-stagger > *:nth-child(1) { transition-delay: 0ms; }
+.ts-stagger > *:nth-child(2) { transition-delay: 70ms; }
+.ts-stagger > *:nth-child(3) { transition-delay: 140ms; }
+.ts-stagger > *:nth-child(4) { transition-delay: 210ms; }
+.ts-stagger > *:nth-child(5) { transition-delay: 280ms; }
+.ts-stagger > *:nth-child(6) { transition-delay: 350ms; }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   PREMIUM CARD SYSTEM
+══════════════════════════════════════════════════════════════════════════════ */
+
+.ts-card {
+  background: var(--surface-1);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  transition:
+    border-color var(--transition-base),
+    box-shadow var(--transition-base),
+    transform var(--transition-base),
+    background var(--transition-base);
+  position: relative;
+  overflow: hidden;
+}
+
+.ts-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(200,162,0,0.3), transparent);
+  opacity: 0;
+  transition: opacity var(--transition-base);
+}
+
+.ts-card:hover {
+  border-color: var(--border-gold-active);
+  transform: translateY(-4px);
+  box-shadow:
+    0 20px 60px rgba(0,0,0,0.5),
+    0 0 0 1px rgba(200,162,0,0.08),
+    0 0 30px rgba(200,162,0,0.08);
+}
+
+.ts-card:hover::before {
+  opacity: 1;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   PREMIUM BUTTON SYSTEM
+══════════════════════════════════════════════════════════════════════════════ */
+
+.ts-btn-gold {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 24px;
+  border-radius: var(--radius-md);
+  border: none;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: #0a0a0a;
+  background: linear-gradient(135deg, var(--gold-500) 0%, var(--gold-300) 50%, var(--gold-400) 100%);
+  background-size: 200% auto;
+  box-shadow:
+    0 0 16px rgba(200,162,0,0.25),
+    inset 0 1px 0 rgba(255,255,255,0.2);
+  transition:
+    transform var(--transition-fast),
+    box-shadow var(--transition-base),
+    background-position var(--transition-slow);
+  position: relative;
+  overflow: hidden;
+  text-decoration: none;
+}
+
+.ts-btn-gold::before {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%;
+  width: 60%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent);
+  transition: left 0s;
+}
+
+.ts-btn-gold:hover {
+  transform: scale(1.04) translateY(-1px);
+  background-position: right center;
+  box-shadow:
+    0 0 32px rgba(200,162,0,0.5),
+    0 8px 24px rgba(200,162,0,0.3),
+    inset 0 1px 0 rgba(255,255,255,0.3);
+}
+
+.ts-btn-gold:hover::before {
+  left: 150%;
+  transition: left 0.55s ease;
+}
+
+.ts-btn-gold:active {
+  transform: scale(0.98) translateY(0);
+}
+
+/* Ghost button */
+.ts-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 22px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(200,162,0,0.2);
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--gold-500);
+  background: rgba(200,162,0,0.05);
+  transition: all var(--transition-base);
+  text-decoration: none;
+  position: relative;
+  overflow: hidden;
+}
+
+.ts-btn-ghost:hover {
+  background: linear-gradient(135deg, var(--gold-500), var(--gold-300));
+  color: #0a0a0a;
+  border-color: transparent;
+  transform: scale(1.03) translateY(-1px);
+  box-shadow: 0 8px 24px rgba(200,162,0,0.3);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   PREMIUM INPUT SYSTEM
+══════════════════════════════════════════════════════════════════════════════ */
+
+.ts-input {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  padding: 11px 16px;
+  width: 100%;
+  outline: none;
+  transition:
+    border-color var(--transition-base),
+    box-shadow var(--transition-base),
+    background var(--transition-base);
+}
+
+.ts-input::placeholder { color: var(--text-muted); }
+
+.ts-input:focus {
+  border-color: rgba(200,162,0,0.45);
+  background: rgba(200,162,0,0.04);
+  box-shadow:
+    0 0 0 3px rgba(200,162,0,0.08),
+    0 0 20px rgba(200,162,0,0.08);
+}
+
+.ts-input:hover:not(:focus) {
+  border-color: rgba(255,255,255,0.14);
+}
+
+/* Select */
+.ts-select {
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   ANIMATED BACKGROUND BLOBS
+   Add <div class="ts-bg-blobs"> as first child of your layout wrapper.
+══════════════════════════════════════════════════════════════════════════════ */
+
+.ts-bg-blobs {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.ts-bg-blobs::before,
+.ts-bg-blobs::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(100px);
+}
+
+/* Top-right gold blob */
+.ts-bg-blobs::before {
+  width: 700px; height: 700px;
+  top: -15%; right: -15%;
+  background: radial-gradient(circle, rgba(200,162,0,0.07) 0%, transparent 70%);
+  animation: ts-blobFloat 18s ease-in-out infinite;
+}
+
+/* Bottom-left purple tint blob */
+.ts-bg-blobs::after {
+  width: 600px; height: 600px;
+  bottom: -20%; left: -10%;
+  background: radial-gradient(circle, rgba(120,80,200,0.04) 0%, transparent 70%);
+  animation: ts-blobFloat 22s ease-in-out infinite 4s;
+}
+
+/* Top-center spotlight */
+.ts-bg-spotlight {
+  position: fixed;
+  top: 0; left: 50%;
+  transform: translateX(-50%);
+  width: 900px; height: 400px;
+  background: radial-gradient(ellipse 60% 40% at 50% 0%, rgba(200,162,0,0.06) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   GOLD TEXT EFFECT
+══════════════════════════════════════════════════════════════════════════════ */
+
+.ts-gold-text {
+  background: linear-gradient(135deg, var(--gold-500) 0%, var(--gold-300) 50%, var(--gold-400) 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.ts-gold-text-shimmer {
+  background: linear-gradient(90deg, var(--gold-500) 0%, var(--gold-300) 30%, #fff 50%, var(--gold-300) 70%, var(--gold-500) 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: ts-goldTextShimmer 3s linear infinite;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   GLOW EFFECTS
+══════════════════════════════════════════════════════════════════════════════ */
+
+.ts-glow {
+  box-shadow: 0 0 20px var(--gold-glow);
+  transition: box-shadow var(--transition-base);
+}
+
+.ts-glow:hover {
+  box-shadow: 0 0 40px var(--gold-glow-strong), 0 0 80px rgba(200,162,0,0.1);
+}
+
+.ts-glow-border {
+  border: 1px solid rgba(200,162,0,0.2);
+  box-shadow: 0 0 0 1px rgba(200,162,0,0.04), inset 0 0 20px rgba(200,162,0,0.02);
+  animation: ts-borderGlow 3s ease-in-out infinite;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   LOADER / SKELETON
+══════════════════════════════════════════════════════════════════════════════ */
+
+.ts-skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(255,255,255,0.03) 25%,
+    rgba(200,162,0,0.07) 50%,
+    rgba(255,255,255,0.03) 75%
+  );
+  background-size: 200% 100%;
+  animation: ts-shimmer 1.8s ease-in-out infinite;
+  border-radius: var(--radius-sm);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   PAGE TRANSITION WRAPPER
+   Wrap page content with <div class="ts-page-enter"> on route change
+══════════════════════════════════════════════════════════════════════════════ */
+
+.ts-page-enter {
+  animation: ts-fadeUp 0.45s cubic-bezier(0.4,0,0.2,1) both;
+}
+
+.ts-page-exit {
+  animation: ts-appear 0.2s ease reverse both;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   BADGE / CHIP
+══════════════════════════════════════════════════════════════════════════════ */
+
+.ts-badge-gold {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  background: rgba(200,162,0,0.1);
+  border: 1px solid rgba(200,162,0,0.2);
+  border-radius: 99px;
+  color: var(--gold-400);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-family: 'Inter', sans-serif;
+}
+
+.ts-badge-success {
+  background: rgba(34,197,94,0.1);
+  border-color: rgba(34,197,94,0.2);
+  color: #4ade80;
+}
+
+.ts-badge-danger {
+  background: rgba(239,68,68,0.1);
+  border-color: rgba(239,68,68,0.2);
+  color: #f87171;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   DIVIDER
+══════════════════════════════════════════════════════════════════════════════ */
+
+.ts-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(200,162,0,0.2), transparent);
+  border: none;
+  margin: 0;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   FLOATING ANIMATION UTILITY
+══════════════════════════════════════════════════════════════════════════════ */
+
+.ts-float { animation: ts-float 4s ease-in-out infinite; }
+.ts-float-delay-1 { animation-delay: 0.5s; }
+.ts-float-delay-2 { animation-delay: 1s; }
+.ts-float-delay-3 { animation-delay: 1.5s; }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   ICON BUTTON
+══════════════════════════════════════════════════════════════════════════════ */
+
+.ts-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px; height: 36px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255,255,255,0.07);
+  background: rgba(255,255,255,0.03);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition-base);
+  outline: none;
+}
+
+.ts-icon-btn:hover {
+  border-color: rgba(200,162,0,0.3);
+  background: rgba(200,162,0,0.08);
+  color: var(--gold-300);
+  box-shadow: 0 0 14px rgba(200,162,0,0.15);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   TOAST / NOTIFICATION (structure only — logic stays in your toaster)
+══════════════════════════════════════════════════════════════════════════════ */
+
+.ts-toast {
+  background: rgba(14,14,20,0.95);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-left: 3px solid var(--gold-500);
+  border-radius: var(--radius-md);
+  padding: 14px 18px;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.6), 0 0 0 1px rgba(200,162,0,0.06);
+  animation: ts-fadeLeft 0.3s ease both;
+  font-family: 'Inter', sans-serif;
+}
+
+.ts-toast-success { border-left-color: #22c55e; }
+.ts-toast-error   { border-left-color: #ef4444; }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   MODAL BACKDROP
+══════════════════════════════════════════════════════════════════════════════ */
+
+.ts-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 999;
+  animation: ts-appear 0.2s ease both;
+}
+
+.ts-modal {
+  background: rgba(12,12,18,0.97);
+  border: 1px solid rgba(200,162,0,0.12);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 32px 80px rgba(0,0,0,0.8), 0 0 0 1px rgba(200,162,0,0.06);
+  animation: ts-scaleIn 0.28s cubic-bezier(0.34,1.2,0.64,1) both;
+  overflow: hidden;
+  position: relative;
+}
+
+.ts-modal::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 10%; right: 10%; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(200,162,0,0.4), transparent);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   TABLE ENHANCEMENTS
+══════════════════════════════════════════════════════════════════════════════ */
+
+.ts-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'Inter', sans-serif;
+}
+
+.ts-table th {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 10px 16px;
+  text-align: left;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.ts-table td {
+  padding: 14px 16px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  transition: background var(--transition-fast);
+}
+
+.ts-table tr:hover td {
+  background: rgba(200,162,0,0.03);
+  color: var(--text-primary);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   EMPTY STATE
+══════════════════════════════════════════════════════════════════════════════ */
+
+.ts-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 64px 32px;
+  text-align: center;
+}
+
+.ts-empty-icon {
+  width: 72px; height: 72px;
+  border-radius: 20px;
+  background: rgba(200,162,0,0.07);
+  border: 1px solid rgba(200,162,0,0.14);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  margin-bottom: 20px;
+  animation: ts-float 4s ease-in-out infinite;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   REDUCED MOTION SAFETY
+══════════════════════════════════════════════════════════════════════════════ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .ts-reveal,
+  .ts-reveal-left,
+  .ts-reveal-right,
+  .ts-reveal-scale,
+  .ts-reveal-fade {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   RESPONSIVE
+══════════════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+  .ts-bg-blobs::before { width: 300px; height: 300px; }
+  .ts-bg-blobs::after  { width: 250px; height: 250px; }
+}
