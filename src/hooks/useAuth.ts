@@ -1,32 +1,64 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
-import { User } from '@supabase/supabase-js'
 
 export const useAuth = () => {
-  const [user, setUser] = useState<User | null>(null)
+  const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [isSuspended, setIsSuspended] = useState(false)
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null)
-      setLoading(false)
-    })
+    const checkUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      if (session?.user) {
+        const { data: profile } = await supabase
+          .from('users')
+          .select('status')
+          .eq('id', session.user.id)
+          .single()
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
+        if (profile?.status === 'suspended') {
+          setIsSuspended(true)
+          await supabase.auth.signOut()
+          setUser(null)
+        } else {
+          setUser(session.user)
+          setIsSuspended(false)
+        }
+      } else {
+        setUser(null)
+        setIsSuspended(false)
+      }
+      setLoading(false)
+    }
+
+    checkUser()
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session?.user) {
+        const { data: profile } = await supabase
+          .from('users')
+          .select('status')
+          .eq('id', session.user.id)
+          .single()
+
+        if (profile?.status === 'suspended') {
+          setIsSuspended(true)
+          await supabase.auth.signOut()
+          setUser(null)
+        } else {
+          setUser(session.user)
+          setIsSuspended(false)
+        }
+      } else {
+        setUser(null)
+        setIsSuspended(false)
+      }
+      setLoading(false)
     })
 
     return () => subscription.unsubscribe()
   }, [])
 
-  const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) throw error
-  }
-
-  const signOut = async () => {
-    await supabase.auth.signOut()
-  }
-
-  return { user, loading, signIn, signOut }
+  return { user, loading, isSuspended }
 }

@@ -9,23 +9,47 @@ export const Login: React.FC = () => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setError('')
-    
-    const { error } = await supabase.auth.signInWithPassword({
+const handleLogin = async (e: React.FormEvent) => {
+  e.preventDefault()
+  setLoading(true)
+  setError('')
+
+  try {
+    // 1. First, try to sign in
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password
     })
-    
-    if (error) {
-      setError(error.message)
-    } else {
+
+    if (error) throw error
+
+    if (data.user) {
+      // 2. Check if user is suspended
+      const { data: profile, error: profileError } = await supabase
+        .from('users')
+        .select('status')
+        .eq('id', data.user.id)
+        .single()
+
+      if (profileError) throw profileError
+
+      // 3. If user is suspended, sign them out and show error
+      if (profile?.status === 'suspended') {
+        await supabase.auth.signOut()
+        setError('⚠️ Your account has been suspended. Please contact support.')
+        setLoading(false)
+        return
+      }
+
+      // 4. User is active, proceed
       window.location.href = '/'
     }
+  } catch (err: any) {
+    setError(err.message || 'Login failed')
+  } finally {
     setLoading(false)
   }
+}
 
   return (
     <div style={{

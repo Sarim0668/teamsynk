@@ -360,21 +360,101 @@ function AppInner({ user }: { user: any }) {
 function App() {
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [isSuspended, setIsSuspended] = useState(false)
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null)
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session?.user) {
+        // Check if user is suspended
+        const { data: profile } = await supabase
+          .from('users')
+          .select('status')
+          .eq('id', session.user.id)
+          .single()
+
+        if (profile?.status === 'suspended') {
+          setIsSuspended(true)
+          await supabase.auth.signOut()
+          setUser(null)
+        } else {
+          setUser(session.user)
+          setIsSuspended(false)
+        }
+      }
       setLoading(false)
     })
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session?.user) {
+        const { data: profile } = await supabase
+          .from('users')
+          .select('status')
+          .eq('id', session.user.id)
+          .single()
+
+        if (profile?.status === 'suspended') {
+          setIsSuspended(true)
+          await supabase.auth.signOut()
+          setUser(null)
+        } else {
+          setUser(session.user)
+          setIsSuspended(false)
+        }
+      } else {
+        setUser(null)
+        setIsSuspended(false)
+      }
     })
 
     return () => subscription.unsubscribe()
   }, [])
 
   if (loading) return <LoadingScreen />
+
+  if (isSuspended) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: '#0D0D0F',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: 'white',
+        padding: '20px'
+      }}>
+        <div style={{
+          background: 'rgba(13,13,13,0.95)',
+          border: '1px solid #ff444440',
+          borderRadius: '16px',
+          padding: '40px',
+          maxWidth: '500px',
+          textAlign: 'center'
+        }}>
+          <div style={{ fontSize: '48px', marginBottom: '16px' }}>🚫</div>
+          <h2 style={{ color: '#ff4444', fontSize: '24px', marginBottom: '8px' }}>
+            Account Suspended
+          </h2>
+          <p style={{ color: '#888', marginBottom: '24px' }}>
+            Your account has been suspended. Please contact support for assistance.
+          </p>
+          <button
+            onClick={() => window.location.href = '/login'}
+            style={{
+              padding: '10px 24px',
+              background: '#c8a200',
+              border: 'none',
+              borderRadius: '8px',
+              color: '#0a0a0a',
+              fontWeight: 'bold',
+              cursor: 'pointer'
+            }}
+          >
+            Go to Login
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <BrowserRouter>
