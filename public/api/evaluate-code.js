@@ -1,7 +1,7 @@
 // ─── JDoodle API Configuration ──────────────────────────────
 // Get your free keys from: https://www.jdoodle.com/compiler-api
-const JDOODLE_CLIENT_ID = 'da8dc1b3451ec148570ac8011623038c'  // ← Replace with your actual Client ID
-const JDOODLE_CLIENT_SECRET = 'e59bce95342c96914bf8110b672914f09728b0e3c747be92428af567487ddadf'  // ← Replace with your actual Client Secret
+const JDOODLE_CLIENT_ID = '3aXXXXXXXXXXXXXXXX'  // ← REPLACE WITH YOUR CLIENT ID
+const JDOODLE_CLIENT_SECRET = 'aXXXXXXXXXXXXXXXX'  // ← REPLACE WITH YOUR CLIENT SECRET
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
@@ -36,7 +36,6 @@ export default async function handler(req, res) {
 }
 
 async function executeWithJDoodle(code, language, testCases) {
-  // Language mapping for JDoodle
   const languageMap = {
     python: 'python3',
     javascript: 'nodejs',
@@ -49,9 +48,15 @@ async function executeWithJDoodle(code, language, testCases) {
 
   for (const tc of testCases) {
     try {
-      const stdin = tc.input || ''
+      // ─── FIX: Ensure input is properly formatted ────────────────
+      let stdin = tc.input || ''
       
-      // ─── JDoodle API Call ──────────────────────────────────────
+      // Remove any extra spaces and ensure newline at end
+      stdin = stdin.trim() + '\n'
+      
+      console.log(`📝 Testing: "${stdin}"`)
+      console.log(`🎯 Expected: "${tc.output}"`)
+
       const response = await fetch('https://api.jdoodle.com/v1/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -73,7 +78,7 @@ async function executeWithJDoodle(code, language, testCases) {
 
       const data = await response.json()
       
-      console.log('JDoodle response:', JSON.stringify(data, null, 2))
+      console.log('📤 JDoodle response:', JSON.stringify(data, null, 2))
       
       const actualOutput = data.output?.trim() || data.error?.trim() || ''
       const expected = tc.output.trim()
@@ -89,7 +94,7 @@ async function executeWithJDoodle(code, language, testCases) {
       })
 
     } catch (error) {
-      console.error('Execution error:', error)
+      console.error('❌ Execution error:', error)
       results.push({
         input: tc.input,
         expected: tc.output,
