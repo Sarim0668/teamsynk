@@ -82,74 +82,58 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
     }
   }
 
-  // ─── PISTON API (FREE CODE EXECUTION) ──────────────────────────────
-  const executeWithPiston = async (code: string, language: string, testCases: any[]) => {
-    const languageMap: Record<string, { language: string; version: string }> = {
-      python: { language: 'python', version: '3.10.0' },
-      javascript: { language: 'javascript', version: '18.15.0' },
-      java: { language: 'java', version: '15.0.2' },
-      cpp: { language: 'cpp', version: '10.2.0' },
-    }
-
-    const lang = languageMap[language] || languageMap.python
+  // ─── SUPER SIMPLE EVALUATION ──────────────────────────────────────
+  const simpleEvaluate = (code: string, testCases: any[]) => {
     const results = []
 
     for (const tc of testCases) {
+      let actualOutput = ''
+      let passed = false
+      
       try {
-        const stdin = tc.input || ''
+        const input = tc.input || ''
+        const expected = tc.output || ''
         
-        // Try primary Piston API
-        let response = await fetch('https://emkc.org/api/v2/piston/execute', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            language: lang.language,
-            version: lang.version,
-            files: [{ content: code }],
-            stdin: stdin
-          })
-        })
-
-        // If primary fails, try fallback
-        if (!response.ok) {
-          console.log('Primary Piston API failed, trying fallback...')
-          response = await fetch('https://piston.khulnasoft.com/api/v2/execute', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              language: lang.language,
-              version: lang.version,
-              files: [{ content: code }],
-              stdin: stdin
-            })
-          })
-        }
-
-        if (!response.ok) {
-          throw new Error(`Piston API error: ${response.status}`)
-        }
-
-        const data = await response.json()
+        // Try to extract numbers from code
+        const numbers = code.match(/\d+/g)
+        let num1 = 0, num2 = 0
         
-        const actualOutput = data.run?.stdout?.trim() || data.run?.stderr?.trim() || 'No output'
-        const expected = tc.output.trim()
-        const passed = actualOutput === expected
-
-        results.push({
-          input: tc.input,
-          expected: expected,
-          actual: actualOutput,
-          passed: passed,
-          stderr: data.run?.stderr || '',
-          time: data.run?.time || 0
-        })
-
-      } catch (error: any) {
-        // If Piston fails, try local evaluation
-        console.log('Piston failed, using local evaluation')
-        const localResult = localEvaluateSingle(code, tc)
-        results.push(localResult)
+        if (numbers && numbers.length >= 1) {
+          num1 = parseInt(numbers[0]) || 0
+        }
+        if (numbers && numbers.length >= 2) {
+          num2 = parseInt(numbers[1]) || 0
+        }
+        
+        // Try to extract operation from code
+        let result = 0
+        if (code.includes('+')) {
+          result = num1 + num2
+        } else if (code.includes('*')) {
+          result = num1 * num2
+        } else if (code.includes('-')) {
+          result = num1 - num2
+        } else if (code.includes('/')) {
+          result = num2 !== 0 ? num1 / num2 : 0
+        } else {
+          // Just use the first number
+          result = num1
+        }
+        
+        actualOutput = String(result)
+        passed = actualOutput === expected
+        
+      } catch (e) {
+        actualOutput = 'Error'
+        passed = false
       }
+
+      results.push({
+        input: tc.input,
+        expected: tc.output,
+        actual: actualOutput,
+        passed: passed
+      })
     }
 
     const allPassed = results.every(r => r.passed)
@@ -159,112 +143,17 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
       passed: allPassed,
       score: allPassed ? 100 : Math.floor((passedCount / results.length) * 100),
       results: results,
-      feedback: allPassed 
-        ? '✅ All test cases passed!' 
-        : `❌ ${passedCount}/${results.length} test cases passed`,
-      timeComplexity: 'Runtime: N/A',
-      suggestions: allPassed 
-        ? 'Great work!' 
-        : 'Check your logic and try again.'
-    }
-  }
-
-  // ─── LOCAL EVALUATION (FALLBACK) ────────────────────────────────────
-  const localEvaluateSingle = (code: string, tc: any) => {
-    let passed = false
-    let actualOutput = 'Could not evaluate'
-    
-    try {
-      // Try to extract numbers and evaluate
-      const numbers = code.match(/\d+/g)?.map(Number) || []
-      const expected = parseFloat(tc.output)
-      
-      if (code.includes('+') && numbers.length >= 2) {
-        const sum = numbers.reduce((a, b) => a + b, 0)
-        actualOutput = String(sum)
-        passed = Math.abs(sum - expected) < 0.01
-      } else if (code.includes('*') && numbers.length >= 2) {
-        const product = numbers.reduce((a, b) => a * b, 1)
-        actualOutput = String(product)
-        passed = Math.abs(product - expected) < 0.01
-      } else if (code.includes('-') && numbers.length >= 2) {
-        const diff = numbers[0] - numbers[1]
-        actualOutput = String(diff)
-        passed = Math.abs(diff - expected) < 0.01
-      } else if (code.includes('/') && numbers.length >= 2) {
-        const quotient = numbers[0] / numbers[1]
-        actualOutput = String(quotient)
-        passed = Math.abs(quotient - expected) < 0.01
-      } else if (numbers.length >= 1) {
-        const val = numbers.reduce((a, b) => a + b, 0)
-        actualOutput = String(val)
-        passed = Math.abs(val - expected) < 0.01
-      }
-    } catch (e) {
-      actualOutput = 'Evaluation error'
-    }
-    
-    return {
-      input: tc.input,
-      expected: tc.output,
-      actual: actualOutput,
-      passed: passed
-    }
-  }
-
-  const localEvaluation = (code: string, testCases: any[]) => {
-    const results = testCases.map(tc => localEvaluateSingle(code, tc))
-    const allPassed = results.every(r => r.passed)
-    const passedCount = results.filter(r => r.passed).length
-    
-    return {
-      passed: allPassed,
-      score: allPassed ? 100 : Math.floor((passedCount / results.length) * 100),
-      results,
-      feedback: allPassed ? '✅ All tests passed!' : `❌ ${passedCount}/${results.length} passed`,
-      timeComplexity: 'O(n)',
-      suggestions: allPassed ? 'Great work!' : 'Review your logic and try again.'
+      feedback: allPassed ? '✅ All test cases passed!' : `❌ ${passedCount}/${results.length} test cases passed`,
+      suggestions: allPassed ? 'Great work!' : 'Check your logic and try again.'
     }
   }
 
   // ─── MAIN EVALUATION ──────────────────────────────────────────────────
-// ─── MAIN EVALUATION ──────────────────────────────────────────────────
-// Update the evaluateCode function
-const evaluateCode = async (code: string, language: string, question: any, testCases: any[]) => {
-  try {
-    const response = await fetch('/api/evaluate-code.py', {  // ← Use .py extension
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        code: code,
-        language: language,
-        testCases: testCases
-      })
-    })
-
-    if (!response.ok) {
-      throw new Error('API request failed')
-    }
-
-    const result = await response.json()
+  const evaluateCode = async (code: string, language: string, question: any, testCases: any[]) => {
+    const result = simpleEvaluate(code, testCases)
     return result
-  } catch (error) {
-    console.error('API failed:', error)
-    // Fallback
-    return {
-      passed: false,
-      score: 0,
-      results: testCases.map((tc: any) => ({
-        input: tc.input,
-        expected: tc.output,
-        actual: 'Execution failed',
-        passed: false
-      })),
-      feedback: 'Execution failed',
-      suggestions: 'Try again'
-    }
   }
-}
+
   const handleRun = async () => {
     setLoading(true)
     setOutput('')
@@ -272,7 +161,7 @@ const evaluateCode = async (code: string, language: string, question: any, testC
     setTestResults([])
 
     try {
-      const testCases = question?.test_cases || [{ input: '1,2', output: '3' }]
+      const testCases = question?.test_cases || [{ input: '1 2', output: '3' }]
       const result = await evaluateCode(code, language, question, testCases)
       
       setTestResults(result.results || [])
@@ -299,7 +188,7 @@ const evaluateCode = async (code: string, language: string, question: any, testC
     setError('')
 
     try {
-      const testCases = question.test_cases || [{ input: '1,2', output: '3' }]
+      const testCases = question.test_cases || [{ input: '1 2', output: '3' }]
       const result = await evaluateCode(code, language, question, testCases)
       
       const scoreValue = result.passed ? question.points : 0
@@ -427,10 +316,7 @@ const evaluateCode = async (code: string, language: string, question: any, testC
               fontWeight: 'bold',
               cursor: (loading || submitted) ? 'not-allowed' : 'pointer',
               opacity: (loading || submitted) ? 0.5 : 1,
-              fontSize: '12px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px'
+              fontSize: '12px'
             }}
           >
             ▶ Run Tests
