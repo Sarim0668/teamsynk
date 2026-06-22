@@ -1,5 +1,9 @@
+// ─── JDoodle API Configuration ──────────────────────────────
+// Get your free keys from: https://www.jdoodle.com/compiler-api
+const JDOODLE_CLIENT_ID = 'da8dc1b3451ec148570ac8011623038c'  // ← Replace with your actual Client ID
+const JDOODLE_CLIENT_SECRET = 'e59bce95342c96914bf8110b672914f09728b0e3c747be92428af567487ddadf'  // ← Replace with your actual Client Secret
+
 export default async function handler(req, res) {
-  // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
@@ -19,9 +23,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Code is required' })
     }
 
-    // Execute code using Piston API (server-to-server - NO CORS!)
-    const results = await executeWithPiston(code, language, testCases || [{ input: '1,2', output: '3' }])
-    
+    const results = await executeWithJDoodle(code, language, testCases || [{ input: '1 2', output: '3' }])
     return res.status(200).json(results)
 
   } catch (error) {
@@ -33,68 +35,47 @@ export default async function handler(req, res) {
   }
 }
 
-async function executeWithPiston(code, language, testCases) {
+async function executeWithJDoodle(code, language, testCases) {
+  // Language mapping for JDoodle
   const languageMap = {
-    python: { language: 'python', version: '3.10.0' },
-    javascript: { language: 'javascript', version: '18.15.0' },
-    java: { language: 'java', version: '15.0.2' },
-    cpp: { language: 'cpp', version: '10.2.0' },
+    python: 'python3',
+    javascript: 'nodejs',
+    java: 'java',
+    cpp: 'cpp14',
   }
 
-  const lang = languageMap[language] || languageMap.python
+  const lang = languageMap[language] || 'python3'
   const results = []
 
   for (const tc of testCases) {
     try {
       const stdin = tc.input || ''
       
-      // Wrap C++ code with main function
-      let fullCode = code
-      if (language === 'cpp') {
-        fullCode = `
-#include <iostream>
-using namespace std;
-
-${code}
-
-int main() {
-    ${stdin ? `cout << solve(${stdin.replace(',', ', ')}) << endl;` : 'cout << solve() << endl;'}
-    return 0;
-}
-        `
-      } else if (language === 'python') {
-        fullCode = `
-${code}
-
-if __name__ == "__main__":
-    ${stdin ? `print(solve(${stdin.replace(',', ', ')}))` : 'print(solve())'}
-        `
-      } else if (language === 'javascript') {
-        fullCode = `
-${code}
-
-console.log(solve(${stdin || ''}));
-        `
-      }
-
-      const response = await fetch('https://emkc.org/api/v2/piston/execute', {
+      // ─── JDoodle API Call ──────────────────────────────────────
+      const response = await fetch('https://api.jdoodle.com/v1/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          language: lang.language,
-          version: lang.version,
-          files: [{ content: fullCode }],
+          clientId: JDOODLE_CLIENT_ID,
+          clientSecret: JDOODLE_CLIENT_SECRET,
+          script: code,
+          language: lang,
+          versionIndex: '0',
           stdin: stdin
         })
       })
 
       if (!response.ok) {
-        throw new Error(`Piston API returned ${response.status}`)
+        const errorText = await response.text()
+        console.error('JDoodle API error:', response.status, errorText)
+        throw new Error(`JDoodle API returned ${response.status}`)
       }
 
       const data = await response.json()
       
-      const actualOutput = data.run?.stdout?.trim() || data.run?.stderr?.trim() || ''
+      console.log('JDoodle response:', JSON.stringify(data, null, 2))
+      
+      const actualOutput = data.output?.trim() || data.error?.trim() || ''
       const expected = tc.output.trim()
       const passed = actualOutput === expected
 
@@ -103,49 +84,16 @@ console.log(solve(${stdin || ''}));
         expected: expected,
         actual: actualOutput || 'No output',
         passed: passed,
-        stderr: data.run?.stderr || '',
-        time: data.run?.time || 0
+        stderr: data.error || '',
+        time: data.cpuTime || 0
       })
 
     } catch (error) {
-      // Try alternative Piston API endpoint
-      try {
-        const response = await fetch('https://piston.khulnasoft.com/api/v2/execute', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            language: lang.language,
-            version: lang.version,
-            files: [{ content: code }],
-            stdin: tc.input || ''
-          })
-        })
-
-        if (response.ok) {
-          const data = await response.json()
-          const actualOutput = data.run?.stdout?.trim() || data.run?.stderr?.trim() || ''
-          const expected = tc.output.trim()
-          const passed = actualOutput === expected
-
-          results.push({
-            input: tc.input,
-            expected: expected,
-            actual: actualOutput || 'No output',
-            passed: passed,
-            stderr: data.run?.stderr || '',
-            time: data.run?.time || 0
-          })
-          continue
-        }
-      } catch (e) {
-        // Both APIs failed
-      }
-
-      // If all APIs fail, try local evaluation
+      console.error('Execution error:', error)
       results.push({
         input: tc.input,
         expected: tc.output,
-        actual: 'Execution failed - using local fallback',
+        actual: `Error: ${error.message}`,
         passed: false
       })
     }
