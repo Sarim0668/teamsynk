@@ -23,7 +23,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Code is required' })
     }
 
-    const results = await executeWithJDoodle(code, language, testCases || [{ input: '1 2', output: '3' }])
+    const results = await executeWithJDoodle(code, language, testCases || [{ input: '1', output: '1' }])
     return res.status(200).json(results)
 
   } catch (error) {
@@ -48,14 +48,13 @@ async function executeWithJDoodle(code, language, testCases) {
 
   for (const tc of testCases) {
     try {
-      // ─── FIX: Ensure input is properly formatted ────────────────
-      let stdin = tc.input || ''
+      // ─── FIX: Pass input as string with newline ────────────────
+      const stdin = (tc.input || '').toString().trim() + '\n'
       
-      // Remove any extra spaces and ensure newline at end
-      stdin = stdin.trim() + '\n'
-      
-      console.log(`📝 Testing: "${stdin}"`)
+      console.log(`📝 Input: "${stdin}"`)
       console.log(`🎯 Expected: "${tc.output}"`)
+      console.log(`💻 Language: ${lang}`)
+      console.log(`📄 Code length: ${code.length}`)
 
       const response = await fetch('https://api.jdoodle.com/v1/execute', {
         method: 'POST',
@@ -78,7 +77,7 @@ async function executeWithJDoodle(code, language, testCases) {
 
       const data = await response.json()
       
-      console.log('📤 JDoodle response:', JSON.stringify(data, null, 2))
+      console.log('📤 JDoodle Response:', JSON.stringify(data, null, 2))
       
       const actualOutput = data.output?.trim() || data.error?.trim() || ''
       const expected = tc.output.trim()
