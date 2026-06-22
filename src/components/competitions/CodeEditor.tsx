@@ -228,18 +228,35 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   }
 
   // ─── MAIN EVALUATION ──────────────────────────────────────────────────
-  const evaluateCode = async (code: string, language: string, question: any, testCases: any[]) => {
-    try {
-      console.log('Running with Piston API...')
-      const result = await executeWithPiston(code, language, testCases)
-      console.log('Piston result:', result)
-      return result
-    } catch (pistonError) {
-      console.log('Piston API failed:', pistonError)
-      console.log('Using local evaluation...')
-      return localEvaluation(code, testCases)
+// ─── MAIN EVALUATION ──────────────────────────────────────────────────
+const evaluateCode = async (code: string, language: string, question: any, testCases: any[]) => {
+  try {
+    // Call your Vercel API (server-to-server - NO CORS!)
+    const response = await fetch('/api/evaluate-code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        code: code,
+        language: language,
+        testCases: testCases
+      })
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.error || 'API request failed')
     }
+
+    const result = await response.json()
+    console.log('API result:', result)
+    return result
+
+  } catch (error) {
+    console.error('API failed:', error)
+    // Final fallback - local evaluation
+    return localEvaluation(code, testCases || [{ input: '1,2', output: '3' }])
   }
+}
 
   const handleRun = async () => {
     setLoading(true)
