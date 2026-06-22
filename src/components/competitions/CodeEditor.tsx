@@ -229,10 +229,10 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
 
   // ─── MAIN EVALUATION ──────────────────────────────────────────────────
 // ─── MAIN EVALUATION ──────────────────────────────────────────────────
+// Update the evaluateCode function
 const evaluateCode = async (code: string, language: string, question: any, testCases: any[]) => {
   try {
-    // Call your Vercel API (server-to-server - NO CORS!)
-    const response = await fetch('/api/evaluate-code', {
+    const response = await fetch('/api/evaluate-code.py', {  // ← Use .py extension
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -243,21 +243,28 @@ const evaluateCode = async (code: string, language: string, question: any, testC
     })
 
     if (!response.ok) {
-      const errorData = await response.json()
-      throw new Error(errorData.error || 'API request failed')
+      throw new Error('API request failed')
     }
 
     const result = await response.json()
-    console.log('API result:', result)
     return result
-
   } catch (error) {
     console.error('API failed:', error)
-    // Final fallback - local evaluation
-    return localEvaluation(code, testCases || [{ input: '1,2', output: '3' }])
+    // Fallback
+    return {
+      passed: false,
+      score: 0,
+      results: testCases.map((tc: any) => ({
+        input: tc.input,
+        expected: tc.output,
+        actual: 'Execution failed',
+        passed: false
+      })),
+      feedback: 'Execution failed',
+      suggestions: 'Try again'
+    }
   }
 }
-
   const handleRun = async () => {
     setLoading(true)
     setOutput('')
