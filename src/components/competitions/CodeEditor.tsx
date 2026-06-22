@@ -149,10 +149,43 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   }
 
   // ─── MAIN EVALUATION ──────────────────────────────────────────────────
-  const evaluateCode = async (code: string, language: string, question: any, testCases: any[]) => {
-    const result = simpleEvaluate(code, testCases)
+ // Replace the evaluateCode function with this:
+// Replace the evaluateCode function with this:
+const evaluateCode = async (code: string, language: string, question: any, testCases: any[]) => {
+  try {
+    const response = await fetch('/api/ai-evaluate.js', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        code: code,
+        language: language,
+        testCases: testCases
+      })
+    })
+
+    if (!response.ok) {
+      throw new Error('API request failed')
+    }
+
+    const result = await response.json()
     return result
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    console.error('API failed:', errorMessage)
+    return {
+      passed: false,
+      score: 0,
+      results: testCases.map((tc: any) => ({
+        input: tc.input,
+        expected: tc.output,
+        actual: 'Error: ' + errorMessage,
+        passed: false
+      })),
+      feedback: 'Execution failed',
+      suggestions: 'Try again'
+    }
   }
+}
 
   const handleRun = async () => {
     setLoading(true)
