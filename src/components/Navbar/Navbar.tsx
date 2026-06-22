@@ -104,6 +104,19 @@ const IconAdmin = () => (
   </svg>
 )
 
+// ─── Trophy Icon for Competitions ──────────────────────────────────────────
+const IconTrophy = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/>
+    <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/>
+    <path d="M4 22h16"/>
+    <path d="M12 15v7"/>
+    <path d="M8 22v-3.5a3 3 0 0 1 3-3h2a3 3 0 0 1 3 3V22"/>
+    <path d="M6 9h12a2 2 0 0 1 2 2v1.5a3.5 3.5 0 0 1-7 0"/>
+    <path d="M6 9V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v5"/>
+  </svg>
+)
+
 // ─── Shimmer button ──────────────────────────────────────────────────────────
 function ShimmerButton({ to, children }: { to: string; children: React.ReactNode }) {
   const [hovered, setHovered] = useState(false)
@@ -523,13 +536,13 @@ export const Navbar: React.FC = () => {
     getUnreadCount()
     getUserRole()
 
-    // Refresh unread count every 10 seconds
+    // Refresh every 10 seconds
     const interval = setInterval(() => {
       getUnreadCount()
       getUserRole()
     }, 10000)
 
-    // Also refresh when page becomes visible again
+    // Refresh when page becomes visible
     const handleVisibilityChange = () => {
       if (!document.hidden) {
         getUnreadCount()
@@ -538,7 +551,7 @@ export const Navbar: React.FC = () => {
     }
     document.addEventListener('visibilitychange', handleVisibilityChange)
 
-    // Listen for custom refresh event from Messages component
+    // Listen for custom refresh event
     const handleRefresh = () => {
       getUnreadCount()
     }
@@ -573,11 +586,14 @@ export const Navbar: React.FC = () => {
 
   // ─── Navigation Items ─────────────────────────────────────────────────────
   const navItems: NavItem[] = [
-    { path: '/',                label: 'Home',     icon: <IconHome /> },
-    { path: '/find-players',    label: 'Players',  icon: <IconUsers /> },
+    { path: '/', label: 'Home', icon: <IconHome /> },
+    { path: '/find-players', label: 'Players', icon: <IconUsers /> },
     { path: '/browse-sessions', label: 'Sessions', icon: <IconCalendar /> },
-    { path: '/marketplace',     label: 'Market',   icon: <IconShop /> },
-    { path: '/messages',        label: 'Chat',     icon: <IconMessages /> },
+    { path: '/marketplace', label: 'Market', icon: <IconShop /> },
+    { path: '/messages', label: 'Chat', icon: <IconMessages /> },
+    { path: '/competitions', label: 'Compete', icon: <IconTrophy /> },  // ← NEW
+    // Add to navItems:
+    { path: '/leaderboard', label: 'Leaderboard', icon: <IconTrophy /> },
   ]
 
   // Add Admin link only if user has Admin role

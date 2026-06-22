@@ -15,6 +15,10 @@ import { Profile } from './components/profile/Profile'
 import { Messages } from './components/messages/Messages'  // ← ADD THIS
 import { BackgroundMusic } from './components/common/BackgroundMusic'
 import { AdminPanel } from './components/admin/AdminPanel'
+import { Competitions } from './components/competitions/Competitions'
+import { CompetitionDetail } from './components/competitions/CompetitionDetail'
+import { CreateCompetition } from './components/competitions/CreateCompetition'
+import { Leaderboard } from './components/competitions/Leaderboard'
 import './premiumMotion.css'
 
 // ─── Placeholder page ─────────────────────────────────────────────────────────
@@ -350,6 +354,10 @@ function AppInner({ user }: { user: any }) {
           <Route path="/session/:id" element={user ? <SessionDetail /> : <Navigate to="/login" />} />
           <Route path="/messages" element={user ? <Messages /> : <Navigate to="/login" />} />  {/* ← ADD THIS */}
           <Route path="/admin" element={user ? <AdminPanel /> : <Navigate to="/login" />} />
+          <Route path="/competitions" element={user ? <Competitions /> : <Navigate to="/login" />} />
+<Route path="/competition/:id" element={user ? <CompetitionDetail /> : <Navigate to="/login" />} />
+<Route path="/create-competition" element={user ? <CreateCompetition /> : <Navigate to="/login" />} />
+<Route path="/leaderboard" element={user ? <Leaderboard /> : <Navigate to="/login" />} />
         </Routes>
       </main>
     </>
