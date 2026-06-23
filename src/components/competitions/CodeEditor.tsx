@@ -76,6 +76,36 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
     }
   }
 
+  // ─── CONVERT C++ TO JAVASCRIPT ──────────────────────────────────
+  const convertCppToJS = (cppCode: string): string => {
+    let jsCode = cppCode
+    
+    // Remove #include lines
+    jsCode = jsCode.replace(/#include\s*<[^>]*>/g, '')
+    
+    // Remove using namespace std;
+    jsCode = jsCode.replace(/using namespace std;/g, '')
+    
+    // Convert int/float/double to let/const
+    jsCode = jsCode.replace(/\b(int|float|double|char|string)\s+/g, 'let ')
+    
+    // Convert cout << to console.log
+    jsCode = jsCode.replace(/cout\s*<<\s*/g, 'console.log(')
+    jsCode = jsCode.replace(/;/g, ');')
+    jsCode = jsCode.replace(/console\.log\((.*?)\);/g, 'console.log($1);')
+    
+    // Convert cin >> to prompt or just use function args
+    jsCode = jsCode.replace(/cin\s*>>\s*(\w+)/g, 'let $1 = args.shift()')
+    
+    // Convert return statements
+    jsCode = jsCode.replace(/return\s+(\w+)\s*;/g, 'return $1;')
+    
+    // Clean up
+    jsCode = jsCode.replace(/\n\s*\n/g, '\n')
+    
+    return jsCode
+  }
+
   // ─── EVALUATE JAVASCRIPT CODE ──────────────────────────────────
   const evaluateJavaScript = (code: string, testCases: any[]) => {
     const results = []
@@ -86,22 +116,44 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
       
       try {
         // Parse input values
-        const inputValues = (tc.input || '').toString().trim().split(/\s+/)
+        const inputValues = (tc.input || '').toString().trim().split(/\s+/).map(Number)
         
-        // Create a function from the code
-        const wrappedCode = `
-          ${code}
-          
-          // Run the test
-          const inputs = ${JSON.stringify(inputValues)};
-          const result = solve(...inputs);
-          console.log(result);
-          result;
-        `
+        // Remove comments and clean code
+        let cleanCode = code.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '')
         
-        // Execute the code
-        const result = eval(wrappedCode)
-        actualOutput = String(result)
+        // Check if code has solve function
+        const hasSolve = cleanCode.includes('function solve')
+        
+        if (hasSolve) {
+          // Use the existing solve function
+          const wrappedCode = `
+            ${cleanCode}
+            const result = solve(${inputValues.join(', ')});
+            result;
+          `
+          const result = eval(wrappedCode)
+          actualOutput = String(result)
+        } else {
+          // Try to find return statement
+          const returnMatch = cleanCode.match(/return\s+(.+?);/)
+          if (returnMatch) {
+            let expr = returnMatch[1].trim()
+            inputValues.forEach((val: number, i: number) => {
+              const varName = String.fromCharCode(97 + i) // a, b, c...
+              expr = expr.replace(new RegExp(varName, 'g'), String(val))
+            })
+            try {
+              const result = Function(`"use strict"; return (${expr})`)()
+              actualOutput = String(result)
+            } catch (e) {
+              actualOutput = 'Expression error'
+            }
+          } else {
+            // Just return first input
+            actualOutput = String(inputValues[0] || 0)
+          }
+        }
+        
         passed = actualOutput === tc.output.trim()
         
       } catch (err) {
@@ -120,8 +172,8 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
     return results
   }
 
-  // ─── EVALUATE PYTHON CODE (Simulated) ──────────────────────────
-  const evaluatePython = (code: string, testCases: any[]) => {
+  // ─── EVALUATE C++ CODE ──────────────────────────────────────────
+  const evaluateCpp = (code: string, testCases: any[]) => {
     const results = []
 
     for (const tc of testCases) {
@@ -132,26 +184,21 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
         // Parse input values
         const inputValues = (tc.input || '').toString().trim().split(/\s+/).map(Number)
         
-        // Try to extract the function and evaluate
-        const cleanCode = code.replace(/def\s+(\w+)\s*\([^)]*\)\s*:/, 'function $1(')
-        const funcMatch = cleanCode.match(/function\s+(\w+)\s*\(([^)]*)\)/)
+        // Convert C++ to JavaScript
+        let jsCode = convertCppToJS(code)
         
-        if (funcMatch) {
-          const funcName = funcMatch[1]
-          const params = funcMatch[2].split(',').map(p => p.trim())
+        // Create a wrapper that uses input values
+        const wrappedCode = `
+          ${jsCode}
           
-          // Build the function call
-          const callArgs = inputValues.map((v: number) => v).join(', ')
-          const wrappedCode = `
-            ${cleanCode}
-            const result = ${funcName}(${callArgs});
-            result;
-          `
-          
-          const result = eval(wrappedCode)
-          actualOutput = String(result)
-          passed = actualOutput === tc.output.trim()
-        }
+          // Run the solve function with inputs
+          const result = solve(${inputValues.join(', ')});
+          result;
+        `
+        
+        const result = eval(wrappedCode)
+        actualOutput = String(result)
+        passed = actualOutput === tc.output.trim()
         
       } catch (err) {
         actualOutput = 'Error: ' + (err as Error).message
@@ -175,10 +222,12 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
 
     if (language === 'javascript') {
       results = evaluateJavaScript(code, testCases)
+    } else if (language === 'cpp') {
+      results = evaluateCpp(code, testCases)
     } else if (language === 'python') {
-      results = evaluatePython(code, testCases)
+      // Python uses JavaScript fallback
+      results = evaluateJavaScript(code, testCases)
     } else {
-      // C++ and others - try JavaScript fallback
       results = evaluateJavaScript(code, testCases)
     }
 
