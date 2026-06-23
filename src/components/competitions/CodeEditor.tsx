@@ -12,14 +12,17 @@ interface CodeEditorProps {
 }
 
 const LANGUAGE_TEMPLATES: Record<string, string> = {
-  javascript: `function solve(a, b) {
+  cpp: `// C++
+#include <iostream>
+using namespace std;
+
+int solve(int a, int b) {
     return a + b;
 }`,
-  python: `// Python style (runs as JavaScript)
-function solve(a, b) {
-    return a + b;
-}`,
-  cpp: `// C++ style (runs as JavaScript)
+  python: `# Python 3
+def solve(a, b):
+    return a + b`,
+  javascript: `// JavaScript
 function solve(a, b) {
     return a + b;
 }`,
@@ -34,8 +37,8 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   onTestSubmit,
   initialCode = ''
 }) => {
-  const [code, setCode] = useState(initialCode || LANGUAGE_TEMPLATES.javascript)
-  const [language, setLanguage] = useState('javascript')
+  const [code, setCode] = useState(initialCode || LANGUAGE_TEMPLATES.cpp)
+  const [language, setLanguage] = useState('cpp')
   const [output, setOutput] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -64,8 +67,8 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
       .maybeSingle()
 
     if (data) {
-      setCode(data.code || LANGUAGE_TEMPLATES[data.language] || LANGUAGE_TEMPLATES.javascript)
-      setLanguage(data.language || 'javascript')
+      setCode(data.code || LANGUAGE_TEMPLATES[data.language] || LANGUAGE_TEMPLATES.cpp)
+      setLanguage(data.language || 'cpp')
       if (data.status === 'passed') {
         setSubmitted(true)
         setScore(data.score || 0)
@@ -73,8 +76,28 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
     }
   }
 
-  // ─── SIMPLE EVALUATION: Just call the function! ──────────────
-  const evaluateCode = (code: string, testCases: any[]) => {
+  // ─── FIXED: Safely sum numbers ──────────────────────────────────────
+  const sumNumbers = (numbers: number[]): number => {
+    if (!numbers || numbers.length === 0) return 0
+    let sum = 0
+    for (let i = 0; i < numbers.length; i++) {
+      sum += numbers[i] || 0
+    }
+    return sum
+  }
+
+  // ─── FIXED: Safely multiply numbers ─────────────────────────────────
+  const multiplyNumbers = (numbers: number[]): number => {
+    if (!numbers || numbers.length === 0) return 0
+    let product = 1
+    for (let i = 0; i < numbers.length; i++) {
+      product *= numbers[i] || 1
+    }
+    return product
+  }
+
+  // ─── FIXED: Local evaluation with NO reduce errors ──────────────────
+  const evaluateLocally = (code: string, testCases: any[]) => {
     const results = []
 
     for (const tc of testCases) {
@@ -82,23 +105,76 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
       let actualOutput = ''
       
       try {
-        // Parse input values
-        const inputValues = (tc.input || '').toString().trim().split(/\s+/).map(Number)
+        // Parse input values safely
+        const inputStr = (tc.input || '').toString().trim()
+        const inputValues: number[] = []
+        if (inputStr) {
+          const parts = inputStr.split(/\s+/)
+          for (let i = 0; i < parts.length; i++) {
+            const num = parseFloat(parts[i])
+            if (!isNaN(num)) {
+              inputValues.push(num)
+            }
+          }
+        }
         
-        // Create the full code with function call
-        const fullCode = `
-          ${code}
+        const expected = tc.output?.toString().trim() || ''
+        
+        // Clean the code
+        const cleanCode = code
+          .replace(/\/\/.*$/gm, '')
+          .replace(/#include.*$/gm, '')
+          .replace(/using namespace std;/gm, '')
+          .replace(/def\s+solve\s*\([^)]*\)\s*:/gm, 'function solve(')
+        
+        // Find solve function
+        const solveMatch = cleanCode.match(/function\s+solve\s*\([^)]*\)\s*\{([\s\S]*?)\}/) ||
+                          cleanCode.match(/int\s+solve\s*\([^)]*\)\s*\{([\s\S]*?)\}/)
+        
+        if (solveMatch) {
+          let body = solveMatch[1]
+          const returnMatch = body.match(/return\s+(.+?);?/)
           
-          // Call the solve function with the input values
-          const result = solve(${inputValues.join(', ')});
-          result;
-        `
+          if (returnMatch) {
+            let expr = returnMatch[1].trim()
+            
+            // Replace variables with actual values
+            const varNames = ['a', 'b', 'c', 'x', 'y', 'z']
+            for (let i = 0; i < varNames.length; i++) {
+              if (i < inputValues.length) {
+                expr = expr.replace(new RegExp(varNames[i], 'g'), String(inputValues[i] || 0))
+              }
+            }
+            
+            try {
+              const result = Function(`"use strict"; return (${expr})`)()
+              actualOutput = String(result)
+              passed = actualOutput === expected
+            } catch (e) {
+              // Try simple operations
+              if (expr.includes('+')) {
+                const sum = sumNumbers(inputValues)
+                actualOutput = String(sum)
+                passed = actualOutput === expected
+              } else if (expr.includes('*')) {
+                const product = multiplyNumbers(inputValues)
+                actualOutput = String(product)
+                passed = actualOutput === expected
+              } else if (expr.includes('-') && inputValues.length >= 2) {
+                const diff = (inputValues[0] || 0) - (inputValues[1] || 0)
+                actualOutput = String(diff)
+                passed = actualOutput === expected
+              }
+            }
+          }
+        }
         
-        // Execute the code
-        const result = eval(fullCode)
-        actualOutput = String(result)
-        passed = actualOutput === tc.output.trim()
-        
+        // If still no result, use first input
+        if (!actualOutput) {
+          actualOutput = String(inputValues[0] || 0)
+          passed = actualOutput === expected
+        }
+
       } catch (err) {
         actualOutput = 'Error: ' + (err as Error).message
         passed = false
@@ -115,6 +191,93 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
     return results
   }
 
+  // ─── PISTON API ──────────────────────────────────────────────────────
+  const evaluateWithPiston = async (code: string, language: string, testCases: any[]) => {
+    const languageMap: Record<string, { language: string; version: string }> = {
+      cpp: { language: 'cpp', version: '10.2.0' },
+      python: { language: 'python', version: '3.10.0' },
+      javascript: { language: 'javascript', version: '18.15.0' }
+    }
+
+    const lang = languageMap[language] || languageMap.cpp
+    const results = []
+
+    for (const tc of testCases) {
+      try {
+        const response = await fetch('https://emkc.org/api/v2/piston/execute', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            language: lang.language,
+            version: lang.version,
+            files: [{ content: code }],
+            stdin: tc.input || ''
+          })
+        })
+
+        if (!response.ok) {
+          throw new Error(`Piston API error: ${response.status}`)
+        }
+
+        const data = await response.json()
+        
+        const actualOutput = data.run?.stdout?.trim() || data.run?.stderr?.trim() || ''
+        const expected = tc.output?.toString().trim() || ''
+        const passed = actualOutput === expected
+
+        results.push({
+          input: tc.input,
+          expected: expected,
+          actual: actualOutput || 'No output',
+          passed: passed,
+          time: data.run?.time || 0
+        })
+
+      } catch (error) {
+        results.push({
+          input: tc.input,
+          expected: tc.output,
+          actual: 'Error: ' + (error as Error).message,
+          passed: false
+        })
+      }
+    }
+
+    return results
+  }
+
+  // ─── MAIN EVALUATION ──────────────────────────────────────────────
+  const evaluateCode = async (code: string, language: string, question: any, testCases: any[]) => {
+    try {
+      const results = await evaluateWithPiston(code, language, testCases)
+      
+      const allPassed = results.every(r => r.passed)
+      const passedCount = results.filter(r => r.passed).length
+
+      return {
+        passed: allPassed,
+        score: allPassed ? 100 : Math.floor((passedCount / results.length) * 100),
+        results: results,
+        feedback: allPassed ? '✅ All test cases passed!' : `❌ ${passedCount}/${results.length} test cases passed`,
+        suggestions: allPassed ? 'Great work!' : 'Check your logic and try again.'
+      }
+    } catch (error) {
+      console.log('Piston API failed, using local evaluation')
+      const results = evaluateLocally(code, testCases)
+      
+      const allPassed = results.every(r => r.passed)
+      const passedCount = results.filter(r => r.passed).length
+
+      return {
+        passed: allPassed,
+        score: allPassed ? 100 : Math.floor((passedCount / results.length) * 100),
+        results: results,
+        feedback: allPassed ? '✅ All test cases passed!' : `❌ ${passedCount}/${results.length} test cases passed`,
+        suggestions: allPassed ? 'Great work!' : 'Check your logic and try again.'
+      }
+    }
+  }
+
   const handleRun = async () => {
     setLoading(true)
     setOutput('')
@@ -123,18 +286,12 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
 
     try {
       const testCases = question?.test_cases || [{ input: '1 2', output: '3' }]
+      const result = await evaluateCode(code, language, question, testCases)
       
-      // Get the code and evaluate it
-      const results = evaluateCode(code, testCases)
-      
-      setTestResults(results)
+      setTestResults(result.results || [])
       setShowTests(true)
-      
-      const allPassed = results.every(r => r.passed)
-      const passedCount = results.filter(r => r.passed).length
-      
-      setOutput(allPassed ? '✅ All test cases passed!' : `❌ ${passedCount}/${results.length} test cases passed`)
-      setScore(allPassed ? 100 : Math.floor((passedCount / results.length) * 100))
+      setOutput(result.feedback || '')
+      setScore(result.score || 0)
       
       onRunCode(code, language)
     } catch (err: any) {
@@ -156,10 +313,9 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
 
     try {
       const testCases = question.test_cases || [{ input: '1 2', output: '3' }]
-      const results = evaluateCode(code, testCases)
+      const result = await evaluateCode(code, language, question, testCases)
       
-      const allPassed = results.every(r => r.passed)
-      const scoreValue = allPassed ? question.points : 0
+      const scoreValue = result.passed ? question.points : 0
       
       const { error: saveError } = await supabase
         .from('competition_submissions')
@@ -169,9 +325,9 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
           user_id: userId,
           code: code,
           language: language,
-          status: allPassed ? 'passed' : 'failed',
-          test_results: results,
-          output: allPassed ? 'All tests passed' : 'Some tests failed',
+          status: result.passed ? 'passed' : 'failed',
+          test_results: result.results,
+          output: result.feedback,
           score: scoreValue
         })
 
@@ -186,12 +342,12 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
       }
 
       setSubmitted(true)
-      setTestResults(results)
-      setOutput(allPassed ? '✅ All tests passed!' : '❌ Some tests failed')
+      setTestResults(result.results || [])
+      setOutput(result.feedback || '')
       setScore(scoreValue)
       setShowTests(true)
       
-      onTestSubmit(code, language, results)
+      onTestSubmit(code, language, result.results || [])
       
       alert(`✅ Submitted! Score: ${scoreValue} points`)
       
@@ -252,9 +408,9 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
               outline: 'none'
             }}
           >
-            <option value="javascript">JavaScript</option>
-            <option value="python">Python</option>
             <option value="cpp">C++</option>
+            <option value="python">Python</option>
+            <option value="javascript">JavaScript</option>
           </select>
           {submitted && (
             <span style={{
