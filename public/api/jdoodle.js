@@ -1,3 +1,10 @@
+// ─── JDoodle API Configuration ──────────────────────────────────────────
+// Get your free keys from: https://www.jdoodle.com/compiler-api
+// These are server-side ONLY - never exposed to browser!
+
+const JDOODLE_CLIENT_ID = process.env.JDOODLE_CLIENT_ID || 'da8dc1b3451ec148570ac8011623038c'
+const JDOODLE_CLIENT_SECRET = process.env.JDOODLE_CLIENT_SECRET || 'e59bce95342c96914bf8110b672914f09728b0e3c747be92428af567487ddadf'
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
@@ -18,7 +25,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Code is required' })
     }
 
-    const results = await executeWithPiston(code, language, testCases || [{ input: '1 2', output: '3' }])
+    const results = await executeWithJDoodle(code, language, testCases || [{ input: '1', output: '1' }])
     return res.status(200).json(results)
 
   } catch (error) {
@@ -27,37 +34,41 @@ export default async function handler(req, res) {
   }
 }
 
-async function executeWithPiston(code, language, testCases) {
+async function executeWithJDoodle(code, language, testCases) {
   const languageMap = {
-    cpp: { language: 'cpp', version: '10.2.0' },
-    python: { language: 'python', version: '3.10.0' },
-    javascript: { language: 'javascript', version: '18.15.0' }
+    cpp: 'cpp14',
+    python: 'python3',
+    javascript: 'nodejs'
   }
 
-  const lang = languageMap[language] || languageMap.cpp
+  const lang = languageMap[language] || 'cpp14'
   const results = []
 
   for (const tc of testCases) {
     try {
-      const response = await fetch('https://emkc.org/api/v2/piston/execute', {
+      const stdin = tc.input || ''
+
+      const response = await fetch('https://api.jdoodle.com/v1/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          language: lang.language,
-          version: lang.version,
-          files: [{ content: code }],
-          stdin: tc.input || ''
+          clientId: JDOODLE_CLIENT_ID,
+          clientSecret: JDOODLE_CLIENT_SECRET,
+          script: code,
+          language: lang,
+          versionIndex: '0',
+          stdin: stdin
         })
       })
 
       if (!response.ok) {
-        throw new Error(`Piston API error: ${response.status}`)
+        throw new Error(`JDoodle API error: ${response.status}`)
       }
 
       const data = await response.json()
       
-      const actualOutput = data.run?.stdout?.trim() || data.run?.stderr?.trim() || ''
-      const expected = tc.output.trim()
+      const actualOutput = data.output?.trim() || data.error?.trim() || ''
+      const expected = tc.output?.toString().trim() || ''
       const passed = actualOutput === expected
 
       results.push({
@@ -65,7 +76,7 @@ async function executeWithPiston(code, language, testCases) {
         expected: expected,
         actual: actualOutput || 'No output',
         passed: passed,
-        time: data.run?.time || 0
+        time: data.cpuTime || 0
       })
 
     } catch (error) {

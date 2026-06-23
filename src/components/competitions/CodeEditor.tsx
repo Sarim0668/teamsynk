@@ -76,27 +76,33 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
     }
   }
 
-  // ─── FIXED: Safely sum numbers ──────────────────────────────────────
-  const sumNumbers = (numbers: number[]): number => {
-    if (!numbers || numbers.length === 0) return 0
-    let sum = 0
-    for (let i = 0; i < numbers.length; i++) {
-      sum += numbers[i] || 0
+  // ─── JDoodle API Call ──────────────────────────────────────────────
+  const evaluateWithJDoodle = async (code: string, language: string, testCases: any[]) => {
+    try {
+      const response = await fetch('/api/jdoodle.js', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: code,
+          language: language,
+          testCases: testCases
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error('API request failed')
+      }
+
+      const result = await response.json()
+      return result.results || []
+      
+    } catch (error) {
+      console.error('JDoodle API failed:', error)
+      return null
     }
-    return sum
   }
 
-  // ─── FIXED: Safely multiply numbers ─────────────────────────────────
-  const multiplyNumbers = (numbers: number[]): number => {
-    if (!numbers || numbers.length === 0) return 0
-    let product = 1
-    for (let i = 0; i < numbers.length; i++) {
-      product *= numbers[i] || 1
-    }
-    return product
-  }
-
-  // ─── FIXED: Local evaluation with NO reduce errors ──────────────────
+  // ─── LOCAL EVALUATION (FALLBACK) ──────────────────────────────────
   const evaluateLocally = (code: string, testCases: any[]) => {
     const results = []
 
@@ -105,7 +111,6 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
       let actualOutput = ''
       
       try {
-        // Parse input values safely
         const inputStr = (tc.input || '').toString().trim()
         const inputValues: number[] = []
         if (inputStr) {
@@ -120,14 +125,12 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
         
         const expected = tc.output?.toString().trim() || ''
         
-        // Clean the code
         const cleanCode = code
           .replace(/\/\/.*$/gm, '')
           .replace(/#include.*$/gm, '')
           .replace(/using namespace std;/gm, '')
           .replace(/def\s+solve\s*\([^)]*\)\s*:/gm, 'function solve(')
         
-        // Find solve function
         const solveMatch = cleanCode.match(/function\s+solve\s*\([^)]*\)\s*\{([\s\S]*?)\}/) ||
                           cleanCode.match(/int\s+solve\s*\([^)]*\)\s*\{([\s\S]*?)\}/)
         
@@ -137,8 +140,6 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
           
           if (returnMatch) {
             let expr = returnMatch[1].trim()
-            
-            // Replace variables with actual values
             const varNames = ['a', 'b', 'c', 'x', 'y', 'z']
             for (let i = 0; i < varNames.length; i++) {
               if (i < inputValues.length) {
@@ -151,25 +152,25 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
               actualOutput = String(result)
               passed = actualOutput === expected
             } catch (e) {
-              // Try simple operations
               if (expr.includes('+')) {
-                const sum = sumNumbers(inputValues)
+                let sum = 0
+                for (let i = 0; i < inputValues.length; i++) {
+                  sum += inputValues[i] || 0
+                }
                 actualOutput = String(sum)
                 passed = actualOutput === expected
               } else if (expr.includes('*')) {
-                const product = multiplyNumbers(inputValues)
+                let product = 1
+                for (let i = 0; i < inputValues.length; i++) {
+                  product *= inputValues[i] || 1
+                }
                 actualOutput = String(product)
-                passed = actualOutput === expected
-              } else if (expr.includes('-') && inputValues.length >= 2) {
-                const diff = (inputValues[0] || 0) - (inputValues[1] || 0)
-                actualOutput = String(diff)
                 passed = actualOutput === expected
               }
             }
           }
         }
         
-        // If still no result, use first input
         if (!actualOutput) {
           actualOutput = String(inputValues[0] || 0)
           passed = actualOutput === expected
@@ -191,90 +192,37 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
     return results
   }
 
-  // ─── PISTON API ──────────────────────────────────────────────────────
-  const evaluateWithPiston = async (code: string, language: string, testCases: any[]) => {
-    const languageMap: Record<string, { language: string; version: string }> = {
-      cpp: { language: 'cpp', version: '10.2.0' },
-      python: { language: 'python', version: '3.10.0' },
-      javascript: { language: 'javascript', version: '18.15.0' }
-    }
-
-    const lang = languageMap[language] || languageMap.cpp
-    const results = []
-
-    for (const tc of testCases) {
-      try {
-        const response = await fetch('https://emkc.org/api/v2/piston/execute', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            language: lang.language,
-            version: lang.version,
-            files: [{ content: code }],
-            stdin: tc.input || ''
-          })
-        })
-
-        if (!response.ok) {
-          throw new Error(`Piston API error: ${response.status}`)
-        }
-
-        const data = await response.json()
-        
-        const actualOutput = data.run?.stdout?.trim() || data.run?.stderr?.trim() || ''
-        const expected = tc.output?.toString().trim() || ''
-        const passed = actualOutput === expected
-
-        results.push({
-          input: tc.input,
-          expected: expected,
-          actual: actualOutput || 'No output',
-          passed: passed,
-          time: data.run?.time || 0
-        })
-
-      } catch (error) {
-        results.push({
-          input: tc.input,
-          expected: tc.output,
-          actual: 'Error: ' + (error as Error).message,
-          passed: false
-        })
-      }
-    }
-
-    return results
-  }
-
   // ─── MAIN EVALUATION ──────────────────────────────────────────────
   const evaluateCode = async (code: string, language: string, question: any, testCases: any[]) => {
-    try {
-      const results = await evaluateWithPiston(code, language, testCases)
-      
-      const allPassed = results.every(r => r.passed)
-      const passedCount = results.filter(r => r.passed).length
+    // Try JDoodle API first
+    const jdoodleResults = await evaluateWithJDoodle(code, language, testCases)
+    
+    if (jdoodleResults) {
+      const allPassed = jdoodleResults.every((r: any) => r.passed)
+      const passedCount = jdoodleResults.filter((r: any) => r.passed).length
 
       return {
         passed: allPassed,
-        score: allPassed ? 100 : Math.floor((passedCount / results.length) * 100),
-        results: results,
-        feedback: allPassed ? '✅ All test cases passed!' : `❌ ${passedCount}/${results.length} test cases passed`,
+        score: allPassed ? 100 : Math.floor((passedCount / jdoodleResults.length) * 100),
+        results: jdoodleResults,
+        feedback: allPassed ? '✅ All test cases passed!' : `❌ ${passedCount}/${jdoodleResults.length} test cases passed`,
         suggestions: allPassed ? 'Great work!' : 'Check your logic and try again.'
       }
-    } catch (error) {
-      console.log('Piston API failed, using local evaluation')
-      const results = evaluateLocally(code, testCases)
-      
-      const allPassed = results.every(r => r.passed)
-      const passedCount = results.filter(r => r.passed).length
+    }
 
-      return {
-        passed: allPassed,
-        score: allPassed ? 100 : Math.floor((passedCount / results.length) * 100),
-        results: results,
-        feedback: allPassed ? '✅ All test cases passed!' : `❌ ${passedCount}/${results.length} test cases passed`,
-        suggestions: allPassed ? 'Great work!' : 'Check your logic and try again.'
-      }
+    // Fallback to local evaluation
+    console.log('Using local evaluation')
+    const results = evaluateLocally(code, testCases)
+    
+    const allPassed = results.every((r: any) => r.passed)
+    const passedCount = results.filter((r: any) => r.passed).length
+
+    return {
+      passed: allPassed,
+      score: allPassed ? 100 : Math.floor((passedCount / results.length) * 100),
+      results: results,
+      feedback: allPassed ? '✅ All test cases passed!' : `❌ ${passedCount}/${results.length} test cases passed`,
+      suggestions: allPassed ? 'Great work!' : 'Check your logic and try again.'
     }
   }
 
