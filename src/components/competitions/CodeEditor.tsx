@@ -12,18 +12,15 @@ interface CodeEditorProps {
 }
 
 const LANGUAGE_TEMPLATES: Record<string, string> = {
-  python: `# Python 3
-def solve(a, b):
-    return a + b`,
-  javascript: `// JavaScript
+  javascript: `function solve(a, b) {
+    return a + b;
+}`,
+  python: `// Python style (runs as JavaScript)
 function solve(a, b) {
     return a + b;
 }`,
-  cpp: `// C++
-#include <iostream>
-using namespace std;
-
-int solve(int a, int b) {
+  cpp: `// C++ style (runs as JavaScript)
+function solve(a, b) {
     return a + b;
 }`,
 }
@@ -76,38 +73,8 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
     }
   }
 
-  // ─── CONVERT C++ TO JAVASCRIPT ──────────────────────────────────
-  const convertCppToJS = (cppCode: string): string => {
-    let jsCode = cppCode
-    
-    // Remove #include lines
-    jsCode = jsCode.replace(/#include\s*<[^>]*>/g, '')
-    
-    // Remove using namespace std;
-    jsCode = jsCode.replace(/using namespace std;/g, '')
-    
-    // Convert int/float/double to let/const
-    jsCode = jsCode.replace(/\b(int|float|double|char|string)\s+/g, 'let ')
-    
-    // Convert cout << to console.log
-    jsCode = jsCode.replace(/cout\s*<<\s*/g, 'console.log(')
-    jsCode = jsCode.replace(/;/g, ');')
-    jsCode = jsCode.replace(/console\.log\((.*?)\);/g, 'console.log($1);')
-    
-    // Convert cin >> to prompt or just use function args
-    jsCode = jsCode.replace(/cin\s*>>\s*(\w+)/g, 'let $1 = args.shift()')
-    
-    // Convert return statements
-    jsCode = jsCode.replace(/return\s+(\w+)\s*;/g, 'return $1;')
-    
-    // Clean up
-    jsCode = jsCode.replace(/\n\s*\n/g, '\n')
-    
-    return jsCode
-  }
-
-  // ─── EVALUATE JAVASCRIPT CODE ──────────────────────────────────
-  const evaluateJavaScript = (code: string, testCases: any[]) => {
+  // ─── SIMPLE EVALUATION: Just call the function! ──────────────
+  const evaluateCode = (code: string, testCases: any[]) => {
     const results = []
 
     for (const tc of testCases) {
@@ -118,85 +85,17 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
         // Parse input values
         const inputValues = (tc.input || '').toString().trim().split(/\s+/).map(Number)
         
-        // Remove comments and clean code
-        let cleanCode = code.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '')
-        
-        // Check if code has solve function
-        const hasSolve = cleanCode.includes('function solve')
-        
-        if (hasSolve) {
-          // Use the existing solve function
-          const wrappedCode = `
-            ${cleanCode}
-            const result = solve(${inputValues.join(', ')});
-            result;
-          `
-          const result = eval(wrappedCode)
-          actualOutput = String(result)
-        } else {
-          // Try to find return statement
-          const returnMatch = cleanCode.match(/return\s+(.+?);/)
-          if (returnMatch) {
-            let expr = returnMatch[1].trim()
-            inputValues.forEach((val: number, i: number) => {
-              const varName = String.fromCharCode(97 + i) // a, b, c...
-              expr = expr.replace(new RegExp(varName, 'g'), String(val))
-            })
-            try {
-              const result = Function(`"use strict"; return (${expr})`)()
-              actualOutput = String(result)
-            } catch (e) {
-              actualOutput = 'Expression error'
-            }
-          } else {
-            // Just return first input
-            actualOutput = String(inputValues[0] || 0)
-          }
-        }
-        
-        passed = actualOutput === tc.output.trim()
-        
-      } catch (err) {
-        actualOutput = 'Error: ' + (err as Error).message
-        passed = false
-      }
-
-      results.push({
-        input: tc.input,
-        expected: tc.output,
-        actual: actualOutput,
-        passed: passed
-      })
-    }
-
-    return results
-  }
-
-  // ─── EVALUATE C++ CODE ──────────────────────────────────────────
-  const evaluateCpp = (code: string, testCases: any[]) => {
-    const results = []
-
-    for (const tc of testCases) {
-      let passed = false
-      let actualOutput = ''
-      
-      try {
-        // Parse input values
-        const inputValues = (tc.input || '').toString().trim().split(/\s+/).map(Number)
-        
-        // Convert C++ to JavaScript
-        let jsCode = convertCppToJS(code)
-        
-        // Create a wrapper that uses input values
-        const wrappedCode = `
-          ${jsCode}
+        // Create the full code with function call
+        const fullCode = `
+          ${code}
           
-          // Run the solve function with inputs
+          // Call the solve function with the input values
           const result = solve(${inputValues.join(', ')});
           result;
         `
         
-        const result = eval(wrappedCode)
+        // Execute the code
+        const result = eval(fullCode)
         actualOutput = String(result)
         passed = actualOutput === tc.output.trim()
         
@@ -216,33 +115,6 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
     return results
   }
 
-  // ─── MAIN EVALUATION ──────────────────────────────────────────────
-  const evaluateCode = async (code: string, language: string, testCases: any[]) => {
-    let results = []
-
-    if (language === 'javascript') {
-      results = evaluateJavaScript(code, testCases)
-    } else if (language === 'cpp') {
-      results = evaluateCpp(code, testCases)
-    } else if (language === 'python') {
-      // Python uses JavaScript fallback
-      results = evaluateJavaScript(code, testCases)
-    } else {
-      results = evaluateJavaScript(code, testCases)
-    }
-
-    const allPassed = results.every(r => r.passed)
-    const passedCount = results.filter(r => r.passed).length
-
-    return {
-      passed: allPassed,
-      score: allPassed ? 100 : Math.floor((passedCount / results.length) * 100),
-      results: results,
-      feedback: allPassed ? '✅ All test cases passed!' : `❌ ${passedCount}/${results.length} test cases passed`,
-      suggestions: allPassed ? 'Great work!' : 'Check your logic and try again.'
-    }
-  }
-
   const handleRun = async () => {
     setLoading(true)
     setOutput('')
@@ -251,12 +123,18 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
 
     try {
       const testCases = question?.test_cases || [{ input: '1 2', output: '3' }]
-      const result = await evaluateCode(code, language, testCases)
       
-      setTestResults(result.results || [])
+      // Get the code and evaluate it
+      const results = evaluateCode(code, testCases)
+      
+      setTestResults(results)
       setShowTests(true)
-      setOutput(result.feedback || '')
-      setScore(result.score || 0)
+      
+      const allPassed = results.every(r => r.passed)
+      const passedCount = results.filter(r => r.passed).length
+      
+      setOutput(allPassed ? '✅ All test cases passed!' : `❌ ${passedCount}/${results.length} test cases passed`)
+      setScore(allPassed ? 100 : Math.floor((passedCount / results.length) * 100))
       
       onRunCode(code, language)
     } catch (err: any) {
@@ -278,9 +156,10 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
 
     try {
       const testCases = question.test_cases || [{ input: '1 2', output: '3' }]
-      const result = await evaluateCode(code, language, testCases)
+      const results = evaluateCode(code, testCases)
       
-      const scoreValue = result.passed ? question.points : 0
+      const allPassed = results.every(r => r.passed)
+      const scoreValue = allPassed ? question.points : 0
       
       const { error: saveError } = await supabase
         .from('competition_submissions')
@@ -290,9 +169,9 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
           user_id: userId,
           code: code,
           language: language,
-          status: result.passed ? 'passed' : 'failed',
-          test_results: result.results,
-          output: result.feedback,
+          status: allPassed ? 'passed' : 'failed',
+          test_results: results,
+          output: allPassed ? 'All tests passed' : 'Some tests failed',
           score: scoreValue
         })
 
@@ -307,12 +186,12 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
       }
 
       setSubmitted(true)
-      setTestResults(result.results || [])
-      setOutput(result.feedback || '')
+      setTestResults(results)
+      setOutput(allPassed ? '✅ All tests passed!' : '❌ Some tests failed')
       setScore(scoreValue)
       setShowTests(true)
       
-      onTestSubmit(code, language, result.results || [])
+      onTestSubmit(code, language, results)
       
       alert(`✅ Submitted! Score: ${scoreValue} points`)
       
