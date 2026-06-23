@@ -19,12 +19,6 @@ def solve(a, b):
 function solve(a, b) {
     return a + b;
 }`,
-  java: `// Java
-public class Solution {
-    public static int solve(int a, int b) {
-        return a + b;
-    }
-}`,
   cpp: `// C++
 #include <iostream>
 using namespace std;
@@ -43,8 +37,8 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   onTestSubmit,
   initialCode = ''
 }) => {
-  const [code, setCode] = useState(initialCode || LANGUAGE_TEMPLATES.python)
-  const [language, setLanguage] = useState('python')
+  const [code, setCode] = useState(initialCode || LANGUAGE_TEMPLATES.javascript)
+  const [language, setLanguage] = useState('javascript')
   const [output, setOutput] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -73,8 +67,8 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
       .maybeSingle()
 
     if (data) {
-      setCode(data.code || LANGUAGE_TEMPLATES[data.language] || LANGUAGE_TEMPLATES.python)
-      setLanguage(data.language || 'python')
+      setCode(data.code || LANGUAGE_TEMPLATES[data.language] || LANGUAGE_TEMPLATES.javascript)
+      setLanguage(data.language || 'javascript')
       if (data.status === 'passed') {
         setSubmitted(true)
         setScore(data.score || 0)
@@ -82,49 +76,36 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
     }
   }
 
-  // ─── SUPER SIMPLE EVALUATION ──────────────────────────────────────
-  const simpleEvaluate = (code: string, testCases: any[]) => {
+  // ─── EVALUATE JAVASCRIPT CODE ──────────────────────────────────
+  const evaluateJavaScript = (code: string, testCases: any[]) => {
     const results = []
 
     for (const tc of testCases) {
-      let actualOutput = ''
       let passed = false
+      let actualOutput = ''
       
       try {
-        const input = tc.input || ''
-        const expected = tc.output || ''
+        // Parse input values
+        const inputValues = (tc.input || '').toString().trim().split(/\s+/)
         
-        // Try to extract numbers from code
-        const numbers = code.match(/\d+/g)
-        let num1 = 0, num2 = 0
+        // Create a function from the code
+        const wrappedCode = `
+          ${code}
+          
+          // Run the test
+          const inputs = ${JSON.stringify(inputValues)};
+          const result = solve(...inputs);
+          console.log(result);
+          result;
+        `
         
-        if (numbers && numbers.length >= 1) {
-          num1 = parseInt(numbers[0]) || 0
-        }
-        if (numbers && numbers.length >= 2) {
-          num2 = parseInt(numbers[1]) || 0
-        }
-        
-        // Try to extract operation from code
-        let result = 0
-        if (code.includes('+')) {
-          result = num1 + num2
-        } else if (code.includes('*')) {
-          result = num1 * num2
-        } else if (code.includes('-')) {
-          result = num1 - num2
-        } else if (code.includes('/')) {
-          result = num2 !== 0 ? num1 / num2 : 0
-        } else {
-          // Just use the first number
-          result = num1
-        }
-        
+        // Execute the code
+        const result = eval(wrappedCode)
         actualOutput = String(result)
-        passed = actualOutput === expected
+        passed = actualOutput === tc.output.trim()
         
-      } catch (e) {
-        actualOutput = 'Error'
+      } catch (err) {
+        actualOutput = 'Error: ' + (err as Error).message
         passed = false
       }
 
@@ -134,6 +115,71 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
         actual: actualOutput,
         passed: passed
       })
+    }
+
+    return results
+  }
+
+  // ─── EVALUATE PYTHON CODE (Simulated) ──────────────────────────
+  const evaluatePython = (code: string, testCases: any[]) => {
+    const results = []
+
+    for (const tc of testCases) {
+      let passed = false
+      let actualOutput = ''
+      
+      try {
+        // Parse input values
+        const inputValues = (tc.input || '').toString().trim().split(/\s+/).map(Number)
+        
+        // Try to extract the function and evaluate
+        const cleanCode = code.replace(/def\s+(\w+)\s*\([^)]*\)\s*:/, 'function $1(')
+        const funcMatch = cleanCode.match(/function\s+(\w+)\s*\(([^)]*)\)/)
+        
+        if (funcMatch) {
+          const funcName = funcMatch[1]
+          const params = funcMatch[2].split(',').map(p => p.trim())
+          
+          // Build the function call
+          const callArgs = inputValues.map((v: number) => v).join(', ')
+          const wrappedCode = `
+            ${cleanCode}
+            const result = ${funcName}(${callArgs});
+            result;
+          `
+          
+          const result = eval(wrappedCode)
+          actualOutput = String(result)
+          passed = actualOutput === tc.output.trim()
+        }
+        
+      } catch (err) {
+        actualOutput = 'Error: ' + (err as Error).message
+        passed = false
+      }
+
+      results.push({
+        input: tc.input,
+        expected: tc.output,
+        actual: actualOutput,
+        passed: passed
+      })
+    }
+
+    return results
+  }
+
+  // ─── MAIN EVALUATION ──────────────────────────────────────────────
+  const evaluateCode = async (code: string, language: string, testCases: any[]) => {
+    let results = []
+
+    if (language === 'javascript') {
+      results = evaluateJavaScript(code, testCases)
+    } else if (language === 'python') {
+      results = evaluatePython(code, testCases)
+    } else {
+      // C++ and others - try JavaScript fallback
+      results = evaluateJavaScript(code, testCases)
     }
 
     const allPassed = results.every(r => r.passed)
@@ -148,45 +194,6 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
     }
   }
 
-  // ─── MAIN EVALUATION ──────────────────────────────────────────────────
- // Replace the evaluateCode function with this:
-// Replace the evaluateCode function with this:
-const evaluateCode = async (code: string, language: string, question: any, testCases: any[]) => {
-  try {
-    const response = await fetch('/api/ai-evaluate.js', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        code: code,
-        language: language,
-        testCases: testCases
-      })
-    })
-
-    if (!response.ok) {
-      throw new Error('API request failed')
-    }
-
-    const result = await response.json()
-    return result
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-    console.error('API failed:', errorMessage)
-    return {
-      passed: false,
-      score: 0,
-      results: testCases.map((tc: any) => ({
-        input: tc.input,
-        expected: tc.output,
-        actual: 'Error: ' + errorMessage,
-        passed: false
-      })),
-      feedback: 'Execution failed',
-      suggestions: 'Try again'
-    }
-  }
-}
-
   const handleRun = async () => {
     setLoading(true)
     setOutput('')
@@ -195,7 +202,7 @@ const evaluateCode = async (code: string, language: string, question: any, testC
 
     try {
       const testCases = question?.test_cases || [{ input: '1 2', output: '3' }]
-      const result = await evaluateCode(code, language, question, testCases)
+      const result = await evaluateCode(code, language, testCases)
       
       setTestResults(result.results || [])
       setShowTests(true)
@@ -222,7 +229,7 @@ const evaluateCode = async (code: string, language: string, question: any, testC
 
     try {
       const testCases = question.test_cases || [{ input: '1 2', output: '3' }]
-      const result = await evaluateCode(code, language, question, testCases)
+      const result = await evaluateCode(code, language, testCases)
       
       const scoreValue = result.passed ? question.points : 0
       
@@ -317,9 +324,8 @@ const evaluateCode = async (code: string, language: string, question: any, testC
               outline: 'none'
             }}
           >
-            <option value="python">Python</option>
             <option value="javascript">JavaScript</option>
-            <option value="java">Java</option>
+            <option value="python">Python</option>
             <option value="cpp">C++</option>
           </select>
           {submitted && (
