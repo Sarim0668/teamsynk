@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabaseClient'
 
 const PAYMENT_METHODS = ['JazzCash', 'EasyPaisa', 'Bank Transfer', 'Cash on Delivery', 'Rocket', 'UPaisa']
 
-// ─── Status Badge Component ──────────────────────────────────────────────────
+// ─── Status Badge ──────────────────────────────────────────────────────────
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
   const configs: Record<string, any> = {
     'AVAILABLE': { label: '🟢 Available', color: '#4ade80', bg: 'rgba(34,197,94,0.1)', borderColor: 'rgba(34,197,94,0.3)' },
@@ -28,7 +28,7 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
   )
 }
 
-// ─── Condition Badge ──────────────────────────────────────────────────────────
+// ─── Condition Badge ──────────────────────────────────────────────────────
 const ConditionBadge: React.FC<{ condition: string }> = ({ condition }) => {
   const configs: Record<string, any> = {
     'New': { color: '#4ade80', dot: '#4ade80' },
@@ -55,7 +55,7 @@ const ConditionBadge: React.FC<{ condition: string }> = ({ condition }) => {
   )
 }
 
-// ─── Input Components ────────────────────────────────────────────────────────
+// ─── Input Components ────────────────────────────────────────────────────
 function InputField({ label, value, onChange, placeholder, type = 'text', required, ...props }: any) {
   const [focused, setFocused] = useState(false)
   return (
@@ -79,71 +79,11 @@ function InputField({ label, value, onChange, placeholder, type = 'text', requir
   )
 }
 
-function TextAreaField({ label, value, onChange, placeholder, rows = 3 }: any) {
-  const [focused, setFocused] = useState(false)
-  return (
-    <div style={{ marginBottom: '12px' }}>
-      {label && <label style={{ color: '#6b7280', fontSize: '11px', fontWeight: '700', marginBottom: '4px', display: 'block', fontFamily: "'Inter', sans-serif" }}>{label}</label>}
-      <textarea
-        value={value} onChange={onChange} placeholder={placeholder} rows={rows}
-        onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
-        style={{
-          width: '100%', padding: '12px 16px',
-          background: focused ? 'rgba(200,162,0,0.05)' : 'rgba(255,255,255,0.04)',
-          border: `1px solid ${focused ? 'rgba(200,162,0,0.45)' : 'rgba(255,255,255,0.08)'}`,
-          borderRadius: '12px', color: '#f9fafb', fontSize: '14px',
-          fontFamily: "'Inter', sans-serif", outline: 'none', resize: 'vertical',
-          transition: 'all 0.22s ease',
-        }}
-      />
-    </div>
-  )
-}
-
-function SelectField({ label, value, onChange, children }: any) {
-  const [focused, setFocused] = useState(false)
-  return (
-    <div style={{ marginBottom: '12px' }}>
-      {label && <label style={{ color: '#6b7280', fontSize: '11px', fontWeight: '700', marginBottom: '4px', display: 'block', fontFamily: "'Inter', sans-serif" }}>{label}</label>}
-      <div style={{ position: 'relative' }}>
-        <select
-          value={value} onChange={onChange}
-          onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
-          style={{
-            width: '100%', padding: '12px 40px 12px 16px',
-            background: focused ? 'rgba(200,162,0,0.05)' : 'rgba(255,255,255,0.04)',
-            border: `1px solid ${focused ? 'rgba(200,162,0,0.45)' : 'rgba(255,255,255,0.08)'}`,
-            borderRadius: '12px', color: '#f9fafb', fontSize: '14px',
-            fontFamily: "'Inter', sans-serif", outline: 'none', appearance: 'none',
-            cursor: 'pointer', transition: 'all 0.22s ease',
-          }}
-        >{children}</select>
-        <svg style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#4b5563' }}
-          width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <polyline points="6 9 12 15 18 9"/>
-        </svg>
-      </div>
-    </div>
-  )
-}
-
 function Spinner() {
   return <div style={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid rgba(0,0,0,0.2)', borderTopColor: '#000', animation: 'spin 0.7s linear infinite', flexShrink: 0 }} />
 }
 
-// ─── Skeleton Card ────────────────────────────────────────────────────────────
-function SkeletonCard() {
-  return (
-    <div style={{ background: 'rgba(12,12,18,0.9)', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.04)', padding: '22px' }}>
-      <div style={{ height: 12, width: '60%', background: 'rgba(255,255,255,0.05)', borderRadius: 6, marginBottom: 12 }} />
-      <div style={{ height: 12, width: '80%', background: 'rgba(255,255,255,0.05)', borderRadius: 6, marginBottom: 12 }} />
-      <div style={{ height: 12, width: '40%', background: 'rgba(255,255,255,0.05)', borderRadius: 6, marginBottom: 16 }} />
-      <div style={{ height: 36, background: 'rgba(200,162,0,0.05)', borderRadius: 10 }} />
-    </div>
-  )
-}
-
-// ─── Sell Button ──────────────────────────────────────────────────────────────
+// ─── Sell Button ──────────────────────────────────────────────────────────
 function SellButton({ active, onToggle }: { active: boolean; onToggle: () => void }) {
   const [hovered, setHovered] = useState(false)
   return (
@@ -179,7 +119,7 @@ function SellButton({ active, onToggle }: { active: boolean; onToggle: () => voi
   )
 }
 
-// ─── Listing Card ─────────────────────────────────────────────────────────────
+// ─── Listing Card ──────────────────────────────────────────────────────────
 function ListingCard({ item, isOwner, isBuyer, isProcessing, onBuy, onConfirm, onCancel, onOpen }: any) {
   const [hovered, setHovered] = useState(false)
   const isOrdered = item.status === 'ORDERED'
@@ -206,7 +146,6 @@ function ListingCard({ item, isOwner, isBuyer, isProcessing, onBuy, onConfirm, o
         pointerEvents: isSold ? 'none' : 'auto',
       }}
     >
-      {/* Order overlay indicator */}
       {isOrdered && (
         <div style={{
           position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
@@ -217,7 +156,6 @@ function ListingCard({ item, isOwner, isBuyer, isProcessing, onBuy, onConfirm, o
       )}
 
       <div style={{ padding: '20px', position: 'relative', zIndex: 1 }}>
-        {/* Top row: badges */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px', gap: '8px', flexWrap: 'wrap' }}>
           <ConditionBadge condition={item.condition} />
           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
@@ -234,14 +172,12 @@ function ListingCard({ item, isOwner, isBuyer, isProcessing, onBuy, onConfirm, o
           </div>
         </div>
 
-        {/* Name */}
         <h3 style={{
           fontSize: '16px', fontWeight: '800', color: 'white',
           letterSpacing: '-0.02em', margin: '0 0 4px',
           fontFamily: "'Inter', sans-serif",
         }}>{item.item_name}</h3>
 
-        {/* Description */}
         {item.description && (
           <p style={{
             color: '#6b7280', fontSize: '12px', lineHeight: '1.4',
@@ -250,7 +186,6 @@ function ListingCard({ item, isOwner, isBuyer, isProcessing, onBuy, onConfirm, o
           }}>{item.description}</p>
         )}
 
-        {/* ORDERED status message */}
         {isOrdered && (
           <div style={{
             background: 'rgba(234,179,8,0.1)',
@@ -276,7 +211,6 @@ function ListingCard({ item, isOwner, isBuyer, isProcessing, onBuy, onConfirm, o
           </div>
         )}
 
-        {/* Payment methods */}
         {item.payment_methods?.length > 0 && !isSold && (
           <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '12px' }}>
             {item.payment_methods.slice(0, 3).map((m: string) => (
@@ -291,7 +225,6 @@ function ListingCard({ item, isOwner, isBuyer, isProcessing, onBuy, onConfirm, o
           </div>
         )}
 
-        {/* Footer: Price + Actions */}
         <div style={{
           display: 'flex',
           justifyContent: 'space-between',
@@ -313,7 +246,6 @@ function ListingCard({ item, isOwner, isBuyer, isProcessing, onBuy, onConfirm, o
             </div>
           </div>
 
-          {/* Action Buttons */}
           {isSold ? (
             <span style={{ color: '#4b5563', fontSize: '12px', fontWeight: '700', fontFamily: "'Inter', sans-serif" }}>✅ Sold</span>
           ) : isOrdered && isOwner ? (
@@ -391,266 +323,7 @@ function ListingCard({ item, isOwner, isBuyer, isProcessing, onBuy, onConfirm, o
   )
 }
 
-// ─── Detail Modal ─────────────────────────────────────────────────────────────
-function DetailModal({ listing, userProfile, onClose, onBuy, onConfirm, onCancel, processingId }: any) {
-  const isOwner = listing.seller_id === userProfile?.id
-  const isBuyer = listing.buyer_id === userProfile?.id
-  const isOrdered = listing.status === 'ORDERED'
-  const isAvailable = listing.status === 'AVAILABLE'
-  const isSold = listing.status === 'SOLD'
-  const isProcessing = processingId === listing.id
-
-  return (
-    <div
-      onClick={onClose}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 1000,
-        background: 'rgba(0,0,0,0.85)',
-        backdropFilter: 'blur(8px)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: '20px',
-        animation: 'fadeIn 0.2s ease both',
-      }}
-    >
-      <div
-        onClick={e => e.stopPropagation()}
-        style={{
-          background: 'rgba(10,10,16,0.98)',
-          backdropFilter: 'blur(40px)',
-          border: `1px solid ${isOrdered ? 'rgba(234,179,8,0.4)' : isSold ? 'rgba(34,197,94,0.2)' : 'rgba(200,162,0,0.2)'}`,
-          borderRadius: '24px',
-          maxWidth: '500px',
-          width: '100%',
-          maxHeight: '90vh',
-          overflow: 'auto',
-          boxShadow: '0 40px 120px rgba(0,0,0,0.8)',
-          animation: 'modalIn 0.3s cubic-bezier(0.4,0,0.2,1) both',
-          opacity: isSold ? 0.6 : 1,
-        }}
-      >
-        <div style={{ padding: '32px' }}>
-          {/* Header */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
-            <div>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '8px' }}>
-                <ConditionBadge condition={listing.condition} />
-                <StatusBadge status={listing.status} />
-                {listing.category && (
-                  <span style={{
-                    padding: '3px 10px', borderRadius: '99px',
-                    background: 'rgba(59,130,246,0.08)',
-                    border: '1px solid rgba(59,130,246,0.2)',
-                    color: '#60a5fa', fontSize: '10px', fontWeight: '700',
-                    fontFamily: "'Inter', sans-serif",
-                  }}>{listing.category}</span>
-                )}
-              </div>
-              <h2 style={{
-                fontSize: '24px', fontWeight: '900',
-                color: 'white', letterSpacing: '-0.03em',
-                margin: 0, fontFamily: "'Inter', sans-serif",
-              }}>{listing.item_name}</h2>
-            </div>
-            <button
-              onClick={onClose}
-              style={{
-                width: 36, height: 36,
-                borderRadius: '10px',
-                background: 'rgba(255,255,255,0.05)',
-                border: '1px solid rgba(255,255,255,0.08)',
-                color: '#6b7280', fontSize: '16px', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                transition: 'all 0.2s ease',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = '#e5e7eb' }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = '#6b7280' }}
-            >✕</button>
-          </div>
-
-          {/* Description */}
-          {listing.description && (
-            <p style={{ color: '#6b7280', fontSize: '14px', lineHeight: '1.6', margin: '0 0 20px', fontFamily: "'Inter', sans-serif" }}>
-              {listing.description}
-            </p>
-          )}
-
-          {/* Order Info */}
-          {isOrdered && (
-            <div style={{
-              background: 'rgba(234,179,8,0.1)',
-              border: '1px solid rgba(234,179,8,0.2)',
-              borderRadius: '12px',
-              padding: '16px',
-              marginBottom: '20px',
-            }}>
-              <p style={{
-                color: '#eab308',
-                fontSize: '14px',
-                fontWeight: '700',
-                margin: 0,
-                fontFamily: "'Inter', sans-serif",
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-              }}>
-                <span>🟡</span>
-                {isOwner ? 'Order Placed - Awaiting Your Confirmation' : 'Order Placed - Waiting for Seller'}
-              </p>
-              <p style={{ color: '#6b7280', fontSize: '12px', margin: '6px 0 0 0', fontFamily: "'Inter', sans-serif" }}>
-                {isOwner 
-                  ? 'Confirm payment received to complete the sale.' 
-                  : 'Please pay the seller using the contact details below.'}
-              </p>
-              {listing.ordered_at && (
-                <p style={{ color: '#4b5563', fontSize: '10px', margin: '8px 0 0 0', fontFamily: "'Inter', sans-serif" }}>
-                  Ordered: {new Date(listing.ordered_at).toLocaleString()}
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* Contact Info */}
-          {!isSold && (
-            <div style={{
-              background: 'rgba(255,255,255,0.03)',
-              border: '1px solid rgba(255,255,255,0.07)',
-              borderRadius: '16px',
-              padding: '16px',
-              marginBottom: '20px',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
-                <span style={{ fontSize: '18px' }}>📱</span>
-                <div>
-                  <div style={{ color: '#4b5563', fontSize: '10px', fontWeight: '700', letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: "'Inter', sans-serif" }}>Seller Contact</div>
-                  <div style={{ color: '#FFD700', fontSize: '16px', fontWeight: '800', fontFamily: "'Inter', sans-serif" }}>
-                    {listing.seller_phone || 'Not provided'}
-                  </div>
-                </div>
-              </div>
-              <div>
-                <div style={{ color: '#4b5563', fontSize: '10px', fontWeight: '700', letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: "'Inter', sans-serif", marginBottom: '6px' }}>
-                  Accepted Payment Methods
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                  {(listing.payment_methods || ['JazzCash', 'EasyPaisa']).map((m: string) => (
-                    <span key={m} style={{
-                      padding: '4px 12px', borderRadius: '99px',
-                      background: 'rgba(200,162,0,0.08)',
-                      border: '1px solid rgba(200,162,0,0.2)',
-                      color: '#c8a200',
-                      fontSize: '11px', fontWeight: '700',
-                      fontFamily: "'Inter', sans-serif",
-                    }}>{m}</span>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Price + Actions */}
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            paddingTop: '16px',
-            borderTop: '1px solid rgba(255,255,255,0.05)',
-            flexWrap: 'wrap',
-            gap: '12px',
-          }}>
-            <div>
-              <div style={{ color: '#4b5563', fontSize: '10px', fontWeight: '700', letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: "'Inter', sans-serif" }}>Total Price</div>
-              <div style={{
-                fontSize: '32px', fontWeight: '900',
-                color: isSold ? '#4b5563' : '#FFD700',
-                fontFamily: "'Inter', sans-serif",
-                letterSpacing: '-0.04em',
-              }}>
-                ${Number(listing.price).toFixed(2)}
-              </div>
-            </div>
-
-            {isSold ? (
-              <span style={{ color: '#4b5563', fontSize: '14px', fontWeight: '800', fontFamily: "'Inter', sans-serif" }}>✅ Sold</span>
-            ) : isOrdered && isOwner ? (
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', width: '100%' }}>
-                <button
-                  onClick={() => { onClose(); onConfirm(listing) }}
-                  disabled={isProcessing}
-                  style={{
-                    flex: 1,
-                    padding: '10px 20px',
-                    borderRadius: '12px',
-                    border: 'none',
-                    background: isProcessing ? 'rgba(34,197,94,0.2)' : '#22c55e',
-                    color: '#0a0a0a',
-                    fontSize: '13px',
-                    fontWeight: '800',
-                    cursor: isProcessing ? 'not-allowed' : 'pointer',
-                    fontFamily: "'Inter', sans-serif",
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px',
-                  }}
-                >
-                  {isProcessing ? <Spinner /> : '✅'} Confirm Payment
-                </button>
-                <button
-                  onClick={() => { onClose(); onCancel(listing) }}
-                  disabled={isProcessing}
-                  style={{
-                    flex: 1,
-                    padding: '10px 20px',
-                    borderRadius: '12px',
-                    border: '1px solid rgba(239,68,68,0.3)',
-                    background: 'transparent',
-                    color: '#f87171',
-                    fontSize: '13px',
-                    fontWeight: '800',
-                    cursor: isProcessing ? 'not-allowed' : 'pointer',
-                    fontFamily: "'Inter', sans-serif",
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px',
-                  }}
-                >
-                  ❌ Cancel Order
-                </button>
-              </div>
-            ) : isAvailable && !isOwner ? (
-              <button
-                onClick={() => { onClose(); onBuy(listing) }}
-                disabled={isProcessing}
-                style={{
-                  padding: '12px 28px',
-                  borderRadius: '14px',
-                  border: 'none',
-                  background: isProcessing ? 'rgba(200,162,0,0.3)' : '#c8a200',
-                  color: isProcessing ? '#4b5563' : '#0a0a0a',
-                  fontSize: '14px',
-                  fontWeight: '800',
-                  cursor: isProcessing ? 'not-allowed' : 'pointer',
-                  fontFamily: "'Inter', sans-serif",
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  transition: 'all 0.25s ease',
-                }}
-              >
-                {isProcessing ? <Spinner /> : '🛒'} Buy Now
-              </button>
-            ) : isOrdered && isBuyer ? (
-              <span style={{ color: '#eab308', fontSize: '16px', fontWeight: '800', fontFamily: "'Inter', sans-serif" }}>⏳ Pending</span>
-            ) : null}
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ─── Create Listing Form ──────────────────────────────────────────────────────
+// ─── Create Listing Form ──────────────────────────────────────────────────
 function CreateForm({ formData, setFormData, onSubmit, onCancel, togglePayment }: any) {
   return (
     <div style={{
@@ -692,40 +365,15 @@ function CreateForm({ formData, setFormData, onSubmit, onCancel, togglePayment }
             placeholder="Enter item name"
             required
           />
-          <TextAreaField
-            label="Description"
-            value={formData.description}
-            onChange={(e: any) => setFormData({ ...formData, description: e.target.value })}
-            placeholder="Describe the item"
-          />
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-            <InputField
-              label="Price ($) *"
-              value={formData.price}
-              onChange={(e: any) => setFormData({ ...formData, price: e.target.value })}
-              placeholder="0.00"
-              type="number"
-              step="0.01"
-              min="0.01"
-              required
-            />
-            <SelectField
-              label="Condition"
-              value={formData.condition}
-              onChange={(e: any) => setFormData({ ...formData, condition: e.target.value })}
-            >
-              <option value="New">🆕 New</option>
-              <option value="Like New">✨ Like New</option>
-              <option value="Good">👍 Good</option>
-              <option value="Fair">👌 Fair</option>
-              <option value="Poor">🔧 Poor</option>
-            </SelectField>
-          </div>
           <InputField
-            label="Category"
-            value={formData.category}
-            onChange={(e: any) => setFormData({ ...formData, category: e.target.value })}
-            placeholder="e.g. Football, Cricket"
+            label="Price ($) *"
+            value={formData.price}
+            onChange={(e: any) => setFormData({ ...formData, price: e.target.value })}
+            placeholder="0.00"
+            type="number"
+            step="0.01"
+            min="0.01"
+            required
           />
           <InputField
             label="📱 Phone Number *"
@@ -735,40 +383,6 @@ function CreateForm({ formData, setFormData, onSubmit, onCancel, togglePayment }
             type="tel"
             required
           />
-
-          <div style={{ marginBottom: '16px' }}>
-            <label style={{ color: '#6b7280', fontSize: '11px', fontWeight: '700', marginBottom: '6px', display: 'block', fontFamily: "'Inter', sans-serif" }}>
-              💳 Accepted Payment Methods
-            </label>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-              {PAYMENT_METHODS.map(m => (
-                <label
-                  key={m}
-                  style={{
-                    padding: '6px 14px',
-                    borderRadius: '99px',
-                    cursor: 'pointer',
-                    background: formData.payment_methods.includes(m) ? 'rgba(200,162,0,0.12)' : 'transparent',
-                    border: `1px solid ${formData.payment_methods.includes(m) ? 'rgba(200,162,0,0.45)' : 'rgba(255,255,255,0.07)'}`,
-                    color: formData.payment_methods.includes(m) ? '#FFD700' : '#6b7280',
-                    fontSize: '12px',
-                    fontWeight: '700',
-                    fontFamily: "'Inter', sans-serif",
-                    transition: 'all 0.22s ease',
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={formData.payment_methods.includes(m)}
-                    onChange={() => togglePayment(m)}
-                    style={{ display: 'none' }}
-                  />
-                  {m}
-                </label>
-              ))}
-            </div>
-          </div>
-
           <button
             type="submit"
             style={{
@@ -796,7 +410,7 @@ function CreateForm({ formData, setFormData, onSubmit, onCancel, togglePayment }
   )
 }
 
-// ─── Main Marketplace Component ──────────────────────────────────────────────
+// ─── MAIN ──────────────────────────────────────────────────────────────────
 export const Marketplace: React.FC = () => {
   const [listings, setListings] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -805,36 +419,36 @@ export const Marketplace: React.FC = () => {
   const [processingId, setProcessingId] = useState<string | null>(null)
   const [selectedListing, setSelectedListing] = useState<any>(null)
   const [showDetail, setShowDetail] = useState(false)
+  const [showBuyModal, setShowBuyModal] = useState(false)
+  const [buyerPhone, setBuyerPhone] = useState('')
   const [error, setError] = useState('')
+  const [notification, setNotification] = useState<{ text: string; type: 'success' | 'error' | 'info' } | null>(null)
 
   const [formData, setFormData] = useState({
-    item_name: '', description: '', price: '', condition: 'Good',
-    category: '', seller_phone: '', payment_methods: ['JazzCash', 'EasyPaisa'],
+    item_name: '',
+    description: '',
+    price: '',
+    condition: 'Good',
+    category: '',
+    seller_phone: '',
+    payment_methods: ['JazzCash', 'EasyPaisa'],
   })
 
-  // ─── Load Data ──────────────────────────────────────────────────────────────
   const loadData = useCallback(async () => {
     setLoading(true)
-    setError('')
-
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
       const { data: profile } = await supabase.from('users').select('*').eq('id', user.id).single()
       setUserProfile(profile)
     }
 
-    const { data, error: listingsError } = await supabase
+    const { data } = await supabase
       .from('marketplace')
       .select('*')
       .in('status', ['AVAILABLE', 'ORDERED'])
       .order('created_at', { ascending: false })
 
-    if (listingsError) {
-      console.error('Error loading listings:', listingsError)
-      setError('Failed to load listings')
-    } else {
-      setListings(data || [])
-    }
+    setListings(data || [])
     setLoading(false)
   }, [])
 
@@ -842,16 +456,44 @@ export const Marketplace: React.FC = () => {
     loadData()
   }, [loadData])
 
-  // ─── Create Listing ─────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => setNotification(null), 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [notification])
+
+  const createNotification = async (userId: string, type: string, title: string, message: string, data?: any) => {
+    await supabase.from('notifications').insert({
+      user_id: userId,
+      type: type,
+      title: title,
+      message: message,
+      data: data || {}
+    })
+  }
+
+  // ─── CREATE LISTING ──────────────────────────────────────────────────────
   const handleCreateListing = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError('')
-    if (!userProfile) { setError('Please login first'); return }
+    if (!userProfile) {
+      setNotification({ text: '⚠️ Please login first', type: 'error' })
+      return
+    }
 
     const price = parseFloat(formData.price)
-    if (isNaN(price) || price <= 0) { setError('Please enter a valid price'); return }
-    if (!formData.item_name.trim()) { setError('Please enter an item name'); return }
-    if (!formData.seller_phone.trim()) { setError('Please enter your phone number'); return }
+    if (isNaN(price) || price <= 0) {
+      setNotification({ text: '⚠️ Please enter a valid price', type: 'error' })
+      return
+    }
+    if (!formData.item_name.trim()) {
+      setNotification({ text: '⚠️ Please enter an item name', type: 'error' })
+      return
+    }
+    if (!formData.seller_phone.trim()) {
+      setNotification({ text: '⚠️ Please enter your phone number', type: 'error' })
+      return
+    }
 
     const { error: insertError } = await supabase.from('marketplace').insert({
       seller_id: userProfile.id,
@@ -866,66 +508,106 @@ export const Marketplace: React.FC = () => {
     })
 
     if (insertError) {
-      setError('Failed to create listing: ' + insertError.message)
+      setNotification({ text: '❌ Failed: ' + insertError.message, type: 'error' })
     } else {
-      alert('✅ Listing created successfully!')
+      setNotification({ text: '✅ Listing created successfully!', type: 'success' })
       setShowCreateForm(false)
       setFormData({ item_name: '', description: '', price: '', condition: 'Good', category: '', seller_phone: '', payment_methods: ['JazzCash', 'EasyPaisa'] })
       loadData()
     }
   }
 
-  // ─── Place Order ────────────────────────────────────────────────────────────
-  const handlePlaceOrder = async (listing: any) => {
-    if (!userProfile) { alert('⚠️ Please login first'); return }
-    if (listing.seller_id === userProfile.id) { alert('⚠️ You cannot buy your own item'); return }
-    if (listing.status !== 'AVAILABLE') { alert('⚠️ This item is no longer available'); return }
+  // ─── PLACE ORDER ─────────────────────────────────────────────────────────
+  const handlePlaceOrder = (listing: any) => {
+    if (!userProfile) {
+      setNotification({ text: '⚠️ Please login first', type: 'error' })
+      return
+    }
+    if (listing.seller_id === userProfile.id) {
+      setNotification({ text: '⚠️ You cannot buy your own item', type: 'error' })
+      return
+    }
+    if (listing.status !== 'AVAILABLE') {
+      setNotification({ text: '⚠️ This item is no longer available', type: 'error' })
+      return
+    }
 
+    setSelectedListing(listing)
+    setShowBuyModal(true)
+    setBuyerPhone('')
+    setError('')
+  }
+
+  const confirmOrder = async () => {
+    if (!buyerPhone.trim() || buyerPhone.trim().length < 10) {
+      setError('⚠️ Please enter a valid phone number (min 10 digits)')
+      return
+    }
+
+    if (!window.confirm('⚠️ This is a binding purchase. If you fail to complete the transaction, your account may be suspended. Continue?')) {
+      return
+    }
+
+    const listing = selectedListing
     setProcessingId(listing.id)
+    setShowBuyModal(false)
 
-    const paymentMethods = listing.payment_methods || ['JazzCash', 'EasyPaisa']
-    const phoneNumber = listing.seller_phone || 'Not provided'
-
-    const confirm = window.confirm(
-      `Place order for "${listing.item_name}" for $${listing.price}?\n\n` +
-      `📱 Seller: ${phoneNumber}\n` +
-      `💳 Payment: ${paymentMethods.join(', ')}\n\n` +
-      `⚠️ Seller must confirm payment to complete.`
-    )
-
-    if (!confirm) { setProcessingId(null); return }
-
+    // Update listing to ORDERED
     const { error: updateError } = await supabase
       .from('marketplace')
       .update({
         status: 'ORDERED',
         buyer_id: userProfile.id,
+        buyer_phone: buyerPhone.trim(),
         ordered_at: new Date().toISOString(),
         order_status: 'pending'
       })
       .eq('id', listing.id)
 
     if (updateError) {
-      alert('❌ Failed to place order: ' + updateError.message)
+      setNotification({ text: '❌ Failed to place order: ' + updateError.message, type: 'error' })
       setProcessingId(null)
       return
     }
 
+    // Create order record
     await supabase.from('orders').insert({
       listing_id: listing.id,
       buyer_id: userProfile.id,
       seller_id: listing.seller_id,
+      buyer_phone: buyerPhone.trim(),
       amount: listing.price,
       order_status: 'pending',
       ordered_at: new Date().toISOString()
     })
 
-    alert(`✅ Order placed!\n\n📱 Contact seller: ${phoneNumber}\n💳 Pay via: ${paymentMethods.join(', ')}\n\n⏳ Waiting for seller confirmation.`)
+    // NOTIFY SELLER
+    await createNotification(
+      listing.seller_id,
+      'order',
+      '🛒 New Order!',
+      `${userProfile.full_name} wants to buy "${listing.item_name}". Contact: ${buyerPhone.trim()}`,
+      { listing_id: listing.id, buyer_id: userProfile.id, buyer_phone: buyerPhone.trim() }
+    )
+
+    // NOTIFY BUYER
+    await createNotification(
+      userProfile.id,
+      'order',
+      '✅ Order Placed',
+      `You have placed an order for "${listing.item_name}". Contact seller at ${listing.seller_phone || 'not provided'}`,
+      { listing_id: listing.id }
+    )
+
+    setNotification({
+      text: `✅ Order placed! Seller has been notified. Contact: ${listing.seller_phone || 'not provided'}`,
+      type: 'success'
+    })
     setProcessingId(null)
     loadData()
   }
 
-  // ─── Confirm Payment ────────────────────────────────────────────────────────
+  // ─── CONFIRM PAYMENT ─────────────────────────────────────────────────────
   const handleConfirmPayment = async (listing: any) => {
     if (!window.confirm(`Confirm payment received for "${listing.item_name}"?\nThis will mark it as SOLD.`)) return
 
@@ -942,25 +624,25 @@ export const Marketplace: React.FC = () => {
       .eq('id', listing.id)
 
     if (updateError) {
-      alert('❌ Failed to confirm: ' + updateError.message)
+      setNotification({ text: '❌ Failed to confirm: ' + updateError.message, type: 'error' })
       setProcessingId(null)
       return
     }
 
-    await supabase
-      .from('orders')
-      .update({
-        order_status: 'completed',
-        confirmed_at: new Date().toISOString()
-      })
-      .eq('listing_id', listing.id)
+    await createNotification(
+      listing.buyer_id,
+      'sold',
+      '✅ Purchase Confirmed!',
+      `Seller confirmed payment for "${listing.item_name}". Enjoy your item!`,
+      { listing_id: listing.id }
+    )
 
-    alert(`✅ "${listing.item_name}" marked as SOLD!`)
+    setNotification({ text: `✅ "${listing.item_name}" marked as SOLD!`, type: 'success' })
     setProcessingId(null)
     loadData()
   }
 
-  // ─── Cancel Order ───────────────────────────────────────────────────────────
+  // ─── CANCEL ORDER ────────────────────────────────────────────────────────
   const handleCancelOrder = async (listing: any) => {
     if (!window.confirm(`Cancel order for "${listing.item_name}"?\nItem will return to AVAILABLE.`)) return
 
@@ -971,6 +653,7 @@ export const Marketplace: React.FC = () => {
       .update({
         status: 'AVAILABLE',
         buyer_id: null,
+        buyer_phone: null,
         ordered_at: null,
         order_status: null,
         seller_confirmed: false
@@ -978,35 +661,211 @@ export const Marketplace: React.FC = () => {
       .eq('id', listing.id)
 
     if (updateError) {
-      alert('❌ Failed to cancel: ' + updateError.message)
+      setNotification({ text: '❌ Failed to cancel: ' + updateError.message, type: 'error' })
       setProcessingId(null)
       return
     }
 
-    await supabase
-      .from('orders')
-      .update({
-        order_status: 'cancelled',
-        cancelled_at: new Date().toISOString()
-      })
-      .eq('listing_id', listing.id)
+    await createNotification(
+      listing.buyer_id,
+      'cancelled',
+      '❌ Order Cancelled',
+      `Seller cancelled the order for "${listing.item_name}".`,
+      { listing_id: listing.id }
+    )
 
-    alert(`✅ Order cancelled. "${listing.item_name}" is available again.`)
+    setNotification({ text: `✅ Order cancelled. "${listing.item_name}" is available again.`, type: 'success' })
     setProcessingId(null)
     loadData()
   }
 
-  const togglePaymentMethod = (method: string) => {
-    setFormData(prev => ({
-      ...prev,
-      payment_methods: prev.payment_methods.includes(method)
-        ? prev.payment_methods.filter((m: string) => m !== method)
-        : [...prev.payment_methods, method]
-    }))
-  }
-
   const openDetail = (listing: any) => { setSelectedListing(listing); setShowDetail(true) }
   const closeDetail = () => { setShowDetail(false); setSelectedListing(null) }
+
+  // ─── BUY MODAL ───────────────────────────────────────────────────────────
+  const renderBuyModal = () => {
+    if (!showBuyModal || !selectedListing) return null
+
+    return (
+      <div
+        style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 10000,
+          background: 'rgba(0,0,0,0.85)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px',
+          animation: 'fadeIn 0.2s ease both',
+        }}
+        onClick={() => setShowBuyModal(false)}
+      >
+        <div
+          style={{
+            background: 'rgba(10,10,16,0.98)',
+            backdropFilter: 'blur(40px)',
+            border: '1px solid rgba(200,162,0,0.2)',
+            borderRadius: '24px',
+            maxWidth: '480px',
+            width: '100%',
+            padding: '32px',
+            animation: 'modalIn 0.3s cubic-bezier(0.4,0,0.2,1) both',
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <h3 style={{ color: '#FFD700', fontSize: '20px', fontWeight: 'bold' }}>
+              🛒 Confirm Purchase
+            </h3>
+            <button
+              onClick={() => setShowBuyModal(false)}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: '#666',
+                fontSize: '20px',
+                cursor: 'pointer'
+              }}
+            >
+              ✕
+            </button>
+          </div>
+
+          <div style={{ marginBottom: '16px' }}>
+            <p style={{ color: '#aaa', fontSize: '14px' }}>
+              You are about to purchase <strong style={{ color: 'white' }}>"{selectedListing.item_name}"</strong>
+            </p>
+            <p style={{ color: '#FFD700', fontSize: '24px', fontWeight: 'bold', marginTop: '4px' }}>
+              ${Number(selectedListing.price).toFixed(2)}
+            </p>
+          </div>
+
+          <div style={{ marginBottom: '16px' }}>
+            <InputField
+              label="📱 Your Phone Number *"
+              value={buyerPhone}
+              onChange={(e: any) => setBuyerPhone(e.target.value)}
+              placeholder="Enter your phone number"
+              type="tel"
+              required
+            />
+            <p style={{ color: '#666', fontSize: '11px', marginTop: '4px' }}>
+              This will be shared with the seller for payment coordination.
+            </p>
+          </div>
+
+          {error && (
+            <div style={{
+              padding: '10px 14px',
+              background: 'rgba(255,68,68,0.1)',
+              border: '1px solid rgba(255,68,68,0.2)',
+              borderRadius: '8px',
+              color: '#ff4444',
+              fontSize: '13px',
+              marginBottom: '16px'
+            }}>
+              {error}
+            </div>
+          )}
+
+          <div style={{
+            background: 'rgba(255,68,68,0.05)',
+            border: '1px solid rgba(255,68,68,0.15)',
+            borderRadius: '8px',
+            padding: '12px',
+            marginBottom: '16px',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '8px'
+          }}>
+            <span style={{ fontSize: '20px' }}>⚠️</span>
+            <div>
+              <p style={{ color: '#f87171', fontSize: '12px', fontWeight: 'bold' }}>
+                Warning: Binding Purchase
+              </p>
+              <p style={{ color: '#888', fontSize: '11px' }}>
+                This is a serious commitment. If you fail to complete the transaction,
+                your account may be suspended or banned.
+              </p>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <button
+              onClick={() => setShowBuyModal(false)}
+              style={{
+                flex: 1,
+                padding: '12px',
+                borderRadius: '10px',
+                background: 'transparent',
+                border: '1px solid #333',
+                color: '#666',
+                cursor: 'pointer',
+                fontWeight: 'bold'
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={confirmOrder}
+              style={{
+                flex: 2,
+                padding: '12px',
+                borderRadius: '10px',
+                border: 'none',
+                background: 'linear-gradient(135deg, #c8a200, #FFD700)',
+                color: '#0a0a0a',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                fontSize: '16px'
+              }}
+            >
+              Confirm Order
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ─── NOTIFICATION BANNER ────────────────────────────────────────────────
+  const renderNotification = () => {
+    if (!notification) return null
+
+    const colors = {
+      success: { bg: 'rgba(82,192,122,0.08)', border: 'rgba(82,192,122,0.2)', text: '#52c07a' },
+      error: { bg: 'rgba(255,68,68,0.08)', border: 'rgba(255,68,68,0.2)', text: '#ff4444' },
+      info: { bg: 'rgba(200,162,0,0.08)', border: 'rgba(200,162,0,0.2)', text: '#c8a200' }
+    }
+
+    const config = colors[notification.type] || colors.info
+
+    return (
+      <div style={{
+        position: 'fixed',
+        top: '80px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        zIndex: 10001,
+        padding: '12px 24px',
+        background: 'rgba(10,10,16,0.95)',
+        backdropFilter: 'blur(20px)',
+        border: `1px solid ${config.border}`,
+        borderRadius: '12px',
+        color: config.text,
+        fontSize: '14px',
+        fontWeight: '500',
+        boxShadow: '0 12px 40px rgba(0,0,0,0.6)',
+        animation: 'fadeSlideUp 0.3s ease both',
+        maxWidth: '90%',
+        textAlign: 'center'
+      }}>
+        {notification.text}
+      </div>
+    )
+  }
 
   return (
     <div style={{
@@ -1017,15 +876,16 @@ export const Marketplace: React.FC = () => {
       padding: '40px 24px',
       position: 'relative',
     }}>
-      {/* Ambient Background */}
       <div style={{
         position: 'fixed', inset: 0, zIndex: 0,
         background: 'radial-gradient(ellipse 70% 45% at 50% -5%, rgba(200,162,0,0.05) 0%, transparent 65%)',
         pointerEvents: 'none',
       }} />
 
+      {renderNotification()}
+      {renderBuyModal()}
+
       <div style={{ maxWidth: '1060px', margin: '0 auto', position: 'relative', zIndex: 1 }}>
-        {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px', flexWrap: 'wrap', gap: '16px' }}>
           <div>
             <h1 style={{ fontSize: '32px', fontWeight: '900', letterSpacing: '-0.04em', margin: 0, fontFamily: "'Inter', sans-serif" }}>
@@ -1038,39 +898,18 @@ export const Marketplace: React.FC = () => {
           <SellButton active={showCreateForm} onToggle={() => setShowCreateForm(!showCreateForm)} />
         </div>
 
-        {/* Error */}
-        {error && (
-          <div style={{
-            padding: '14px 20px',
-            borderRadius: '14px',
-            marginBottom: '20px',
-            background: 'rgba(239,68,68,0.08)',
-            border: '1px solid rgba(239,68,68,0.2)',
-            color: '#f87171',
-            fontSize: '13px',
-            fontWeight: '600',
-            fontFamily: "'Inter', sans-serif",
-          }}>
-            ⚠️ {error}
-          </div>
-        )}
-
-        {/* Create Form */}
         {showCreateForm && (
           <CreateForm
             formData={formData}
             setFormData={setFormData}
             onSubmit={handleCreateListing}
             onCancel={() => setShowCreateForm(false)}
-            togglePayment={togglePaymentMethod}
+            togglePayment={() => {}}
           />
         )}
 
-        {/* Listings Grid */}
         {loading ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(270px, 1fr))', gap: '16px' }}>
-            {[1,2,3,4,5,6].map(i => <SkeletonCard key={i} />)}
-          </div>
+          <div style={{ textAlign: 'center', color: '#666', padding: '40px' }}>Loading...</div>
         ) : listings.length === 0 ? (
           <div style={{
             textAlign: 'center',
@@ -1117,7 +956,6 @@ export const Marketplace: React.FC = () => {
           </div>
         )}
 
-        {/* Footer */}
         <div style={{ textAlign: 'center', marginTop: '40px' }}>
           <span style={{ color: '#374151', fontSize: '11px', fontWeight: '500', letterSpacing: '0.06em', fontFamily: "'Inter', sans-serif" }}>
             TEAMSYNK · SECURE TRADING
@@ -1125,41 +963,85 @@ export const Marketplace: React.FC = () => {
         </div>
       </div>
 
-      {/* Detail Modal */}
       {showDetail && selectedListing && (
-        <DetailModal
-          listing={selectedListing}
-          userProfile={userProfile}
-          onClose={closeDetail}
-          onBuy={handlePlaceOrder}
-          onConfirm={handleConfirmPayment}
-          onCancel={handleCancelOrder}
-          processingId={processingId}
-        />
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 1000,
+            background: 'rgba(0,0,0,0.85)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+          }}
+          onClick={closeDetail}
+        >
+          <div
+            style={{
+              background: 'rgba(10,10,16,0.98)',
+              backdropFilter: 'blur(40px)',
+              border: '1px solid rgba(200,162,0,0.2)',
+              borderRadius: '24px',
+              maxWidth: '500px',
+              width: '100%',
+              maxHeight: '90vh',
+              overflow: 'auto',
+              padding: '32px',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+              <h2 style={{ fontSize: '24px', fontWeight: '900', color: 'white' }}>{selectedListing.item_name}</h2>
+              <button onClick={closeDetail} style={{ background: 'transparent', border: 'none', color: '#666', fontSize: '20px', cursor: 'pointer' }}>✕</button>
+            </div>
+
+            <StatusBadge status={selectedListing.status} />
+
+            {selectedListing.description && (
+              <p style={{ color: '#aaa', fontSize: '14px', margin: '16px 0' }}>{selectedListing.description}</p>
+            )}
+
+            <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#FFD700', marginBottom: '16px' }}>
+              ${Number(selectedListing.price).toFixed(2)}
+            </div>
+
+            {selectedListing.seller_phone && (
+              <p style={{ color: '#888', fontSize: '13px' }}>
+                📱 Seller: {selectedListing.seller_phone}
+              </p>
+            )}
+
+            {selectedListing.status === 'AVAILABLE' && selectedListing.seller_id !== userProfile?.id && (
+              <button
+                onClick={() => { closeDetail(); handlePlaceOrder(selectedListing) }}
+                disabled={processingId === selectedListing.id}
+                style={{
+                  width: '100%',
+                  padding: '14px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #c8a200, #FFD700)',
+                  color: '#0a0a0a',
+                  fontWeight: 'bold',
+                  fontSize: '16px',
+                  cursor: 'pointer',
+                  marginTop: '16px'
+                }}
+              >
+                🛒 Buy Now
+              </button>
+            )}
+          </div>
+        </div>
       )}
 
-      {/* Keyframes */}
       <style>{`
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-        @keyframes fadeSlideUp {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes fadeSlideDown {
-          from { opacity: 0; transform: translateY(-12px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        @keyframes modalIn {
-          from { opacity: 0; transform: scale(0.95) translateY(10px); }
-          to { opacity: 1; transform: scale(1) translateY(0); }
-        }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes fadeSlideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes modalIn { from { opacity: 0; transform: scale(0.95) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #0D0D0F; }
         ::-webkit-scrollbar-thumb { background: rgba(200,162,0,0.3); border-radius: 3px; }
