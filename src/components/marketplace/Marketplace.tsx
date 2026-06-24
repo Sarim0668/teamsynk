@@ -126,6 +126,11 @@ function ListingCard({ item, isOwner, isBuyer, isProcessing, onBuy, onConfirm, o
   const isSold = item.status === 'SOLD'
   const isAvailable = item.status === 'AVAILABLE'
 
+  // If item is ORDERED and user is NOT the owner, DON'T show it
+  if (isOrdered && !isOwner) {
+    return null
+  }
+
   return (
     <div
       onMouseEnter={() => setHovered(true)}
@@ -186,7 +191,7 @@ function ListingCard({ item, isOwner, isBuyer, isProcessing, onBuy, onConfirm, o
           }}>{item.description}</p>
         )}
 
-        {isOrdered && (
+        {isOrdered && isOwner && (
           <div style={{
             background: 'rgba(234,179,8,0.1)',
             border: '1px solid rgba(234,179,8,0.2)',
@@ -201,11 +206,11 @@ function ListingCard({ item, isOwner, isBuyer, isProcessing, onBuy, onConfirm, o
               margin: 0,
               fontFamily: "'Inter', sans-serif",
             }}>
-              {isOwner ? '🟡 Buyer placed order - Confirm payment to complete' : '🟡 Order placed - Waiting for seller confirmation'}
+              🟡 Order placed - Buyer: {item.buyer_phone || 'No phone provided'}
             </p>
             {item.ordered_at && (
               <p style={{ color: '#4b5563', fontSize: '9px', margin: '2px 0 0 0', fontFamily: "'Inter', sans-serif" }}>
-                {new Date(item.ordered_at).toLocaleString()}
+                Ordered: {new Date(item.ordered_at).toLocaleString()}
               </p>
             )}
           </div>
@@ -269,7 +274,7 @@ function ListingCard({ item, isOwner, isBuyer, isProcessing, onBuy, onConfirm, o
                   gap: '4px',
                 }}
               >
-                {isProcessing ? <Spinner /> : '✅'} Confirm
+                {isProcessing ? <Spinner /> : '✅'} Confirm Payment
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); onCancel(item) }}
@@ -434,21 +439,36 @@ export const Marketplace: React.FC = () => {
     payment_methods: ['JazzCash', 'EasyPaisa'],
   })
 
+  // ─── LOAD DATA ───────────────────────────────────────────────────────────
   const loadData = useCallback(async () => {
     setLoading(true)
     const { data: { user } } = await supabase.auth.getUser()
+    
+    let userProfileData = null
     if (user) {
       const { data: profile } = await supabase.from('users').select('*').eq('id', user.id).single()
+      userProfileData = profile
       setUserProfile(profile)
     }
 
-    const { data } = await supabase
-      .from('marketplace')
-      .select('*')
-      .in('status', ['AVAILABLE', 'ORDERED'])
-      .order('created_at', { ascending: false })
+    // ─── CRITICAL FIX: Only show AVAILABLE to everyone, ORDERED only to seller ───
+    let query = supabase.from('marketplace').select('*')
 
-    setListings(data || [])
+    if (user) {
+      // Show AVAILABLE to everyone + ORDERED only if user is the seller
+      query = query.or(`status.eq.AVAILABLE,and(status.eq.ORDERED,seller_id.eq.${user.id})`)
+    } else {
+      // Not logged in: only show AVAILABLE
+      query = query.eq('status', 'AVAILABLE')
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: false })
+
+    if (error) {
+      console.error('Error loading listings:', error)
+    } else {
+      setListings(data || [])
+    }
     setLoading(false)
   }, [])
 
@@ -892,7 +912,7 @@ export const Marketplace: React.FC = () => {
               🛒 Marketplace
             </h1>
             <p style={{ color: '#4b5563', margin: '4px 0 0', fontFamily: "'Inter', sans-serif" }}>
-              {listings.length} item{listings.length !== 1 ? 's' : ''} available
+              {listings.filter(l => l.status === 'AVAILABLE').length} available
             </p>
           </div>
           <SellButton active={showCreateForm} onToggle={() => setShowCreateForm(!showCreateForm)} />
@@ -910,7 +930,7 @@ export const Marketplace: React.FC = () => {
 
         {loading ? (
           <div style={{ textAlign: 'center', color: '#666', padding: '40px' }}>Loading...</div>
-        ) : listings.length === 0 ? (
+        ) : listings.filter(l => l.status === 'AVAILABLE' || l.status === 'ORDERED').length === 0 ? (
           <div style={{
             textAlign: 'center',
             padding: '80px 20px',
@@ -919,7 +939,7 @@ export const Marketplace: React.FC = () => {
             border: '1px solid rgba(255,255,255,0.05)',
           }}>
             <div style={{ fontSize: '48px', marginBottom: '16px' }}>🛒</div>
-            <h3 style={{ fontSize: '20px', fontWeight: '800', color: 'white', margin: 0, fontFamily: "'Inter', sans-serif" }}>No listings yet</h3>
+            <h3 style={{ fontSize: '20px', fontWeight: '800', color: 'white', margin: 0, fontFamily: "'Inter', sans-serif" }}>No listings available</h3>
             <p style={{ color: '#4b5563', margin: '8px 0 20px', fontFamily: "'Inter', sans-serif" }}>Be the first to sell something!</p>
             <button
               onClick={() => setShowCreateForm(true)}
@@ -940,19 +960,25 @@ export const Marketplace: React.FC = () => {
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(270px, 1fr))', gap: '16px' }}>
-            {listings.map((item) => (
-              <ListingCard
-                key={item.id}
-                item={item}
-                isOwner={item.seller_id === userProfile?.id}
-                isBuyer={item.buyer_id === userProfile?.id}
-                isProcessing={processingId === item.id}
-                onBuy={handlePlaceOrder}
-                onConfirm={handleConfirmPayment}
-                onCancel={handleCancelOrder}
-                onOpen={openDetail}
-              />
-            ))}
+            {listings.map((item) => {
+              // Only show AVAILABLE to everyone, ORDERED only to seller
+              if (item.status === 'ORDERED' && item.seller_id !== userProfile?.id) {
+                return null
+              }
+              return (
+                <ListingCard
+                  key={item.id}
+                  item={item}
+                  isOwner={item.seller_id === userProfile?.id}
+                  isBuyer={item.buyer_id === userProfile?.id}
+                  isProcessing={processingId === item.id}
+                  onBuy={handlePlaceOrder}
+                  onConfirm={handleConfirmPayment}
+                  onCancel={handleCancelOrder}
+                  onOpen={openDetail}
+                />
+              )
+            })}
           </div>
         )}
 
@@ -1032,6 +1058,45 @@ export const Marketplace: React.FC = () => {
               >
                 🛒 Buy Now
               </button>
+            )}
+
+            {selectedListing.status === 'ORDERED' && selectedListing.seller_id === userProfile?.id && (
+              <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+                <button
+                  onClick={() => { closeDetail(); handleConfirmPayment(selectedListing) }}
+                  disabled={processingId === selectedListing.id}
+                  style={{
+                    flex: 1,
+                    padding: '12px',
+                    borderRadius: '10px',
+                    border: 'none',
+                    background: '#22c55e',
+                    color: '#0a0a0a',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    fontSize: '14px'
+                  }}
+                >
+                  ✅ Confirm Payment
+                </button>
+                <button
+                  onClick={() => { closeDetail(); handleCancelOrder(selectedListing) }}
+                  disabled={processingId === selectedListing.id}
+                  style={{
+                    flex: 1,
+                    padding: '12px',
+                    borderRadius: '10px',
+                    border: '1px solid rgba(239,68,68,0.3)',
+                    background: 'transparent',
+                    color: '#f87171',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    fontSize: '14px'
+                  }}
+                >
+                  ❌ Cancel
+                </button>
+              </div>
             )}
           </div>
         </div>
