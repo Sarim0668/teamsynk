@@ -294,71 +294,74 @@ export const Dashboard: React.FC = () => {
   useEffect(() => { loadData() }, [])
 
   const loadData = async () => {
-    setLoading(true)
-    const { data: { user } } = await supabase.auth.getUser()
+  setLoading(true)
+  const { data: { user } } = await supabase.auth.getUser()
 
-    // ─── Get user profile ────────────────────────────────────────────────────
+  // ─── Get user profile ────────────────────────────────────────────────────
+  if (user) {
     const { data: profileData } = await supabase
       .from('users')
       .select('*')
-      .eq('id', user?.id)
+      .eq('id', user.id)
       .single()
     setProfile(profileData)
     setUserUniversity(profileData?.university || '')
-
-    // ─── Get university leaderboard ─────────────────────────────────────────
-    const { data: uniData, error: uniError } = await supabase
-      .from('university_overall_leaderboard')
-      .select('*')
-
-    if (!uniError && uniData) {
-      setUniversityStats(uniData)
-    } else {
-      console.error('Error loading university stats:', uniError)
-      setUniversityStats([])
-    }
-
-    // ─── Get competitions with participant count ─────────────────────────────
-    const { data: compData, error: compError } = await supabase
-      .from('competitions')
-      .select(`
-        *,
-        competition_participants(count)
-      `)
-      .in('status', ['upcoming', 'active'])
-      .order('start_date', { ascending: true })
-      .limit(4)
-
-    if (!compError && compData) {
-      // Transform data to include participant count
-      const compsWithCount = compData.map((comp: any) => ({
-        ...comp,
-        participants_count: comp.competition_participants?.[0]?.count || 0
-      }))
-      setCompetitions(compsWithCount)
-    } else {
-      console.error('Error loading competitions:', compError)
-      setCompetitions([])
-    }
-
-    // ─── Get upcoming sessions ──────────────────────────────────────────────
-    const today = new Date().toISOString().split('T')[0]
-    const { data: sessions, error: sessionsError } = await supabase
-      .from('sports_sessions')
-      .select('*')
-      .gte('session_date', today)
-      .order('session_date', { ascending: true })
-      .limit(4)
-
-    if (!sessionsError && sessions) {
-      setUpcomingSessions(sessions)
-    } else {
-      console.error('Error loading sessions:', sessionsError)
-      setUpcomingSessions([])
-    }
-
-    setLoading(false)
   }
+
+  // ─── Get university leaderboard ─────────────────────────────────────────
+  const { data: uniData, error: uniError } = await supabase
+    .from('university_overall_leaderboard')
+    .select('*')
+
+  console.log('📊 University Data:', uniData) // Debug log
+
+  if (!uniError && uniData) {
+    setUniversityStats(uniData)
+  } else {
+    console.error('Error loading university stats:', uniError)
+    setUniversityStats([])
+  }
+
+  // ─── Get competitions with participant count ─────────────────────────────
+  const { data: compData, error: compError } = await supabase
+    .from('competitions')
+    .select(`
+      *,
+      competition_participants(count)
+    `)
+    .in('status', ['upcoming', 'active'])
+    .order('start_date', { ascending: true })
+    .limit(4)
+
+  if (!compError && compData) {
+    const compsWithCount = compData.map((comp: any) => ({
+      ...comp,
+      participants_count: comp.competition_participants?.[0]?.count || 0
+    }))
+    setCompetitions(compsWithCount)
+  } else {
+    console.error('Error loading competitions:', compError)
+    setCompetitions([])
+  }
+
+  // ─── Get upcoming sessions ──────────────────────────────────────────────
+  const today = new Date().toISOString().split('T')[0]
+  const { data: sessions, error: sessionsError } = await supabase
+    .from('sports_sessions')
+    .select('*')
+    .gte('session_date', today)
+    .order('session_date', { ascending: true })
+    .limit(4)
+
+  if (!sessionsError && sessions) {
+    setUpcomingSessions(sessions)
+  } else {
+    console.error('Error loading sessions:', sessionsError)
+    setUpcomingSessions([])
+  }
+
+  setLoading(false)
+}
 
   if (loading) {
     return (
@@ -442,24 +445,24 @@ export const Dashboard: React.FC = () => {
           </h1>
           
           {userUniversity && (
-            <div style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '8px 16px',
-              background: 'rgba(200,162,0,0.08)',
-              border: '1px solid rgba(200,162,0,0.2)',
-              borderRadius: '99px',
-            }}>
-              <span style={{ fontSize: '16px' }}>🎓</span>
-              <span style={{ color: '#FFD700', fontSize: '13px', fontWeight: '600' }}>
-                {userUniversity}
-              </span>
-              <span style={{ color: '#4b5563', fontSize: '11px' }}>
-                ({universityStats.find(u => u.name === userUniversity)?.total_members || 0} members)
-              </span>
-            </div>
-          )}
+  <div style={{
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '8px 16px',
+    background: 'rgba(200,162,0,0.08)',
+    border: '1px solid rgba(200,162,0,0.2)',
+    borderRadius: '99px',
+  }}>
+    <span style={{ fontSize: '16px' }}>🎓</span>
+    <span style={{ color: '#FFD700', fontSize: '13px', fontWeight: '600' }}>
+      {userUniversity}
+    </span>
+    <span style={{ color: '#4ade80', fontSize: '12px', fontWeight: 'bold' }}>
+      ({universityStats.find(u => u.name === userUniversity)?.total_members || 0} members)
+    </span>
+  </div>
+)}
         </section>
 
         {/* ─── UNIVERSITY LEADERBOARD ─── */}
