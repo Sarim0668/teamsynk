@@ -348,7 +348,7 @@ export const Marketplace: React.FC = () => {
     payment_methods: ['JazzCash', 'EasyPaisa'],
   })
 
-  // ─── LOAD DATA - Only show AVAILABLE listings ──────────────────────────
+  // ─── LOAD DATA - Only show AVAILABLE listings (NOT REMOVED) ──────────
   const loadData = useCallback(async () => {
     setLoading(true)
     
@@ -361,11 +361,11 @@ export const Marketplace: React.FC = () => {
       setUserProfile(profile)
     }
 
-    // Only show AVAILABLE listings
+    // ─── IMPORTANT: Only fetch AVAILABLE listings ────────────────────────
     const { data, error } = await supabase
       .from('marketplace')
       .select('*')
-      .eq('status', 'AVAILABLE')
+      .eq('status', 'AVAILABLE')  // ← Only AVAILABLE
       .order('created_at', { ascending: false })
 
     if (error) {
@@ -460,7 +460,7 @@ Please contact me to complete the transaction.`
     }
   }
 
-  // ─── BUY NOW - DELETE the listing (same as admin panel) ──────────────
+  // ─── BUY NOW - Update to REMOVED (SAME AS ADMIN PANEL) ────────────────
   const handleBuyNow = async (listing: any) => {
     if (!userProfile) {
       setNotification({ text: '⚠️ Please login first', type: 'error' })
@@ -487,7 +487,7 @@ Please contact me to complete the transaction.`
       return
     }
 
-    if (!window.confirm(`⚠️ Confirm purchase of "${selectedListing.item_name}" for $${selectedListing.price}?\n\nThis will send your phone number to the seller via auto-message and the listing will be DELETED permanently.`)) {
+    if (!window.confirm(`⚠️ Confirm purchase of "${selectedListing.item_name}" for $${selectedListing.price}?\n\nThis will send your phone number to the seller via auto-message and the listing will be REMOVED from the marketplace.`)) {
       return
     }
 
@@ -509,21 +509,26 @@ Please contact me to complete the transaction.`
         setNotification({ text: '⚠️ Auto-message failed, but purchase will continue', type: 'error' })
       }
 
-      // ─── 2. DELETE the listing (SAME AS ADMIN PANEL) ────────────────────
-      console.log('🗑️ DELETING listing:', listing.id)
-      const { error: deleteError } = await supabase
+      // ─── 2. UPDATE to REMOVED (SAME AS ADMIN PANEL) ────────────────────
+      console.log('🔄 Marking listing as REMOVED:', listing.id)
+      const { error: updateError } = await supabase
         .from('marketplace')
-        .delete()
+        .update({ 
+          status: 'REMOVED',
+          buyer_id: userProfile.id,
+          buyer_phone: buyerPhone.trim(),
+          sold_at: new Date().toISOString()
+        })
         .eq('id', listing.id)
 
-      if (deleteError) {
-        console.error('❌ Delete failed:', deleteError)
-        setNotification({ text: '❌ Failed to delete listing: ' + deleteError.message, type: 'error' })
+      if (updateError) {
+        console.error('❌ Update failed:', updateError)
+        setNotification({ text: '❌ Failed to remove listing: ' + updateError.message, type: 'error' })
         setProcessingId(null)
         return
       }
 
-      console.log('✅ Listing DELETED successfully')
+      console.log('✅ Listing marked as REMOVED')
 
       // ─── 3. Create order record for admin tracking ──────────────────────
       await supabase.from('orders').insert({
@@ -538,13 +543,14 @@ Please contact me to complete the transaction.`
       })
 
       // ─── 4. IMMEDIATELY update state to remove the item ────────────────
+      // Filter out the removed listing from state
       setListings(prev => prev.filter(item => item.id !== listing.id))
       
       // ─── 5. Reload from database to be safe ─────────────────────────────
       await loadData()
 
       setNotification({ 
-        text: `✅ Purchase confirmed! Auto-message sent to seller with your phone number. The listing has been DELETED permanently.`, 
+        text: `✅ Purchase confirmed! Auto-message sent to seller with your phone number. The listing has been REMOVED from the marketplace.`, 
         type: 'success' 
       })
       
@@ -663,7 +669,7 @@ Please contact me to complete the transaction.`
                 Your phone number will be sent to the seller
               </p>
               <p style={{ color: '#888', fontSize: '11px' }}>
-                The listing will be DELETED permanently after confirmation.
+                The listing will be REMOVED from the marketplace.
               </p>
             </div>
           </div>
