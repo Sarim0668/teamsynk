@@ -348,7 +348,7 @@ export const Marketplace: React.FC = () => {
     payment_methods: ['JazzCash', 'EasyPaisa'],
   })
 
-  // ─── LOAD DATA - Only show AVAILABLE listings (NOT REMOVED) ──────────
+  // ─── LOAD DATA - Force refresh with hard fetch ──────────────────────────
   const loadData = useCallback(async () => {
     setLoading(true)
     
@@ -361,18 +361,19 @@ export const Marketplace: React.FC = () => {
       setUserProfile(profile)
     }
 
-    // ─── IMPORTANT: Only fetch AVAILABLE listings ────────────────────────
+    // ─── HARD FETCH - Only AVAILABLE ──────────────────────────────────────
     const { data, error } = await supabase
       .from('marketplace')
       .select('*')
-      .eq('status', 'AVAILABLE')  // ← Only AVAILABLE
+      .eq('status', 'AVAILABLE')
       .order('created_at', { ascending: false })
 
     if (error) {
-      console.error('Error loading listings:', error)
+      console.error('❌ Error loading listings:', error)
       setListings([])
     } else {
-      console.log('📦 Loaded AVAILABLE listings:', data?.length || 0)
+      console.log('📦 Loaded listings:', data?.length || 0)
+      console.log('📦 Listing IDs:', data?.map(l => l.id))
       setListings(data || [])
     }
     setLoading(false)
@@ -460,7 +461,7 @@ Please contact me to complete the transaction.`
     }
   }
 
-  // ─── BUY NOW - Update to REMOVED (SAME AS ADMIN PANEL) ────────────────
+  // ─── BUY NOW - UPDATE to REMOVED ──────────────────────────────────────
   const handleBuyNow = async (listing: any) => {
     if (!userProfile) {
       setNotification({ text: '⚠️ Please login first', type: 'error' })
@@ -509,17 +510,17 @@ Please contact me to complete the transaction.`
         setNotification({ text: '⚠️ Auto-message failed, but purchase will continue', type: 'error' })
       }
 
-      // ─── 2. UPDATE to REMOVED (SAME AS ADMIN PANEL) ────────────────────
-      console.log('🔄 Marking listing as REMOVED:', listing.id)
-      const { error: updateError } = await supabase
+      // ─── 2. UPDATE to REMOVED ────────────────────────────────────────────
+      console.log('🔄 Marking listing as REMOVED. ID:', listing.id)
+      const { error: updateError, data: updatedData } = await supabase
         .from('marketplace')
         .update({ 
-          status: 'REMOVED',
-          buyer_id: userProfile.id,
-          buyer_phone: buyerPhone.trim(),
-          sold_at: new Date().toISOString()
+          status: 'REMOVED'
         })
         .eq('id', listing.id)
+        .select()
+
+      console.log('📊 Update response:', { updateError, updatedData })
 
       if (updateError) {
         console.error('❌ Update failed:', updateError)
@@ -528,7 +529,7 @@ Please contact me to complete the transaction.`
         return
       }
 
-      console.log('✅ Listing marked as REMOVED')
+      console.log('✅ Listing marked as REMOVED. Updated data:', updatedData)
 
       // ─── 3. Create order record for admin tracking ──────────────────────
       await supabase.from('orders').insert({
@@ -542,15 +543,18 @@ Please contact me to complete the transaction.`
         ordered_at: new Date().toISOString()
       })
 
-      // ─── 4. IMMEDIATELY update state to remove the item ────────────────
-      // Filter out the removed listing from state
-      setListings(prev => prev.filter(item => item.id !== listing.id))
+      // ─── 4. HARD REMOVE from state ──────────────────────────────────────
+      setListings(prev => {
+        const filtered = prev.filter(item => item.id !== listing.id)
+        console.log('🔄 State before:', prev.length, 'After:', filtered.length)
+        return filtered
+      })
       
-      // ─── 5. Reload from database to be safe ─────────────────────────────
+      // ─── 5. Force reload from database ──────────────────────────────────
       await loadData()
 
       setNotification({ 
-        text: `✅ Purchase confirmed! Auto-message sent to seller with your phone number. The listing has been REMOVED from the marketplace.`, 
+        text: `✅ Purchase confirmed! Auto-message sent to seller. The listing has been REMOVED.`, 
         type: 'success' 
       })
       
