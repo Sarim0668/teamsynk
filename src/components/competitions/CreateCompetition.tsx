@@ -8,16 +8,22 @@ export const CreateCompetition: React.FC = () => {
   const [error, setError] = useState('')
   const [isAdmin, setIsAdmin] = useState(false)
   const [checkingAdmin, setCheckingAdmin] = useState(true)
+  const [universities, setUniversities] = useState<any[]>([])
+  const [userUniversity, setUserUniversity] = useState<string>('')
 
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    subject: '',
+    sport_type: '',
+    competition_type: 'internal', // 'internal' or 'inter_university'
+    university_id: '',
     date: '',
     start_time: '09:00',
     end_time: '11:00',
     duration_minutes: 120,
-    max_participants: 50
+    max_participants: 50,
+    prize: '',
+    rules: ''
   })
   
   const [questions, setQuestions] = useState([
@@ -34,6 +40,7 @@ export const CreateCompetition: React.FC = () => {
 
   useEffect(() => {
     checkAdmin()
+    loadUniversities()
   }, [])
 
   const checkAdmin = async () => {
@@ -45,7 +52,7 @@ export const CreateCompetition: React.FC = () => {
 
     const { data: profile } = await supabase
       .from('users')
-      .select('role')
+      .select('role, university')
       .eq('id', user.id)
       .single()
 
@@ -55,7 +62,19 @@ export const CreateCompetition: React.FC = () => {
     }
 
     setIsAdmin(true)
+    setUserUniversity(profile?.university || '')
     setCheckingAdmin(false)
+  }
+
+  const loadUniversities = async () => {
+    const { data, error } = await supabase
+      .from('university_groups')
+      .select('id, name, short_name')
+      .order('name', { ascending: true })
+
+    if (!error && data) {
+      setUniversities(data)
+    }
   }
 
   const addTestCase = (questionIndex: number) => {
@@ -92,6 +111,11 @@ export const CreateCompetition: React.FC = () => {
       return
     }
     
+    if (!formData.sport_type) {
+      setError('Please select a sport type')
+      return
+    }
+    
     if (!formData.date) {
       setError('Please select a date')
       return
@@ -109,6 +133,11 @@ export const CreateCompetition: React.FC = () => {
 
     if (formData.start_time >= formData.end_time) {
       setError('Start time must be before end time')
+      return
+    }
+
+    if (formData.competition_type === 'inter_university' && !formData.university_id) {
+      setError('Please select a host university for inter-university competition')
       return
     }
 
@@ -137,13 +166,18 @@ export const CreateCompetition: React.FC = () => {
         .insert({
           title: formData.title.trim(),
           description: formData.description.trim(),
-          subject: formData.subject,
+          sport_type: formData.sport_type,
+          competition_type: formData.competition_type,
+          university_id: formData.competition_type === 'inter_university' ? formData.university_id : null,
           date: formData.date,
           start_time: formData.start_time,
           end_time: formData.end_time,
           duration_minutes: formData.duration_minutes,
           max_participants: formData.max_participants,
-          status: 'upcoming'
+          prize: formData.prize || null,
+          rules: formData.rules || null,
+          status: 'upcoming',
+          created_by: (await supabase.auth.getUser()).data.user?.id
         })
         .select()
         .single()
@@ -198,6 +232,8 @@ export const CreateCompetition: React.FC = () => {
     }
   }
 
+  const sportTypes = ['Football', 'Basketball', 'Cricket', 'Tennis', 'Badminton', 'Volleyball', 'Swimming', 'Running', 'Cycling', 'Hockey', 'Table Tennis', 'Boxing', 'Wrestling', 'Other']
+
   if (checkingAdmin) {
     return (
       <div style={{
@@ -237,7 +273,7 @@ export const CreateCompetition: React.FC = () => {
     }}>
       <div style={{ maxWidth: '900px', margin: '0 auto' }}>
         <h1 style={{ color: '#FFD700', fontSize: '28px' }}>🏆 Create Competition</h1>
-        <p style={{ color: '#666', marginBottom: '20px' }}>Only admins can create competitions</p>
+        <p style={{ color: '#666', marginBottom: '20px' }}>Create a new competition for your university or across universities</p>
 
         {error && (
           <div style={{
@@ -253,7 +289,7 @@ export const CreateCompetition: React.FC = () => {
         )}
 
         <form onSubmit={handleSubmit}>
-          {/* Basic Details - Same as before */}
+          {/* Basic Details */}
           <div style={{ background: 'rgba(13,13,13,0.95)', border: '1px solid #c8a20020', borderRadius: '12px', padding: '24px' }}>
             <h3 style={{ color: '#c8a200', marginBottom: '16px' }}>Basic Details</h3>
 
@@ -278,10 +314,10 @@ export const CreateCompetition: React.FC = () => {
             </div>
 
             <div style={{ marginBottom: '16px' }}>
-              <label style={{ color: '#888', fontSize: '13px', display: 'block', marginBottom: '4px' }}>Subject</label>
+              <label style={{ color: '#888', fontSize: '13px', display: 'block', marginBottom: '4px' }}>Sport Type *</label>
               <select
-                value={formData.subject}
-                onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                value={formData.sport_type}
+                onChange={(e) => setFormData({ ...formData, sport_type: e.target.value })}
                 style={{
                   width: '100%',
                   padding: '10px 14px',
@@ -292,17 +328,12 @@ export const CreateCompetition: React.FC = () => {
                   fontSize: '14px',
                   outline: 'none'
                 }}
+                required
               >
-                <option value="">Select Subject</option>
-                <option value="Programming Fundamentals">Programming Fundamentals</option>
-                <option value="Object Oriented Programming">Object Oriented Programming</option>
-                <option value="Data Structures">Data Structures</option>
-                <option value="Algorithms">Algorithms</option>
-                <option value="Database Systems">Database Systems</option>
-                <option value="Artificial Intelligence">Artificial Intelligence</option>
-                <option value="Operating Systems">Operating Systems</option>
-                <option value="Computer Networks">Computer Networks</option>
-                <option value="Software Engineering">Software Engineering</option>
+                <option value="">Select Sport</option>
+                {sportTypes.map(sport => (
+                  <option key={sport} value={sport}>{sport}</option>
+                ))}
               </select>
             </div>
 
@@ -326,6 +357,118 @@ export const CreateCompetition: React.FC = () => {
               />
             </div>
 
+            {/* ─── COMPETITION TYPE ─── */}
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ color: '#888', fontSize: '13px', display: 'block', marginBottom: '4px' }}>Competition Type *</label>
+              <select
+                value={formData.competition_type}
+                onChange={(e) => setFormData({ ...formData, competition_type: e.target.value })}
+                style={{
+                  width: '100%',
+                  padding: '10px 14px',
+                  background: 'rgba(255,255,255,0.04)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: '8px',
+                  color: 'white',
+                  fontSize: '14px',
+                  outline: 'none'
+                }}
+                required
+              >
+                <option value="internal">🏠 Internal (Same University)</option>
+                <option value="inter_university">🌍 Inter-University</option>
+              </select>
+              <div style={{ 
+                color: '#555', 
+                fontSize: '12px', 
+                marginTop: '4px',
+                padding: '8px 12px',
+                background: 'rgba(200,162,0,0.05)',
+                borderRadius: '6px',
+                border: '1px solid rgba(200,162,0,0.1)'
+              }}>
+                {formData.competition_type === 'internal' 
+                  ? '🏠 Competition is open only to students from your university' 
+                  : '🌍 Competition is open to students from ALL universities'}
+              </div>
+            </div>
+
+            {/* ─── UNIVERSITY SELECTION (for inter-university) ─── */}
+            {formData.competition_type === 'inter_university' && (
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ color: '#888', fontSize: '13px', display: 'block', marginBottom: '4px' }}>Host University *</label>
+                <select
+                  value={formData.university_id}
+                  onChange={(e) => setFormData({ ...formData, university_id: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    background: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: '8px',
+                    color: 'white',
+                    fontSize: '14px',
+                    outline: 'none'
+                  }}
+                  required
+                >
+                  <option value="">Select host university</option>
+                  {universities.map(uni => (
+                    <option key={uni.id} value={uni.id}>
+                      {uni.name} {uni.id === universities.find(u => u.name === userUniversity)?.id ? '(Your University)' : ''}
+                    </option>
+                  ))}
+                </select>
+                <div style={{ color: '#555', fontSize: '11px', marginTop: '4px' }}>
+                  🏛️ This university will be the host and organizer of the competition
+                </div>
+              </div>
+            )}
+
+            {/* ─── PRIZE ─── */}
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ color: '#888', fontSize: '13px', display: 'block', marginBottom: '4px' }}>🏆 Prize</label>
+              <input
+                type="text"
+                value={formData.prize}
+                onChange={(e) => setFormData({ ...formData, prize: e.target.value })}
+                placeholder="e.g. Trophy + Cash Prize $500"
+                style={{
+                  width: '100%',
+                  padding: '10px 14px',
+                  background: 'rgba(255,255,255,0.04)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: '8px',
+                  color: 'white',
+                  fontSize: '14px',
+                  outline: 'none'
+                }}
+              />
+            </div>
+
+            {/* ─── RULES ─── */}
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ color: '#888', fontSize: '13px', display: 'block', marginBottom: '4px' }}>📋 Rules</label>
+              <textarea
+                value={formData.rules}
+                onChange={(e) => setFormData({ ...formData, rules: e.target.value })}
+                rows={2}
+                placeholder="Enter competition rules..."
+                style={{
+                  width: '100%',
+                  padding: '10px 14px',
+                  background: 'rgba(255,255,255,0.04)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: '8px',
+                  color: 'white',
+                  fontSize: '14px',
+                  outline: 'none',
+                  resize: 'vertical'
+                }}
+              />
+            </div>
+
+            {/* ─── DATE & TIME ─── */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '16px' }}>
               <div>
                 <label style={{ color: '#888', fontSize: '13px', display: 'block', marginBottom: '4px' }}>Date *</label>

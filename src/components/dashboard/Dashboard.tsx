@@ -3,49 +3,88 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 import { IMAGES } from '../../constants/images'
 
-// ─── University Card ──────────────────────────────────────────────────────────
-function UniversityCard({ uni, index }: { uni: any; index: number }) {
+// ─── University Leaderboard Card ─────────────────────────────────────────────
+function UniversityLeaderboardCard({ uni, index, isUserUni }: { uni: any; index: number; isUserUni: boolean }) {
   const [hovered, setHovered] = useState(false)
   
+  const getMedal = (rank: number) => {
+    if (rank === 1) return '🥇'
+    if (rank === 2) return '🥈'
+    if (rank === 3) return '🥉'
+    return `#${rank}`
+  }
+
   return (
     <div
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        background: hovered
-          ? 'linear-gradient(135deg, rgba(26,26,34,0.98), rgba(22,20,28,0.98))'
-          : 'rgba(14,14,20,0.9)',
+        background: isUserUni
+          ? 'linear-gradient(135deg, rgba(200,162,0,0.15), rgba(200,162,0,0.05))'
+          : hovered ? 'rgba(24,24,32,0.98)' : 'rgba(14,14,20,0.9)',
         backdropFilter: 'blur(24px)',
-        border: `1px solid ${hovered ? 'rgba(200,162,0,0.3)' : 'rgba(255,255,255,0.05)'}`,
+        border: `1px solid ${
+          isUserUni ? 'rgba(200,162,0,0.4)' :
+          hovered ? 'rgba(200,162,0,0.3)' : 'rgba(255,255,255,0.05)'
+        }`,
         borderRadius: '16px',
-        padding: '20px',
+        padding: '18px 22px',
         transition: 'all 0.35s ease',
-        transform: hovered ? 'translateY(-4px)' : 'translateY(0)',
-        boxShadow: hovered ? '0 20px 60px rgba(0,0,0,0.4)' : 'none',
-        animation: `fadeSlideUp 0.5s ease ${index * 60 + 100}ms both`,
-        cursor: 'default',
+        transform: hovered ? 'translateY(-3px)' : 'translateY(0)',
+        boxShadow: hovered ? '0 20px 60px rgba(0,0,0,0.4), 0 0 40px rgba(200,162,0,0.05)' : 'none',
+        animation: `fadeSlideUp 0.5s ease ${index * 50 + 100}ms both`,
+        position: 'relative',
+        overflow: 'hidden',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      {isUserUni && (
         <div style={{
-          width: '48px',
-          height: '48px',
-          borderRadius: '12px',
-          background: `linear-gradient(135deg, ${uni.color}40, ${uni.color}20)`,
-          border: `1px solid ${uni.color}40`,
+          position: 'absolute',
+          top: 0,
+          right: 0,
+          padding: '4px 12px',
+          background: 'linear-gradient(135deg, #c8a200, #FFD700)',
+          color: '#0a0a0a',
+          fontSize: '9px',
+          fontWeight: 'bold',
+          borderRadius: '0 16px 0 12px',
+        }}>
+          YOUR UNIVERSITY
+        </div>
+      )}
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        {/* Rank */}
+        <div style={{
+          width: '40px',
+          height: '40px',
+          borderRadius: '50%',
+          background: isUserUni 
+            ? 'linear-gradient(135deg, #c8a200, #FFD700)'
+            : index < 3 ? 'rgba(255,215,0,0.1)' : 'rgba(255,255,255,0.03)',
+          border: `1px solid ${
+            isUserUni ? 'rgba(200,162,0,0.5)' :
+            index < 3 ? 'rgba(255,215,0,0.2)' : 'rgba(255,255,255,0.05)'
+          }`,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          fontSize: '18px',
+          fontSize: index < 3 ? '18px' : '12px',
           fontWeight: 'bold',
-          color: uni.color,
+          color: isUserUni ? '#0a0a0a' : index < 3 ? '#FFD700' : '#4b5563',
           flexShrink: 0,
         }}>
-          {uni.short_name?.charAt(0)}
+          {getMedal(uni.rank || index + 1)}
         </div>
+
+        {/* University Info */}
         <div style={{ flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ color: 'white', fontWeight: 'bold', fontSize: '15px' }}>
+            <span style={{
+              fontWeight: isUserUni ? 'bold' : '600',
+              color: isUserUni ? '#FFD700' : 'white',
+              fontSize: '15px',
+            }}>
               {uni.name}
             </span>
             <span style={{
@@ -58,85 +97,188 @@ function UniversityCard({ uni, index }: { uni: any; index: number }) {
               {uni.short_name}
             </span>
           </div>
-          <div style={{ display: 'flex', gap: '16px', marginTop: '6px', flexWrap: 'wrap' }}>
-            <span style={{ color: '#6b7280', fontSize: '12px' }}>
-              👥 {uni.member_count || 0} members
-            </span>
-            <span style={{ color: '#6b7280', fontSize: '12px' }}>
-              🏟️ {uni.total_sessions || 0} sessions
-            </span>
-            <span style={{ color: '#FFD700', fontSize: '12px' }}>
-              ⭐ {uni.total_points || 0} points
-            </span>
+          
+          {/* Stats Row */}
+          <div style={{ display: 'flex', gap: '16px', marginTop: '4px', flexWrap: 'wrap' }}>
+            <StatPill icon="👥" value={uni.total_members || 0} label="Members" />
+            <StatPill icon="🏟️" value={uni.total_sessions_created || 0} label="Sessions" />
+            <StatPill icon="🏆" value={uni.competitions_won || 0} label="Wins" />
+            <StatPill icon="⭐" value={uni.total_points || 0} label="Points" highlight />
           </div>
         </div>
+
+        {/* Points Badge */}
         <div style={{
-          padding: '4px 12px',
+          padding: '6px 16px',
           borderRadius: '99px',
-          background: 'rgba(200,162,0,0.1)',
-          border: '1px solid rgba(200,162,0,0.2)',
-          fontSize: '11px',
+          background: isUserUni 
+            ? 'linear-gradient(135deg, #c8a200, #FFD700)'
+            : 'rgba(200,162,0,0.08)',
+          border: `1px solid ${isUserUni ? 'rgba(200,162,0,0.5)' : 'rgba(200,162,0,0.2)'}`,
+          fontSize: '14px',
           fontWeight: 'bold',
-          color: '#c8a200',
+          color: isUserUni ? '#0a0a0a' : '#FFD700',
+          textAlign: 'center',
+          flexShrink: 0,
         }}>
-          Rank #{uni.rank || index + 1}
+          {uni.total_points || 0}
         </div>
       </div>
     </div>
   )
 }
 
-// ─── Profile University Selector ─────────────────────────────────────────────
-export const UniversitySelector: React.FC<{ value: string; onChange: (val: string) => void }> = ({ value, onChange }) => {
-  const universities = [
-    'FAST University',
-    'NUST',
-    'IIUI',
-    'Bahria University',
-    'Air University',
-    'COMSATS',
-    'GIKI',
-    'LUMS',
-    'Other'
-  ]
+function StatPill({ icon, value, label, highlight }: { icon: string; value: number; label: string; highlight?: boolean }) {
+  return (
+    <span style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: '3px',
+      color: highlight ? '#FFD700' : '#6b7280',
+      fontSize: '11px',
+      fontWeight: highlight ? 'bold' : '500',
+    }}>
+      {icon} {value}
+    </span>
+  )
+}
+
+// ─── Competition Card ─────────────────────────────────────────────────────────
+function CompetitionCard({ competition, index }: { competition: any; index: number }) {
+  const [hovered, setHovered] = useState(false)
+  
+  const typeColors = {
+    internal: { bg: 'rgba(59,130,246,0.1)', color: '#60a5fa', label: '🏠 Internal' },
+    inter_university: { bg: 'rgba(168,85,247,0.1)', color: '#c084fc', label: '🌍 Inter-University' }
+  }
+  const type = typeColors[competition.competition_type as keyof typeof typeColors] || typeColors.internal
 
   return (
-    <div style={{ position: 'relative' }}>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        style={{
-          width: '100%',
-          padding: '12px 16px',
-          background: 'rgba(255,255,255,0.04)',
-          border: '1px solid rgba(255,255,255,0.08)',
-          borderRadius: '12px',
-          color: 'white',
-          fontSize: '14px',
-          outline: 'none',
-          appearance: 'none',
-          cursor: 'pointer',
-          fontFamily: "'Inter', sans-serif",
-        }}
-      >
-        <option value="" style={{ background: '#1a1a22' }}>Select your university</option>
-        {universities.map(uni => (
-          <option key={uni} value={uni} style={{ background: '#1a1a22' }}>
-            {uni}
-          </option>
-        ))}
-      </select>
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        background: hovered ? 'rgba(24,24,32,0.98)' : 'rgba(14,14,20,0.9)',
+        backdropFilter: 'blur(24px)',
+        border: `1px solid ${hovered ? 'rgba(200,162,0,0.3)' : 'rgba(255,255,255,0.05)'}`,
+        borderRadius: '16px',
+        padding: '20px',
+        transition: 'all 0.35s ease',
+        transform: hovered ? 'translateY(-3px)' : 'translateY(0)',
+        boxShadow: hovered ? '0 20px 60px rgba(0,0,0,0.4)' : 'none',
+        animation: `fadeSlideUp 0.5s ease ${index * 60 + 200}ms both`,
+        cursor: 'pointer',
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+        <div>
+          <div style={{ fontSize: '16px', fontWeight: 'bold', color: 'white' }}>
+            {competition.title}
+          </div>
+          <div style={{ fontSize: '13px', color: '#6b7280', marginTop: '2px' }}>
+            ⚽ {competition.sport_type}
+          </div>
+        </div>
+        <span style={{
+          padding: '3px 10px',
+          borderRadius: '99px',
+          background: type.bg,
+          border: `1px solid ${type.color}30`,
+          color: type.color,
+          fontSize: '10px',
+          fontWeight: 'bold',
+        }}>
+          {type.label}
+        </span>
+      </div>
+
+      <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '12px' }}>
+        <span style={{ color: '#4b5563', fontSize: '12px' }}>
+          📅 {new Date(competition.start_date).toLocaleDateString()}
+        </span>
+        <span style={{ color: '#4b5563', fontSize: '12px' }}>
+          👥 {competition.participants || 0} participants
+        </span>
+        {competition.prize && (
+          <span style={{ color: '#FFD700', fontSize: '12px' }}>
+            🏆 {competition.prize}
+          </span>
+        )}
+      </div>
+
       <div style={{
-        position: 'absolute',
-        right: '14px',
-        top: '50%',
-        transform: 'translateY(-50%)',
-        pointerEvents: 'none',
-        color: '#4b5563',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        paddingTop: '12px',
+        borderTop: '1px solid rgba(255,255,255,0.05)',
       }}>
-        ▼
+        <span style={{
+          padding: '4px 12px',
+          borderRadius: '99px',
+          background: competition.status === 'active' ? 'rgba(34,197,94,0.1)' : 
+                     competition.status === 'upcoming' ? 'rgba(200,162,0,0.1)' : 'rgba(107,114,128,0.1)',
+          border: `1px solid ${competition.status === 'active' ? 'rgba(34,197,94,0.3)' : 
+                    competition.status === 'upcoming' ? 'rgba(200,162,0,0.3)' : 'rgba(107,114,128,0.3)'}`,
+          color: competition.status === 'active' ? '#4ade80' : 
+                 competition.status === 'upcoming' ? '#c8a200' : '#6b7280',
+          fontSize: '10px',
+          fontWeight: 'bold',
+          textTransform: 'uppercase',
+        }}>
+          {competition.status === 'active' ? '🟢 Live' : 
+           competition.status === 'upcoming' ? '🟡 Upcoming' : '⚪ Completed'}
+        </span>
+        <Link
+          to={`/competition/${competition.id}`}
+          style={{
+            marginLeft: 'auto',
+            padding: '6px 14px',
+            borderRadius: '8px',
+            background: hovered ? '#c8a200' : 'rgba(200,162,0,0.08)',
+            color: hovered ? '#0a0a0a' : '#c8a200',
+            textDecoration: 'none',
+            fontSize: '11px',
+            fontWeight: 'bold',
+            transition: 'all 0.3s ease',
+          }}
+        >
+          View Details →
+        </Link>
       </div>
     </div>
+  )
+}
+
+// ─── Create Competition Button ──────────────────────────────────────────────
+function CreateCompetitionButton() {
+  const [hovered, setHovered] = useState(false)
+  return (
+    <Link
+      to="/create-competition"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '7px',
+        padding: '10px 22px',
+        borderRadius: '12px',
+        textDecoration: 'none',
+        background: hovered ? 'linear-gradient(135deg, #c8a200, #FFD700)' : 'linear-gradient(135deg, #b89200, #d4a500)',
+        color: '#0a0a0a',
+        fontSize: '13px',
+        fontWeight: '800',
+        letterSpacing: '0.03em',
+        fontFamily: "'Inter', sans-serif",
+        transform: hovered ? 'scale(1.04) translateY(-1px)' : 'scale(1)',
+        boxShadow: hovered ? '0 0 28px rgba(200,162,0,0.5)' : '0 0 12px rgba(200,162,0,0.2)',
+        transition: 'all 0.28s cubic-bezier(0.4,0,0.2,1)',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      🏆 Create Competition
+    </Link>
   )
 }
 
@@ -145,9 +287,9 @@ export const Dashboard: React.FC = () => {
   const [profile, setProfile] = useState<any>(null)
   const [upcomingSessions, setUpcomingSessions] = useState<any[]>([])
   const [universityStats, setUniversityStats] = useState<any[]>([])
+  const [competitions, setCompetitions] = useState<any[]>([])
   const [userUniversity, setUserUniversity] = useState<string>('')
   const [loading, setLoading] = useState(true)
-  const [stats, setStats] = useState({ sessionsJoined: 0, playersFound: 0, listings: 0, posts: 0 })
 
   useEffect(() => { loadData() }, [])
 
@@ -164,42 +306,23 @@ export const Dashboard: React.FC = () => {
     setProfile(profileData)
     setUserUniversity(profileData?.university || '')
 
-    // ─── Get university stats ───────────────────────────────────────────────
+    // ─── Get university leaderboard ─────────────────────────────────────────
     const { data: uniData } = await supabase
-      .from('university_groups')
-      .select(`
-        *,
-        university_stats (
-          total_sessions,
-          total_participants,
-          total_points,
-          competitions_won
-        )
-      `)
-      .order('member_count', { ascending: false })
+      .from('university_overall_leaderboard')
+      .select('*')
+      .order('total_points', { ascending: false })
 
-    // Add rank
-    const uniWithRank = uniData?.map((uni: any, index: number) => ({
-      ...uni,
-      rank: index + 1,
-      total_sessions: uni.university_stats?.[0]?.total_sessions || 0,
-      total_points: uni.university_stats?.[0]?.total_points || 0,
-      competitions_won: uni.university_stats?.[0]?.competitions_won || 0,
-    })) || []
-    setUniversityStats(uniWithRank)
+    setUniversityStats(uniData || [])
 
-    // ─── Get sessions ──────────────────────────────────────────────────────
-    const { count: sessionsCount } = await supabase
-      .from('session_participants')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', user?.id)
+    // ─── Get active competitions ─────────────────────────────────────────────
+    const { data: compData } = await supabase
+      .from('competitions')
+      .select('*')
+      .in('status', ['upcoming', 'active'])
+      .order('start_date', { ascending: true })
+      .limit(4)
 
-    const { count: listingsCount } = await supabase
-      .from('marketplace')
-      .select('*', { count: 'exact', head: true })
-      .eq('seller_id', user?.id)
-
-    setStats({ sessionsJoined: sessionsCount || 0, playersFound: 5, listings: listingsCount || 0, posts: 8 })
+    setCompetitions(compData || [])
 
     // ─── Get upcoming sessions ──────────────────────────────────────────────
     const today = new Date().toISOString().split('T')[0]
@@ -209,26 +332,9 @@ export const Dashboard: React.FC = () => {
       .gte('session_date', today)
       .order('session_date', { ascending: true })
       .limit(4)
+
     setUpcomingSessions(sessions || [])
     setLoading(false)
-  }
-
-  // ─── Join university ──────────────────────────────────────────────────────
-  const handleUniversityChange = async (university: string) => {
-    if (!profile) return
-
-    // Update user profile
-    const { error } = await supabase
-      .from('users')
-      .update({ university: university || null })
-      .eq('id', profile.id)
-
-    if (!error) {
-      setUserUniversity(university)
-      setProfile({ ...profile, university: university })
-      // Refresh stats
-      loadData()
-    }
   }
 
   if (loading) {
@@ -253,7 +359,6 @@ export const Dashboard: React.FC = () => {
   }
 
   const firstName = profile?.full_name?.split(' ')[0] || 'Player'
-  const userUni = universityStats.find(u => u.name === userUniversity)
 
   return (
     <div style={{
@@ -267,25 +372,20 @@ export const Dashboard: React.FC = () => {
       {/* ── Background ── */}
       <div style={{
         position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none',
-        background: `url(${IMAGES.dashboardBg}) center/cover no-repeat`,
-        opacity: 0.04,
-      }} />
-      <div style={{
-        position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none',
         background: 'radial-gradient(ellipse 80% 50% at 50% -10%, rgba(200,162,0,0.07) 0%, transparent 70%)',
       }} />
 
       <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '40px 24px 80px', position: 'relative', zIndex: 1 }}>
 
         {/* ─── HERO ─── */}
-        <section style={{ marginBottom: '40px', animation: 'fadeSlideUp 0.6s ease both' }}>
+        <section style={{ marginBottom: '32px', animation: 'fadeSlideUp 0.6s ease both' }}>
           <div style={{
             display: 'inline-flex', alignItems: 'center', gap: '8px',
             padding: '5px 14px 5px 8px',
             background: 'rgba(200,162,0,0.08)',
             border: '1px solid rgba(200,162,0,0.18)',
             borderRadius: '99px',
-            marginBottom: '20px',
+            marginBottom: '16px',
           }}>
             <span style={{
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
@@ -303,7 +403,7 @@ export const Dashboard: React.FC = () => {
             lineHeight: '1.05',
             letterSpacing: '-0.03em',
             color: 'white',
-            margin: '0 0 12px',
+            margin: '0 0 8px',
           }}>
             Welcome back,{' '}
             <span style={{
@@ -317,74 +417,23 @@ export const Dashboard: React.FC = () => {
             </span>
             <span style={{ WebkitTextFillColor: 'initial', color: 'white', fontSize: '0.85em' }}> 👋</span>
           </h1>
-          <p style={{ color: '#6b7280', fontSize: '16px', fontWeight: '400', margin: 0, maxWidth: '480px', lineHeight: '1.5' }}>
-            Ready to play? Here's what's happening in your arena today.
-          </p>
-        </section>
-
-        {/* ─── UNIVERSITY SELECTOR ─── */}
-        <section style={{ marginBottom: '32px' }}>
-          <div style={{
-            background: 'rgba(14,14,20,0.9)',
-            backdropFilter: 'blur(24px)',
-            border: '1px solid rgba(255,255,255,0.05)',
-            borderRadius: '16px',
-            padding: '20px 24px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '20px',
-            flexWrap: 'wrap',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <span style={{ fontSize: '24px' }}>🏛️</span>
-              <div>
-                <div style={{ fontSize: '12px', color: '#4b5563' }}>Your University</div>
-                <div style={{ fontWeight: 'bold', color: userUniversity ? '#FFD700' : '#6b7280' }}>
-                  {userUniversity || 'Not set'}
-                </div>
-              </div>
+          
+          {userUniversity && (
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '8px 16px',
+              background: 'rgba(200,162,0,0.08)',
+              border: '1px solid rgba(200,162,0,0.2)',
+              borderRadius: '99px',
+            }}>
+              <span style={{ fontSize: '16px' }}>🎓</span>
+              <span style={{ color: '#FFD700', fontSize: '13px', fontWeight: '600' }}>
+                {userUniversity}
+              </span>
             </div>
-
-            <div style={{ flex: 1, minWidth: '200px', maxWidth: '300px' }}>
-              <select
-                value={userUniversity}
-                onChange={(e) => handleUniversityChange(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '10px 14px',
-                  background: 'rgba(255,255,255,0.04)',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  borderRadius: '10px',
-                  color: 'white',
-                  fontSize: '13px',
-                  outline: 'none',
-                  appearance: 'none',
-                  cursor: 'pointer',
-                }}
-              >
-                <option value="" style={{ background: '#1a1a22' }}>Select your university</option>
-                {universityStats.map(uni => (
-                  <option key={uni.id} value={uni.name} style={{ background: '#1a1a22' }}>
-                    {uni.name} ({uni.member_count || 0} members)
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {userUni && (
-              <div style={{
-                padding: '6px 14px',
-                borderRadius: '99px',
-                background: 'rgba(34,197,94,0.1)',
-                border: '1px solid rgba(34,197,94,0.2)',
-                color: '#4ade80',
-                fontSize: '12px',
-                fontWeight: '600',
-              }}>
-                ✅ Member
-              </div>
-            )}
-          </div>
+          )}
         </section>
 
         {/* ─── UNIVERSITY LEADERBOARD ─── */}
@@ -394,6 +443,8 @@ export const Dashboard: React.FC = () => {
             justifyContent: 'space-between',
             alignItems: 'center',
             marginBottom: '16px',
+            flexWrap: 'wrap',
+            gap: '12px',
           }}>
             <div>
               <div style={{
@@ -403,7 +454,7 @@ export const Dashboard: React.FC = () => {
               }}>
                 <div style={{ width: '16px', height: '1px', background: 'rgba(200,162,0,0.4)' }} />
                 <span style={{ color: '#6b7280', fontSize: '10px', fontWeight: '700', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-                  University Leaderboard
+                  🏆 University Rankings
                 </span>
               </div>
               <h2 style={{
@@ -413,121 +464,115 @@ export const Dashboard: React.FC = () => {
                 letterSpacing: '-0.02em',
                 margin: '4px 0 0',
               }}>
-                🏆 Top Universities
+                Leaderboard
               </h2>
             </div>
-            <span style={{ color: '#4b5563', fontSize: '12px' }}>
-              {universityStats.length} universities
-            </span>
+            <div style={{
+              display: 'flex',
+              gap: '8px',
+              alignItems: 'center',
+            }}>
+              <span style={{ color: '#4b5563', fontSize: '12px' }}>
+                {universityStats.length} universities
+              </span>
+              <Link
+                to="/leaderboard"
+                style={{
+                  padding: '6px 16px',
+                  borderRadius: '8px',
+                  background: 'rgba(200,162,0,0.08)',
+                  color: '#c8a200',
+                  textDecoration: 'none',
+                  fontSize: '12px',
+                  fontWeight: '600',
+                }}
+              >
+                View All →
+              </Link>
+            </div>
           </div>
 
           <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-            gap: '12px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '10px',
           }}>
-            {universityStats.slice(0, 6).map((uni, i) => {
+            {universityStats.slice(0, 5).map((uni, i) => {
               const isUserUni = uni.name === userUniversity
               return (
-                <div
+                <UniversityLeaderboardCard
                   key={uni.id}
-                  style={{
-                    background: isUserUni
-                      ? 'linear-gradient(135deg, rgba(200,162,0,0.12), rgba(200,162,0,0.04))'
-                      : 'rgba(14,14,20,0.9)',
-                    backdropFilter: 'blur(24px)',
-                    border: `1px solid ${isUserUni ? 'rgba(200,162,0,0.3)' : 'rgba(255,255,255,0.05)'}`,
-                    borderRadius: '14px',
-                    padding: '16px 20px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '14px',
-                    transition: 'all 0.3s ease',
-                    animation: `fadeSlideUp 0.5s ease ${i * 50 + 200}ms both`,
-                  }}
-                >
-                  <div style={{
-                    width: '32px',
-                    height: '32px',
-                    borderRadius: '50%',
-                    background: isUserUni
-                      ? 'linear-gradient(135deg, #c8a200, #FFD700)'
-                      : 'rgba(255,255,255,0.05)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '12px',
-                    fontWeight: 'bold',
-                    color: isUserUni ? '#0a0a0a' : '#6b7280',
-                  }}>
-                    #{i + 1}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                    }}>
-                      <span style={{
-                        fontWeight: isUserUni ? 'bold' : '500',
-                        color: isUserUni ? '#FFD700' : 'white',
-                      }}>
-                        {uni.name}
-                      </span>
-                      {isUserUni && (
-                        <span style={{
-                          fontSize: '9px',
-                          padding: '1px 8px',
-                          borderRadius: '99px',
-                          background: 'rgba(200,162,0,0.2)',
-                          color: '#c8a200',
-                        }}>
-                          Your Uni
-                        </span>
-                      )}
-                    </div>
-                    <div style={{ display: 'flex', gap: '12px', marginTop: '2px' }}>
-                      <span style={{ color: '#6b7280', fontSize: '11px' }}>
-                        👥 {uni.member_count || 0}
-                      </span>
-                      <span style={{ color: '#6b7280', fontSize: '11px' }}>
-                        🏟️ {uni.total_sessions || 0}
-                      </span>
-                      <span style={{ color: '#FFD700', fontSize: '11px' }}>
-                        ⭐ {uni.total_points || 0}
-                      </span>
-                    </div>
-                  </div>
-                  <div style={{
-                    padding: '2px 10px',
-                    borderRadius: '99px',
-                    background: isUserUni
-                      ? 'rgba(200,162,0,0.2)'
-                      : 'rgba(255,255,255,0.03)',
-                    border: `1px solid ${isUserUni ? 'rgba(200,162,0,0.3)' : 'rgba(255,255,255,0.05)'}`,
-                    fontSize: '10px',
-                    color: isUserUni ? '#FFD700' : '#4b5563',
-                  }}>
-                    {isUserUni ? '⭐' : ''}
-                  </div>
-                </div>
+                  uni={uni}
+                  index={i}
+                  isUserUni={isUserUni}
+                />
               )
             })}
           </div>
         </section>
 
-        {/* ─── STATS ─── */}
+        {/* ─── COMPETITIONS ─── */}
         <section style={{ marginBottom: '40px' }}>
           <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '16px',
+            flexWrap: 'wrap',
             gap: '12px',
           }}>
-            <StatCard label="Sessions Joined" value={stats.sessionsJoined} icon="⚡" />
-            <StatCard label="Players Found" value={stats.playersFound} icon="👥" />
-            <StatCard label="Active Listings" value={stats.listings} icon="🛒" />
-            <StatCard label="Posts" value={stats.posts} icon="✦" />
+            <div>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}>
+                <div style={{ width: '16px', height: '1px', background: 'rgba(200,162,0,0.4)' }} />
+                <span style={{ color: '#6b7280', fontSize: '10px', fontWeight: '700', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+                  🏅 Competitions
+                </span>
+              </div>
+              <h2 style={{
+                fontSize: '22px',
+                fontWeight: '700',
+                color: 'white',
+                letterSpacing: '-0.02em',
+                margin: '4px 0 0',
+              }}>
+                Live & Upcoming
+              </h2>
+            </div>
+            <CreateCompetitionButton />
           </div>
+
+          {competitions.length === 0 ? (
+            <div style={{
+              background: 'rgba(14,14,20,0.9)',
+              backdropFilter: 'blur(24px)',
+              border: '1px solid rgba(255,255,255,0.05)',
+              borderRadius: '16px',
+              padding: '40px',
+              textAlign: 'center',
+            }}>
+              <div style={{ fontSize: '40px', marginBottom: '12px' }}>🏆</div>
+              <h3 style={{ fontSize: '18px', fontWeight: '700', color: 'white', margin: '0 0 8px' }}>
+                No active competitions
+              </h3>
+              <p style={{ color: '#4b5563', fontSize: '14px' }}>
+                Be the first to create a competition and bring the heat!
+              </p>
+            </div>
+          ) : (
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+              gap: '14px',
+            }}>
+              {competitions.map((comp, i) => (
+                <CompetitionCard key={comp.id} competition={comp} index={i} />
+              ))}
+            </div>
+          )}
         </section>
 
         {/* ─── SESSIONS ─── */}
@@ -577,8 +622,8 @@ export const Dashboard: React.FC = () => {
               background: 'rgba(14,14,20,0.9)',
               backdropFilter: 'blur(24px)',
               border: '1px solid rgba(255,255,255,0.05)',
-              borderRadius: '20px',
-              padding: '60px 20px',
+              borderRadius: '16px',
+              padding: '40px',
               textAlign: 'center',
             }}>
               <div style={{ fontSize: '40px', marginBottom: '12px' }}>🏟️</div>
@@ -592,7 +637,7 @@ export const Dashboard: React.FC = () => {
                 to="/create-session"
                 style={{
                   display: 'inline-block',
-                  marginTop: '16px',
+                  marginTop: '12px',
                   padding: '10px 24px',
                   background: 'linear-gradient(135deg, #c8a200, #FFD700)',
                   color: '#0a0a0a',
@@ -632,16 +677,13 @@ export const Dashboard: React.FC = () => {
               animation: 'pulse 2s ease-in-out infinite',
             }} />
             <span style={{ color: '#374151', fontSize: '11px', fontWeight: '500', letterSpacing: '0.06em' }}>
-              TEAMSYNK · PREMIUM · v2.0
+              TEAMSYNK · UNIVERSITY SPORTS NETWORK
             </span>
           </div>
         </div>
       </div>
 
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-        * { box-sizing: border-box; }
-
         @keyframes spin {
           from { transform: rotate(0deg); }
           to   { transform: rotate(360deg); }
@@ -654,49 +696,7 @@ export const Dashboard: React.FC = () => {
           from { opacity: 0; transform: translateY(16px); }
           to   { opacity: 1; transform: translateY(0); }
         }
-        @keyframes floatBlob {
-          0%, 100% { transform: translateY(0px) scale(1); }
-          50%       { transform: translateY(-30px) scale(1.05); }
-        }
       `}</style>
-    </div>
-  )
-}
-
-// ─── Stat Card ──────────────────────────────────────────────────────────────
-function StatCard({ label, value, icon }: { label: string; value: number; icon: string }) {
-  return (
-    <div style={{
-      background: 'rgba(14,14,20,0.9)',
-      backdropFilter: 'blur(24px)',
-      border: '1px solid rgba(255,255,255,0.05)',
-      borderRadius: '16px',
-      padding: '20px',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '14px',
-    }}>
-      <div style={{
-        width: '44px',
-        height: '44px',
-        borderRadius: '12px',
-        background: 'rgba(200,162,0,0.08)',
-        border: '1px solid rgba(200,162,0,0.1)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontSize: '20px',
-      }}>
-        {icon}
-      </div>
-      <div>
-        <div style={{ fontSize: '24px', fontWeight: 'bold', color: 'white' }}>
-          {value}
-        </div>
-        <div style={{ fontSize: '12px', color: '#6b7280' }}>
-          {label}
-        </div>
-      </div>
     </div>
   )
 }
@@ -710,9 +710,7 @@ function SessionCard({ session, index }: { session: any; index: number }) {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        background: hovered
-          ? 'linear-gradient(135deg, rgba(26,26,34,0.98), rgba(22,20,28,0.98))'
-          : 'rgba(14,14,20,0.9)',
+        background: hovered ? 'rgba(24,24,32,0.98)' : 'rgba(14,14,20,0.9)',
         backdropFilter: 'blur(24px)',
         border: `1px solid ${hovered ? 'rgba(200,162,0,0.3)' : 'rgba(255,255,255,0.05)'}`,
         borderRadius: '16px',
