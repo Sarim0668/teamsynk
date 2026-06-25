@@ -1,836 +1,681 @@
-import React, { useEffect, useState, useRef } from 'react'
-import { Link } from 'react-router-dom'
+import React, { useState, useEffect, useRef } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 
-// ─── Sport config: icon + accent color ───────────────────────────────────────
-const SPORT_CONFIG: Record<string, { icon: string; color: string; glow: string }> = {
-  Football:    { icon: '⚽', color: '#22c55e',  glow: 'rgba(34,197,94,0.2)' },
-  Basketball:  { icon: '🏀', color: '#f97316',  glow: 'rgba(249,115,22,0.2)' },
-  Cricket:     { icon: '🏏', color: '#3b82f6',  glow: 'rgba(59,130,246,0.2)' },
-  Tennis:      { icon: '🎾', color: '#eab308',  glow: 'rgba(234,179,8,0.2)' },
-  Badminton:   { icon: '🏸', color: '#a855f7',  glow: 'rgba(168,85,247,0.2)' },
-  Volleyball:  { icon: '🏐', color: '#ec4899',  glow: 'rgba(236,72,153,0.2)' },
-  Swimming:    { icon: '🏊', color: '#06b6d4',  glow: 'rgba(6,182,212,0.2)' },
-  Running:     { icon: '🏃', color: '#f43f5e',  glow: 'rgba(244,63,94,0.2)' },
-  Cycling:     { icon: '🚴', color: '#10b981',  glow: 'rgba(16,185,129,0.2)' },
-  Hockey:      { icon: '🏑', color: '#8b5cf6',  glow: 'rgba(139,92,246,0.2)' },
-}
+const Messages: React.FC = () => {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState<any>(null)
+  const [conversations, setConversations] = useState<any[]>([])
+  const [selectedUser, setSelectedUser] = useState<any>(null)
+  const [messages, setMessages] = useState<any[]>([])
+  const [newMessage, setNewMessage] = useState('')
+  const [sending, setSending] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<any[]>([])
+  const [showSearch, setShowSearch] = useState(false)
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({})
+  const messagesEndRef = useRef<HTMLDivElement>(null)
 
-const getSport = (type: string) =>
-  SPORT_CONFIG[type] || { icon: '🎯', color: '#c8a200', glow: 'rgba(200,162,0,0.2)' }
-
-// ─── Format date nicely ───────────────────────────────────────────────────────
-function formatDate(dateStr: string) {
-  const d = new Date(dateStr + 'T00:00:00')
-  const today = new Date(); today.setHours(0,0,0,0)
-  const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1)
-  if (d.getTime() === today.getTime()) return 'Today'
-  if (d.getTime() === tomorrow.getTime()) return 'Tomorrow'
-  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-}
-
-// ─── Capacity color ───────────────────────────────────────────────────────────
-function capacityColor(pct: number, isFull: boolean) {
-  if (isFull) return '#ef4444'
-  if (pct > 0.75) return '#f97316'
-  if (pct > 0.5) return '#eab308'
-  return '#22c55e'
-}
-
-// ─── Session Card ─────────────────────────────────────────────────────────────
-interface CardProps {
-  session: any
-  isCreator: boolean
-  hasJoined: boolean
-  isFull: boolean
-  currentCount: number
-  joiningId: string | null
-  leavingId: string | null
-  onJoin: (id: string) => void
-  onLeave: (id: string) => void
-  index: number
-}
-
-function SessionCard({
-  session, isCreator, hasJoined, isFull, currentCount,
-  joiningId, leavingId, onJoin, onLeave, index,
-}: CardProps) {
-  const [hovered, setHovered] = useState(false)
-  const sport = getSport(session.sport_type)
-  const pct = currentCount / session.max_participants
-  const spotsLeft = session.max_participants - currentCount
-  const isJoining = joiningId === session.id
-  const isLeaving = leavingId === session.id
-  const canJoin = !isCreator && !isFull && !hasJoined
-
-  return (
-    <div
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        position: 'relative',
-        background: hovered
-          ? 'linear-gradient(135deg, rgba(26,26,34,0.98), rgba(22,20,28,0.98))'
-          : 'rgba(14,14,20,0.92)',
-        backdropFilter: 'blur(28px)',
-        borderRadius: '20px',
-        border: `1px solid ${hovered
-          ? hasJoined ? 'rgba(34,197,94,0.35)' : 'rgba(200,162,0,0.3)'
-          : hasJoined ? 'rgba(34,197,94,0.15)' : 'rgba(255,255,255,0.06)'}`,
-        overflow: 'hidden',
-        transition: 'all 0.35s cubic-bezier(0.4,0,0.2,1)',
-        transform: hovered ? 'translateY(-4px)' : 'translateY(0)',
-        boxShadow: hovered
-          ? `0 24px 64px rgba(0,0,0,0.5), 0 0 0 1px rgba(200,162,0,0.08), 0 0 40px ${sport.glow}`
-          : '0 4px 24px rgba(0,0,0,0.4)',
-        animation: `fadeSlideUp 0.5s ease ${index * 60}ms both`,
-      }}
-    >
-      {/* Sport-keyed left accent stripe */}
-      <div style={{
-        position: 'absolute', left: 0, top: 0, bottom: 0, width: '3px',
-        background: `linear-gradient(180deg, ${sport.color}00 0%, ${sport.color} 40%, ${sport.color} 60%, ${sport.color}00 100%)`,
-        opacity: hovered ? 1 : 0.5,
-        transition: 'opacity 0.35s ease',
-      }} />
-
-      {/* Top shimmer line */}
-      <div style={{
-        position: 'absolute', top: 0, left: '3px', right: 0, height: '1px',
-        background: hovered
-          ? `linear-gradient(90deg, ${sport.color}40, rgba(200,162,0,0.3), transparent)`
-          : 'linear-gradient(90deg, rgba(255,255,255,0.04), transparent)',
-        transition: 'all 0.35s ease',
-      }} />
-
-      <div style={{ padding: '24px 24px 24px 28px' }}>
-        {/* ── Card Header ── */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            {/* Sport icon bubble */}
-            <div style={{
-              width: '44px', height: '44px', borderRadius: '12px', flexShrink: 0,
-              background: `linear-gradient(135deg, ${sport.color}18, ${sport.color}08)`,
-              border: `1px solid ${sport.color}30`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: '20px',
-              transition: 'all 0.3s ease',
-              transform: hovered ? 'scale(1.08) rotate(-4deg)' : 'scale(1) rotate(0)',
-              boxShadow: hovered ? `0 0 16px ${sport.color}30` : 'none',
-            }}>
-              {sport.icon}
-            </div>
-            <div>
-              <h3 style={{
-                fontSize: '17px', fontWeight: '800', color: 'white',
-                letterSpacing: '-0.02em', margin: 0, lineHeight: 1.1,
-                fontFamily: "'Inter', sans-serif",
-              }}>
-                {session.sport_type}
-              </h3>
-              <div style={{ display: 'flex', gap: '6px', marginTop: '5px', flexWrap: 'wrap' }}>
-                {isCreator && <StatusBadge label="Your Session" color="#c8a200" bg="rgba(200,162,0,0.1)" border="rgba(200,162,0,0.25)" />}
-                {hasJoined && <StatusBadge label="✓ Joined" color="#4ade80" bg="rgba(34,197,94,0.1)" border="rgba(34,197,94,0.25)" />}
-                {isFull && !isCreator && <StatusBadge label="● Full" color="#f87171" bg="rgba(239,68,68,0.1)" border="rgba(239,68,68,0.25)" />}
-                {!isFull && !isCreator && !hasJoined && spotsLeft <= 3 && (
-                  <StatusBadge label={`${spotsLeft} spot${spotsLeft > 1 ? 's' : ''} left`} color="#f97316" bg="rgba(249,115,22,0.1)" border="rgba(249,115,22,0.25)" />
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Date chip */}
-          <div style={{
-            padding: '6px 12px', borderRadius: '10px', textAlign: 'center',
-            background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)',
-            flexShrink: 0,
-          }}>
-            <div style={{ color: '#c8a200', fontSize: '10px', fontWeight: '800', letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: "'Inter', sans-serif" }}>
-              {formatDate(session.session_date)}
-            </div>
-            <div style={{ color: '#6b7280', fontSize: '13px', fontWeight: '600', fontFamily: "'Inter', sans-serif", marginTop: '1px' }}>
-              {session.session_time.substring(0, 5)}
-            </div>
-          </div>
-        </div>
-
-        {/* ── Meta row ── */}
-        <div style={{ display: 'flex', gap: '16px', marginBottom: '14px', flexWrap: 'wrap' }}>
-          <MetaItem icon="◉" color={sport.color} text={session.location} />
-          {session.description && (
-            <p style={{
-              color: '#4b5563', fontSize: '12px', lineHeight: '1.5',
-              margin: 0, width: '100%',
-              display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-              fontFamily: "'Inter', sans-serif",
-            }}>{session.description}</p>
-          )}
-        </div>
-
-        {/* ── Footer: participants + actions ── */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-          {/* Capacity section */}
-          <div style={{ flex: 1, minWidth: '120px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-              <span style={{ color: '#6b7280', fontSize: '11px', fontWeight: '600', letterSpacing: '0.05em', fontFamily: "'Inter', sans-serif" }}>
-                {currentCount} / {session.max_participants} players
-              </span>
-              {!isFull && spotsLeft > 0 && (
-                <span style={{ color: capacityColor(pct, isFull), fontSize: '11px', fontWeight: '700', fontFamily: "'Inter', sans-serif" }}>
-                  {spotsLeft} open
-                </span>
-              )}
-            </div>
-            <div style={{ height: '3px', background: 'rgba(255,255,255,0.05)', borderRadius: '99px', overflow: 'hidden' }}>
-              <div style={{
-                height: '100%',
-                width: `${Math.min(pct * 100, 100)}%`,
-                background: `linear-gradient(90deg, ${capacityColor(pct, isFull)}99, ${capacityColor(pct, isFull)})`,
-                borderRadius: '99px',
-                boxShadow: `0 0 8px ${capacityColor(pct, isFull)}60`,
-                transition: 'width 1.2s cubic-bezier(0.4,0,0.2,1)',
-              }} />
-            </div>
-          </div>
-
-          {/* WhatsApp link */}
-          {session.whatsapp_link && (
-            <a
-              href={session.whatsapp_link}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: '5px',
-                padding: '5px 12px', borderRadius: '8px',
-                background: 'rgba(37,211,102,0.08)', border: '1px solid rgba(37,211,102,0.2)',
-                color: '#25D366', fontSize: '11px', fontWeight: '700',
-                textDecoration: 'none', letterSpacing: '0.04em', fontFamily: "'Inter', sans-serif",
-                transition: 'all 0.2s ease',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(37,211,102,0.15)' }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(37,211,102,0.08)' }}
-            >
-              💬 WhatsApp
-            </a>
-          )}
-
-          {/* ─── View Details Button ─── */}
-          <Link
-            to={`/session/${session.id}`}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '10px 18px',
-              borderRadius: '12px',
-              background: hovered ? 'rgba(200,162,0,0.15)' : 'rgba(200,162,0,0.08)',
-              border: '1px solid rgba(200,162,0,0.2)',
-              color: '#c8a200',
-              fontSize: '12px',
-              fontWeight: '700',
-              textDecoration: 'none',
-              fontFamily: "'Inter', sans-serif",
-              transition: 'all 0.25s ease',
-              whiteSpace: 'nowrap',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'rgba(200,162,0,0.2)'
-              e.currentTarget.style.borderColor = 'rgba(200,162,0,0.4)'
-              e.currentTarget.style.transform = 'scale(1.05)'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'rgba(200,162,0,0.08)'
-              e.currentTarget.style.borderColor = 'rgba(200,162,0,0.2)'
-              e.currentTarget.style.transform = 'scale(1)'
-            }}
-          >
-            👁️ View Details
-          </Link>
-
-          {/* Action button */}
-          <ActionButton
-            canJoin={canJoin} hasJoined={hasJoined} isCreator={isCreator}
-            isFull={isFull} isJoining={isJoining} isLeaving={isLeaving}
-            onJoin={() => onJoin(session.id)}
-            onLeave={() => onLeave(session.id)}
-          />
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function StatusBadge({ label, color, bg, border }: { label: string; color: string; bg: string; border: string }) {
-  return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center',
-      padding: '2px 9px', borderRadius: '99px',
-      background: bg, border: `1px solid ${border}`,
-      color, fontSize: '10px', fontWeight: '800',
-      letterSpacing: '0.05em', fontFamily: "'Inter', sans-serif",
-    }}>{label}</span>
-  )
-}
-
-function MetaItem({ icon, color, text }: { icon: string; color: string; text: string }) {
-  return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: '#9ca3af', fontSize: '13px', fontFamily: "'Inter', sans-serif" }}>
-      <span style={{ color, fontSize: '11px' }}>{icon}</span>
-      {text}
-    </span>
-  )
-}
-
-function ActionButton({ canJoin, hasJoined, isCreator, isFull, isJoining, isLeaving, onJoin, onLeave }: {
-  canJoin: boolean; hasJoined: boolean; isCreator: boolean; isFull: boolean
-  isJoining: boolean; isLeaving: boolean; onJoin: () => void; onLeave: () => void
-}) {
-  const [hovered, setHovered] = useState(false)
-
-  if (canJoin) {
-    return (
-      <button
-        onClick={onJoin}
-        disabled={isJoining}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-        style={{
-          padding: '10px 22px', borderRadius: '12px', border: 'none', cursor: isJoining ? 'not-allowed' : 'pointer',
-          background: isJoining ? 'rgba(200,162,0,0.4)' : hovered
-            ? 'linear-gradient(135deg, #c8a200, #FFD700)'
-            : 'linear-gradient(135deg, #b89200, #e8b800)',
-          color: '#0a0a0a', fontSize: '13px', fontWeight: '800',
-          letterSpacing: '0.03em', fontFamily: "'Inter', sans-serif",
-          transform: hovered && !isJoining ? 'scale(1.04) translateY(-1px)' : 'scale(1)',
-          boxShadow: hovered && !isJoining ? '0 0 24px rgba(200,162,0,0.5), 0 4px 16px rgba(200,162,0,0.3)' : '0 0 12px rgba(200,162,0,0.2)',
-          transition: 'all 0.25s cubic-bezier(0.4,0,0.2,1)',
-          whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '6px',
-        }}
-      >
-        {isJoining ? (
-          <><Spinner /> Joining…</>
-        ) : 'Join Session'}
-      </button>
-    )
-  }
-
-  if (hasJoined) {
-    return (
-      <button
-        onClick={onLeave}
-        disabled={isLeaving}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-        style={{
-          padding: '10px 22px', borderRadius: '12px',
-          background: hovered ? 'rgba(239,68,68,0.12)' : 'transparent',
-          border: `1px solid ${hovered ? 'rgba(239,68,68,0.5)' : 'rgba(239,68,68,0.25)'}`,
-          color: hovered ? '#f87171' : '#ef4444',
-          fontSize: '13px', fontWeight: '700', fontFamily: "'Inter', sans-serif",
-          cursor: isLeaving ? 'not-allowed' : 'pointer',
-          transition: 'all 0.25s ease', whiteSpace: 'nowrap',
-          display: 'inline-flex', alignItems: 'center', gap: '6px',
-        }}
-      >
-        {isLeaving ? <><Spinner color="#ef4444" /> Leaving…</> : 'Leave'}
-      </button>
-    )
-  }
-
-  if (isCreator) {
-    return (
-      <span style={{
-        padding: '10px 18px', borderRadius: '12px',
-        background: 'rgba(200,162,0,0.06)', border: '1px solid rgba(200,162,0,0.15)',
-        color: '#c8a200', fontSize: '12px', fontWeight: '700',
-        fontFamily: "'Inter', sans-serif", letterSpacing: '0.04em', whiteSpace: 'nowrap',
-      }}>
-        ✦ Your Session
-      </span>
-    )
-  }
-
-  if (isFull) {
-    return (
-      <span style={{
-        padding: '10px 18px', borderRadius: '12px',
-        background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.15)',
-        color: '#6b7280', fontSize: '12px', fontWeight: '600',
-        fontFamily: "'Inter', sans-serif", whiteSpace: 'nowrap',
-      }}>
-        Session Full
-      </span>
-    )
-  }
-
-  return null
-}
-
-function Spinner({ color = '#0a0a0a' }: { color?: string }) {
-  return (
-    <div style={{
-      width: '13px', height: '13px', borderRadius: '50%',
-      border: `2px solid ${color}30`, borderTopColor: color,
-      animation: 'spin 0.7s linear infinite', flexShrink: 0,
-    }} />
-  )
-}
-
-// ─── Empty state ──────────────────────────────────────────────────────────────
-function EmptyState() {
-  return (
-    <div style={{
-      background: 'rgba(12,12,18,0.9)', backdropFilter: 'blur(32px)',
-      border: '1px solid rgba(255,255,255,0.05)', borderRadius: '24px',
-      padding: '80px 40px', textAlign: 'center', position: 'relative', overflow: 'hidden',
-    }}>
-      <div style={{
-        position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
-        width: '300px', height: '300px', borderRadius: '50%',
-        background: 'rgba(200,162,0,0.04)', filter: 'blur(60px)', pointerEvents: 'none',
-      }} />
-      <div style={{
-        position: 'relative',
-        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        width: '72px', height: '72px', borderRadius: '20px',
-        background: 'rgba(200,162,0,0.08)', border: '1px solid rgba(200,162,0,0.15)',
-        fontSize: '36px', marginBottom: '20px',
-      }}>🏟️</div>
-      <h3 style={{ fontSize: '20px', fontWeight: '800', color: 'white', margin: '0 0 8px', letterSpacing: '-0.02em', fontFamily: "'Inter', sans-serif" }}>
-        No sessions yet
-      </h3>
-      <p style={{ color: '#4b5563', fontSize: '14px', margin: '0 0 28px', lineHeight: 1.5, fontFamily: "'Inter', sans-serif" }}>
-        The arena is quiet. Be the first to kick things off.
-      </p>
-      <Link to="/create-session" style={{
-        display: 'inline-flex', alignItems: 'center', gap: '8px',
-        padding: '12px 28px', background: 'linear-gradient(135deg, #c8a200, #FFD700)',
-        color: '#0a0a0a', fontWeight: '800', fontSize: '13px',
-        letterSpacing: '0.04em', textTransform: 'uppercase',
-        borderRadius: '12px', textDecoration: 'none',
-        boxShadow: '0 4px 24px rgba(200,162,0,0.3)',
-        fontFamily: "'Inter', sans-serif",
-      }}>
-        ➕ Create Session
-      </Link>
-    </div>
-  )
-}
-
-// ─── Live stats banner ────────────────────────────────────────────────────────
-function HeroStats({ sessions, participants }: { sessions: any[]; participants: Record<string, number> }) {
-  const totalSessions = sessions.length
-  const totalSpots = sessions.reduce((a, s) => a + (s.max_participants - (participants[s.id] || 0)), 0)
-  const sports = new Set(sessions.map(s => s.sport_type)).size
-
-  const stats = [
-    { label: 'Live Sessions', value: totalSessions, icon: '⚡' },
-    { label: 'Open Spots',    value: totalSpots,    icon: '🎯' },
-    { label: 'Sports',        value: sports,        icon: '🏟️' },
-  ]
-
-  return (
-    <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginTop: '24px' }}>
-      {stats.map((s, i) => (
-        <div key={s.label} style={{
-          display: 'inline-flex', alignItems: 'center', gap: '10px',
-          padding: '10px 18px', borderRadius: '12px',
-          background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)',
-          animation: `fadeSlideUp 0.5s ease ${200 + i * 60}ms both`,
-        }}>
-          <span style={{ fontSize: '16px' }}>{s.icon}</span>
-          <div>
-            <div style={{ fontSize: '18px', fontWeight: '800', color: 'white', lineHeight: 1, fontFamily: "'Inter', sans-serif", letterSpacing: '-0.03em' }}>
-              {s.value}
-            </div>
-            <div style={{ fontSize: '10px', color: '#4b5563', fontWeight: '600', letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: "'Inter', sans-serif" }}>
-              {s.label}
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-// ─── Message banner ───────────────────────────────────────────────────────────
-function MessageBanner({ message }: { message: { text: string; type: 'success' | 'error' | 'info' } }) {
-  const cfg = {
-    success: { bg: 'rgba(34,197,94,0.08)',  border: 'rgba(34,197,94,0.2)',  color: '#4ade80', icon: '✓' },
-    error:   { bg: 'rgba(239,68,68,0.08)',  border: 'rgba(239,68,68,0.2)',  color: '#f87171', icon: '✕' },
-    info:    { bg: 'rgba(200,162,0,0.08)',  border: 'rgba(200,162,0,0.2)',  color: '#c8a200', icon: 'ℹ' },
-  }[message.type]
-
-  return (
-    <div style={{
-      padding: '14px 20px', borderRadius: '14px', marginBottom: '20px',
-      background: cfg.bg, border: `1px solid ${cfg.border}`,
-      color: cfg.color, fontSize: '13px', fontWeight: '600',
-      display: 'flex', alignItems: 'center', gap: '10px',
-      animation: 'fadeSlideUp 0.3s ease both',
-      fontFamily: "'Inter', sans-serif",
-    }}>
-      <span style={{ fontSize: '15px', flexShrink: 0 }}>{cfg.icon}</span>
-      {message.text}
-    </div>
-  )
-}
-
-// ─── Loading screen ───────────────────────────────────────────────────────────
-function LoadingScreen() {
-  return (
-    <div style={{
-      minHeight: '100vh', background: '#0D0D0F',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-    }}>
-      <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
-        <div style={{ position: 'relative', width: '52px', height: '52px' }}>
-          <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '2px solid rgba(200,162,0,0.12)' }} />
-          <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '2px solid transparent', borderTopColor: '#c8a200', animation: 'spin 0.8s linear infinite' }} />
-          <div style={{ position: 'absolute', inset: '10px', borderRadius: '50%', background: 'rgba(200,162,0,0.08)', animation: 'pulse 1.6s ease-in-out infinite' }} />
-        </div>
-        <div>
-          <p style={{ color: '#e5e7eb', fontSize: '14px', fontWeight: '600', margin: '0 0 4px', fontFamily: "'Inter', sans-serif" }}>Finding sessions</p>
-          <p style={{ color: '#374151', fontSize: '12px', margin: 0, letterSpacing: '0.06em', fontFamily: "'Inter', sans-serif" }}>Scanning your area…</p>
-        </div>
-      </div>
-      <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}} @keyframes pulse{0%,100%{opacity:0.5;transform:scale(0.95)}50%{opacity:1;transform:scale(1.05)}}`}</style>
-    </div>
-  )
-}
-
-// ─── Create session button ────────────────────────────────────────────────────
-function CreateSessionButton() {
-  const [hovered, setHovered] = useState(false)
-  return (
-    <Link
-      to="/create-session"
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        display: 'inline-flex', alignItems: 'center', gap: '7px',
-        padding: '12px 24px', borderRadius: '14px', textDecoration: 'none',
-        background: hovered ? 'linear-gradient(135deg, #c8a200, #FFD700)' : 'linear-gradient(135deg, #b89200, #d4a500)',
-        color: '#0a0a0a', fontSize: '13px', fontWeight: '800',
-        letterSpacing: '0.03em', fontFamily: "'Inter', sans-serif",
-        transform: hovered ? 'scale(1.04) translateY(-1px)' : 'scale(1)',
-        boxShadow: hovered ? '0 0 32px rgba(200,162,0,0.55), 0 8px 24px rgba(200,162,0,0.3)' : '0 0 16px rgba(200,162,0,0.2)',
-        transition: 'all 0.28s cubic-bezier(0.4,0,0.2,1)',
-        whiteSpace: 'nowrap', flexShrink: 0,
-        position: 'relative', overflow: 'hidden',
-      }}
-    >
-      <span style={{
-        position: 'absolute', top: 0, left: '-100%', width: '60%', height: '100%',
-        background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent)',
-        animation: 'shimmerSweep 2.4s ease-in-out infinite', pointerEvents: 'none',
-      }} />
-      ➕ Create Session
-      <style>{`@keyframes shimmerSweep{0%{left:-100%}60%{left:150%}100%{left:150%}}`}</style>
-    </Link>
-  )
-}
-
-// ─── Main page ────────────────────────────────────────────────────────────────
-export const BrowseSessions: React.FC = () => {
-  const [sessions, setSessions]             = useState<any[]>([])
-  const [loading, setLoading]               = useState(true)
-  const [user, setUser]                     = useState<any>(null)
-  const [participants, setParticipants]     = useState<Record<string, number>>({})
-  const [joinedSessions, setJoinedSessions] = useState<Set<string>>(new Set())
-  const [joiningId, setJoiningId]           = useState<string | null>(null)
-  const [leavingId, setLeavingId]           = useState<string | null>(null)
-  const [message, setMessage]               = useState<{ text: string; type: 'success' | 'error' | 'info' } | null>(null)
-
-  // ─── Function to delete expired sessions ──────────────────────────────────
-  const deleteExpiredSessions = async () => {
-    const today = new Date().toISOString().split('T')[0]
-    const now = new Date().toTimeString().slice(0, 5) // HH:MM format
+  // ─── Check for selected user from navigation ──────────────────────────────
+  useEffect(() => {
+    const state = location.state as any
+    console.log('📍 Location state:', state)
     
-    console.log(`🗑️ Checking for expired sessions (date: ${today}, time: ${now})`)
-    
-    // First, get all expired sessions
-    const { data: expiredSessions, error: fetchError } = await supabase
-      .from('sports_sessions')
-      .select('id')
-      .lt('session_date', today)
-
-    if (fetchError) {
-      console.error('❌ Error fetching expired sessions:', fetchError)
-      return
+    if (state?.selectedUser) {
+      console.log('✅ SELECTED USER FOUND:', state.selectedUser)
+      setSelectedUser(state.selectedUser)
     }
+  }, [location])
 
-    if (expiredSessions && expiredSessions.length > 0) {
-      console.log(`🗑️ Found ${expiredSessions.length} expired sessions to delete`)
-      
-      // Delete expired sessions
-      const { error: deleteError } = await supabase
-        .from('sports_sessions')
-        .delete()
-        .lt('session_date', today)
+  // ─── Load user and conversations ───────────────────────────────────────────
+  useEffect(() => {
+    loadUserAndConversations()
+  }, [])
 
-      if (deleteError) {
-        console.error('❌ Error deleting expired sessions:', deleteError)
-      } else {
-        console.log(`✅ Deleted ${expiredSessions.length} expired sessions`)
-      }
+  // ─── Load messages when selectedUser changes ──────────────────────────────
+  useEffect(() => {
+    if (selectedUser && selectedUser.id && user) {
+      console.log('🔄 Loading messages for:', selectedUser.full_name)
+      loadMessages(selectedUser.id)
+      markMessagesAsRead(selectedUser.id)
+      refreshUnreadCount()
+      loadUnreadCounts()
     }
+  }, [selectedUser, user])
 
-    // Also delete sessions that are today but already passed the time
-    const { data: todayExpired, error: todayFetchError } = await supabase
-      .from('sports_sessions')
-      .select('id')
-      .eq('session_date', today)
-      .lt('session_time', now)
-
-    if (todayFetchError) {
-      console.error('❌ Error fetching today\'s expired sessions:', todayFetchError)
-      return
+  // ─── Scroll to bottom when messages change ────────────────────────────────
+  useEffect(() => {
+    if (messages.length > 0) {
+      scrollToBottom()
     }
+  }, [messages])
 
-    if (todayExpired && todayExpired.length > 0) {
-      console.log(`🗑️ Found ${todayExpired.length} today's expired sessions to delete`)
-      
-      const { error: todayDeleteError } = await supabase
-        .from('sports_sessions')
-        .delete()
-        .eq('session_date', today)
-        .lt('session_time', now)
+  // ─── Refresh unread counts periodically ────────────────────────────────────
+  useEffect(() => {
+    if (user) {
+      loadUnreadCounts()
+      const interval = setInterval(() => {
+        loadUnreadCounts()
+      }, 5000)
+      return () => clearInterval(interval)
+    }
+  }, [user])
 
-      if (todayDeleteError) {
-        console.error('❌ Error deleting today\'s expired sessions:', todayDeleteError)
-      } else {
-        console.log(`✅ Deleted ${todayExpired.length} today's expired sessions`)
-      }
+  const refreshUnreadCount = async () => {
+    window.dispatchEvent(new CustomEvent('refreshUnreadCount'))
+  }
+
+  // ─── Load unread counts for all conversations ─────────────────────────────
+  const loadUnreadCounts = async () => {
+    if (!user) return
+
+    const { data, error } = await supabase
+      .from('messages')
+      .select('sender_id, id')
+      .eq('receiver_id', user.id)
+      .eq('is_read', false)
+
+    if (!error && data) {
+      const counts: Record<string, number> = {}
+      data.forEach((msg: any) => {
+        const senderId = msg.sender_id
+        counts[senderId] = (counts[senderId] || 0) + 1
+      })
+      setUnreadCounts(counts)
+      window.dispatchEvent(new CustomEvent('refreshUnreadCount'))
     }
   }
 
-  const loadData = async () => {
+  const loadUserAndConversations = async () => {
     setLoading(true)
-    setMessage(null)
-
-    // ─── FIRST: Delete expired sessions ──────────────────────────────────────
-    await deleteExpiredSessions()
-
     const { data: { user: currentUser } } = await supabase.auth.getUser()
+    if (!currentUser) {
+      navigate('/login')
+      return
+    }
     setUser(currentUser)
 
-    const today = new Date().toISOString().split('T')[0]
-    const { data: sessionsData, error: sessionsError } = await supabase
-      .from('sports_sessions')
-      .select('*')
-      .gte('session_date', today)
-      .order('session_date', { ascending: true })
-      .order('session_time', { ascending: true })
+    const { data: messagesData, error } = await supabase
+      .from('messages')
+      .select('sender_id, receiver_id, created_at')
+      .or(`sender_id.eq.${currentUser.id},receiver_id.eq.${currentUser.id}`)
+      .order('created_at', { ascending: false })
 
-    if (sessionsError) { 
-      console.error(sessionsError)
-      setLoading(false)
-      return 
-    }
-    
-    setSessions(sessionsData || [])
-
-    if (sessionsData && sessionsData.length > 0) {
-      const counts: Record<string, number> = {}
-      const joined: Set<string> = new Set()
-      for (const session of sessionsData) {
-        const { count } = await supabase
-          .from('session_participants')
-          .select('*', { count: 'exact', head: true })
-          .eq('session_id', session.id)
-        counts[session.id] = count || 0
-        if (currentUser) {
-          const { data: joinedData } = await supabase
-            .from('session_participants')
-            .select('*')
-            .eq('session_id', session.id)
-            .eq('user_id', currentUser.id)
-          if (joinedData && joinedData.length > 0) joined.add(session.id)
+    if (!error && messagesData) {
+      const uniqueUserIds = new Set()
+      const latestMessages: Record<string, any> = {}
+      
+      messagesData.forEach((msg: any) => {
+        const otherId = msg.sender_id === currentUser.id ? msg.receiver_id : msg.sender_id
+        if (otherId) {
+          uniqueUserIds.add(otherId)
+          if (!latestMessages[otherId] || msg.created_at > latestMessages[otherId].created_at) {
+            latestMessages[otherId] = msg
+          }
         }
-      }
-      setParticipants(counts)
-      setJoinedSessions(joined)
+      })
+
+      const userPromises = Array.from(uniqueUserIds).map(async (userId) => {
+        const { data } = await supabase
+          .from('users')
+          .select('id, full_name, sport_interests, location, role, avatar_url')
+          .eq('id', userId)
+          .single()
+        return data
+      })
+
+      const users = (await Promise.all(userPromises)).filter(Boolean)
+      
+      const usersWithLatest = users.map((u: any) => ({
+        ...u,
+        lastMessageAt: latestMessages[u.id]?.created_at || null
+      }))
+      
+      usersWithLatest.sort((a: any, b: any) => {
+        if (!a.lastMessageAt) return 1
+        if (!b.lastMessageAt) return -1
+        return new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime()
+      })
+      
+      setConversations(usersWithLatest)
+      setTimeout(() => loadUnreadCounts(), 100)
     }
+
     setLoading(false)
   }
 
-  useEffect(() => {
-    loadData()
-  }, [])
-
-  // ─── Auto-refresh every 60 seconds to clean up expired sessions ──────────
-  useEffect(() => {
-    const interval = setInterval(() => {
-      console.log('🔄 Auto-refreshing sessions...')
-      loadData()
-    }, 60000) // Every 60 seconds
-
-    return () => clearInterval(interval)
-  }, [])
-
-  const handleJoin = async (sessionId: string) => {
-    if (!user) { setMessage({ text: 'Please login first', type: 'error' }); return }
-    setJoiningId(sessionId)
-    const session = sessions.find(s => s.id === sessionId)
-    if (!session) { setJoiningId(null); return }
-    if (joinedSessions.has(sessionId)) { setMessage({ text: 'You already joined this session', type: 'info' }); setJoiningId(null); return }
-    if (session.created_by === user.id) { setMessage({ text: 'You cannot join your own session', type: 'error' }); setJoiningId(null); return }
-    const currentCount = participants[sessionId] || 0
-    if (currentCount >= session.max_participants) { setMessage({ text: 'This session is full', type: 'error' }); setJoiningId(null); return }
-    const { error } = await supabase.from('session_participants').insert({ session_id: sessionId, user_id: user.id })
-    if (error) { setMessage({ text: 'Failed to join: ' + error.message, type: 'error' }) }
-    else { setMessage({ text: 'You have joined the session', type: 'success' }); await loadData() }
-    setJoiningId(null)
-  }
-
-  const handleLeave = async (sessionId: string) => {
+  const loadMessages = async (otherUserId: string) => {
     if (!user) return
-    if (!window.confirm('Are you sure you want to leave this session?')) return
-    setLeavingId(sessionId)
-    const { error } = await supabase.from('session_participants').delete().eq('session_id', sessionId).eq('user_id', user.id)
-    if (error) { setMessage({ text: 'Failed to leave: ' + error.message, type: 'error' }) }
-    else { setMessage({ text: 'You have left the session', type: 'success' }); await loadData() }
-    setLeavingId(null)
+    
+    const { data, error } = await supabase
+      .from('messages')
+      .select('*')
+      .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
+      .or(`sender_id.eq.${otherUserId},receiver_id.eq.${otherUserId}`)
+      .order('created_at', { ascending: true })
+
+    if (!error && data) {
+      setMessages(data)
+    }
   }
 
-  if (loading) return <LoadingScreen />
+  const markMessagesAsRead = async (otherUserId: string) => {
+    if (!user || !user.id) return
+    
+    const { error } = await supabase
+      .from('messages')
+      .update({ is_read: true })
+      .eq('receiver_id', user.id)
+      .eq('sender_id', otherUserId)
+      .eq('is_read', false)
+
+    if (!error) {
+      setUnreadCounts(prev => ({
+        ...prev,
+        [otherUserId]: 0
+      }))
+      setTimeout(() => loadUnreadCounts(), 200)
+      refreshUnreadCount()
+    }
+  }
+
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || !selectedUser || !selectedUser.id || sending) return
+    if (!user || !user.id) {
+      alert('Please login first')
+      return
+    }
+
+    setSending(true)
+
+    const { error } = await supabase
+      .from('messages')
+      .insert({
+        sender_id: user.id,
+        receiver_id: selectedUser.id,
+        message_text: newMessage.trim()
+      })
+
+    if (error) {
+      alert('❌ Failed to send message: ' + error.message)
+    } else {
+      setNewMessage('')
+      await loadMessages(selectedUser.id)
+      scrollToBottom()
+      refreshUnreadCount()
+    }
+    setSending(false)
+  }
+
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) {
+      setSearchResults([])
+      return
+    }
+
+    const { data, error } = await supabase
+      .from('users')
+      .select('id, full_name, sport_interests, location, role')
+      .ilike('full_name', `%${searchQuery}%`)
+      .neq('id', user.id)
+      .limit(10)
+
+    if (!error && data) {
+      setSearchResults(data)
+      setShowSearch(true)
+    }
+  }
+
+  const startNewConversation = (userData: any) => {
+    setSelectedUser(userData)
+    setShowSearch(false)
+    setSearchQuery('')
+    setSearchResults([])
+    if (!conversations.find((c: any) => c?.id === userData.id)) {
+      setConversations(prev => [userData, ...prev])
+    }
+  }
+
+  const scrollToBottom = () => {
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }, 100)
+  }
+
+  const formatTime = (dateStr: string) => {
+    const date = new Date(dateStr)
+    const now = new Date()
+    const diff = now.getTime() - date.getTime()
+    if (diff < 86400000) {
+      return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+    }
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  }
+
+  if (loading) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: '#0D0D0F',
+        color: 'white',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{
+            width: '48px',
+            height: '48px',
+            border: '4px solid #c8a200',
+            borderTopColor: 'transparent',
+            borderRadius: '50%',
+            margin: '0 auto 16px',
+            animation: 'spin 1s linear infinite'
+          }} />
+          <p style={{ color: '#666' }}>Loading messages...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div style={{
-      minHeight: '100vh', background: '#0D0D0F', color: 'white',
-      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-      position: 'relative', overflowX: 'hidden',
+      minHeight: '100vh',
+      background: '#0D0D0F',
+      color: 'white',
+      display: 'flex',
+      position: 'relative'
     }}>
-      {/* ── Ambient background ── */}
-      <div style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none',
-        background: 'radial-gradient(ellipse 80% 50% at 50% -5%, rgba(200,162,0,0.06) 0%, transparent 65%)' }} />
-      <div style={{ position: 'fixed', top: '25%', right: '-18%', width: '650px', height: '650px',
-        borderRadius: '50%', background: 'rgba(200,162,0,0.025)', filter: 'blur(120px)',
-        zIndex: 0, pointerEvents: 'none', animation: 'floatBlob 15s ease-in-out infinite' }} />
-      <div style={{ position: 'fixed', bottom: '-10%', left: '-12%', width: '550px', height: '550px',
-        borderRadius: '50%', background: 'rgba(59,130,246,0.025)', filter: 'blur(100px)',
-        zIndex: 0, pointerEvents: 'none', animation: 'floatBlob 19s ease-in-out infinite 5s' }} />
+      <div style={{
+        position: 'fixed', inset: 0, zIndex: 0,
+        background: 'radial-gradient(ellipse 70% 45% at 50% -5%, rgba(200,162,0,0.05) 0%, transparent 65%)',
+        pointerEvents: 'none',
+      }} />
 
-      <div style={{ maxWidth: '860px', margin: '0 auto', padding: '40px 24px 80px', position: 'relative', zIndex: 1 }}>
+      {/* ─── LEFT PANEL: Conversations ─── */}
+      <div style={{
+        width: '340px',
+        minWidth: '340px',
+        background: 'rgba(10,10,16,0.95)',
+        backdropFilter: 'blur(20px)',
+        borderRight: '1px solid rgba(255,255,255,0.05)',
+        display: 'flex',
+        flexDirection: 'column',
+        position: 'relative',
+        zIndex: 1
+      }}>
+        <div style={{ padding: '20px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+          <h2 style={{ color: '#FFD700', fontSize: '20px', margin: 0 }}>💬 Messages</h2>
+        </div>
 
-        {/* ══════════ HERO ══════════ */}
-        <section style={{ marginBottom: '48px', animation: 'fadeSlideUp 0.55s ease both' }}>
-          {/* Eyebrow */}
-          <div style={{
-            display: 'inline-flex', alignItems: 'center', gap: '8px',
-            padding: '5px 14px 5px 8px',
-            background: 'rgba(200,162,0,0.08)', border: '1px solid rgba(200,162,0,0.18)',
-            borderRadius: '99px', marginBottom: '20px',
-          }}>
-            <span style={{
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              width: '18px', height: '18px', borderRadius: '50%',
-              background: 'rgba(200,162,0,0.2)', fontSize: '10px',
-            }}>⚡</span>
-            <span style={{ color: '#c8a200', fontSize: '11px', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: "'Inter', sans-serif" }}>
-              Live Now
-            </span>
+        <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value)
+                if (!e.target.value) {
+                  setShowSearch(false)
+                  setSearchResults([])
+                }
+              }}
+              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              placeholder="Search for a player..."
+              style={{
+                flex: 1,
+                padding: '8px 12px',
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: '10px',
+                color: 'white',
+                fontSize: '13px',
+                outline: 'none'
+              }}
+            />
+            <button
+              onClick={handleSearch}
+              style={{
+                padding: '8px 16px',
+                background: '#c8a200',
+                border: 'none',
+                borderRadius: '10px',
+                color: '#0a0a0a',
+                fontWeight: 'bold',
+                cursor: 'pointer'
+              }}
+            >
+              🔍
+            </button>
           </div>
 
-          {/* Headline */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '16px' }}>
-            <div>
-              <h1 style={{
-                fontSize: 'clamp(30px, 5vw, 50px)', fontWeight: '900',
-                letterSpacing: '-0.04em', lineHeight: 1.05,
-                color: 'white', margin: '0 0 10px',
-                fontFamily: "'Inter', sans-serif",
-              }}>
-                Find Your{' '}
-                <span style={{
-                  background: 'linear-gradient(135deg, #c8a200 0%, #FFD700 50%, #e8b800 100%)',
-                  WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
-                  display: 'inline-block',
-                }}>Next Game</span>
-              </h1>
-              <p style={{ color: '#4b5563', fontSize: '15px', margin: 0, lineHeight: 1.5, maxWidth: '400px', fontFamily: "'Inter', sans-serif" }}>
-                Upcoming sessions in your area — join one or create your own.
-              </p>
+          {showSearch && searchResults.length > 0 && (
+            <div style={{
+              marginTop: '8px',
+              background: 'rgba(20,20,30,0.95)',
+              borderRadius: '10px',
+              border: '1px solid rgba(255,255,255,0.05)',
+              maxHeight: '200px',
+              overflow: 'auto'
+            }}>
+              {searchResults.map((result) => (
+                <div
+                  key={result.id}
+                  onClick={() => startNewConversation(result)}
+                  style={{
+                    padding: '10px 12px',
+                    borderBottom: '1px solid rgba(255,255,255,0.03)',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px'
+                  }}
+                >
+                  <div style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '50%',
+                    background: 'linear-gradient(135deg, #c8a200, #FFD700)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '14px',
+                    fontWeight: 'bold',
+                    color: '#0a0a0a'
+                  }}>
+                    {result.full_name.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <div style={{ color: 'white', fontWeight: '600', fontSize: '13px' }}>
+                      {result.full_name}
+                    </div>
+                    <div style={{ color: '#666', fontSize: '11px' }}>
+                      {result.sport_interests || 'Player'}
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
+          )}
+        </div>
 
-            {/* CTA */}
-            <CreateSessionButton />
-          </div>
-
-          {/* Live stats */}
-          {sessions.length > 0 && <HeroStats sessions={sessions} participants={participants} />}
-        </section>
-
-        {/* ══════════ MESSAGE ══════════ */}
-        {message && <MessageBanner message={message} />}
-
-        {/* ══════════ SESSION LIST ══════════ */}
-        {sessions.length === 0 ? (
-          <EmptyState />
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            {/* Section label */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
-              <div style={{ width: '16px', height: '1px', background: 'rgba(200,162,0,0.4)' }} />
-              <span style={{ color: '#374151', fontSize: '10px', fontWeight: '700', letterSpacing: '0.14em', textTransform: 'uppercase', fontFamily: "'Inter', sans-serif" }}>
-                {sessions.length} Session{sessions.length !== 1 ? 's' : ''} Available
-              </span>
-              <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.04)' }} />
+        <div style={{ flex: 1, overflow: 'auto', padding: '8px' }}>
+          {conversations.length === 0 ? (
+            <div style={{ textAlign: 'center', color: '#444', padding: '40px 20px' }}>
+              <div style={{ fontSize: '40px', marginBottom: '12px' }}>💬</div>
+              <p style={{ fontSize: '14px' }}>No conversations yet</p>
             </div>
-
-            {sessions.map((session, i) => {
-              const isCreator = session.created_by === user?.id
-              const currentCount = participants[session.id] || 0
-              const isFull = currentCount >= session.max_participants
-              const hasJoined = joinedSessions.has(session.id)
-
+          ) : (
+            conversations.map((conv: any) => {
+              const unreadCount = unreadCounts[conv.id] || 0
               return (
-                <SessionCard
-                  key={session.id}
-                  session={session}
-                  isCreator={isCreator}
-                  hasJoined={hasJoined}
-                  isFull={isFull}
-                  currentCount={currentCount}
-                  joiningId={joiningId}
-                  leavingId={leavingId}
-                  onJoin={handleJoin}
-                  onLeave={handleLeave}
-                  index={i}
-                />
+                <div
+                  key={conv?.id || Math.random().toString()}
+                  onClick={() => conv?.id && setSelectedUser(conv)}
+                  style={{
+                    padding: '12px',
+                    borderRadius: '12px',
+                    background: selectedUser?.id === conv?.id ? 'rgba(200,162,0,0.08)' : 'transparent',
+                    border: selectedUser?.id === conv?.id ? '1px solid rgba(200,162,0,0.2)' : '1px solid transparent',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    position: 'relative'
+                  }}
+                >
+                  <div style={{
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '50%',
+                    background: 'linear-gradient(135deg, #c8a200, #FFD700)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '16px',
+                    fontWeight: 'bold',
+                    color: '#0a0a0a',
+                    position: 'relative'
+                  }}>
+                    {conv?.full_name?.charAt(0)?.toUpperCase() || '?'}
+                    {unreadCount > 0 && (
+                      <span style={{
+                        position: 'absolute',
+                        top: '-4px',
+                        right: '-4px',
+                        minWidth: '18px',
+                        height: '18px',
+                        borderRadius: '50%',
+                        background: '#ef4444',
+                        color: 'white',
+                        fontSize: '9px',
+                        fontWeight: 'bold',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        border: '2px solid #0D0D0F',
+                        padding: '0 4px'
+                      }}>
+                        {unreadCount > 9 ? '9+' : unreadCount}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ 
+                      color: 'white', 
+                      fontWeight: unreadCount > 0 ? 'bold' : '500',
+                      fontSize: '14px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}>
+                      {conv?.full_name || 'Unknown'}
+                      {unreadCount > 0 && (
+                        <span style={{
+                          background: '#ef4444',
+                          color: 'white',
+                          fontSize: '10px',
+                          fontWeight: 'bold',
+                          padding: '1px 8px',
+                          borderRadius: '99px',
+                          minWidth: '20px',
+                          textAlign: 'center'
+                        }}>
+                          {unreadCount}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ 
+                      color: unreadCount > 0 ? '#FFD700' : '#666', 
+                      fontSize: '12px',
+                      fontWeight: unreadCount > 0 ? '600' : '400'
+                    }}>
+                      {conv?.sport_interests || conv?.role || 'Player'}
+                      {unreadCount > 0 && (
+                        <span style={{ marginLeft: '6px', color: '#ef4444' }}>●</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
               )
-            })}
-          </div>
-        )}
-
-        {/* Footer */}
-        <div style={{ marginTop: '60px', display: 'flex', justifyContent: 'center' }}>
-          <div style={{
-            display: 'inline-flex', alignItems: 'center', gap: '10px',
-            padding: '8px 20px', background: 'rgba(255,255,255,0.02)',
-            border: '1px solid rgba(255,255,255,0.04)', borderRadius: '99px',
-          }}>
-            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 6px rgba(34,197,94,0.6)', display: 'inline-block' }} />
-            <span style={{ color: '#374151', fontSize: '11px', fontWeight: '500', letterSpacing: '0.06em', fontFamily: "'Inter', sans-serif" }}>
-              LIVE · AUTO-CLEANUP ACTIVE
-            </span>
-          </div>
+            })
+          )}
         </div>
       </div>
 
-      {/* ── Global keyframes ── */}
+      {/* ─── RIGHT PANEL: Chat ─── */}
+      <div style={{
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        position: 'relative',
+        zIndex: 1,
+        background: 'rgba(0,0,0,0.3)'
+      }}>
+        {selectedUser ? (
+          <>
+            {/* Chat Header */}
+            <div style={{
+              padding: '16px 24px',
+              borderBottom: '1px solid rgba(255,255,255,0.05)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              background: 'rgba(10,10,16,0.8)',
+              backdropFilter: 'blur(10px)'
+            }}>
+              <div style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, #c8a200, #FFD700)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '14px',
+                fontWeight: 'bold',
+                color: '#0a0a0a'
+              }}>
+                {selectedUser?.full_name?.charAt(0)?.toUpperCase() || '?'}
+              </div>
+              <div>
+                <div style={{ color: 'white', fontWeight: 'bold' }}>
+                  {selectedUser?.full_name || 'Unknown'}
+                </div>
+                <div style={{ color: '#666', fontSize: '12px' }}>
+                  {selectedUser?.sport_interests || selectedUser?.role || 'Player'}
+                </div>
+              </div>
+            </div>
+
+            {/* Messages */}
+            <div style={{
+              flex: 1,
+              overflow: 'auto',
+              padding: '20px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px'
+            }}>
+              {messages.length === 0 ? (
+                <div style={{
+                  textAlign: 'center',
+                  color: '#444',
+                  padding: '40px'
+                }}>
+                  <div style={{ fontSize: '40px', marginBottom: '12px' }}>👋</div>
+                  <p style={{ fontSize: '16px', color: '#666' }}>No messages yet</p>
+                  <p style={{ fontSize: '13px', color: '#444' }}>Say hello to start the conversation!</p>
+                </div>
+              ) : (
+                messages.map((msg) => {
+                  const isMine = msg.sender_id === user?.id
+                  return (
+                    <div
+                      key={msg.id}
+                      style={{
+                        alignSelf: isMine ? 'flex-end' : 'flex-start',
+                        maxWidth: '70%',
+                        padding: '10px 16px',
+                        borderRadius: isMine ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
+                        background: isMine ? 'linear-gradient(135deg, #c8a200, #FFD700)' : 'rgba(30,30,40,0.8)',
+                        color: isMine ? '#0a0a0a' : 'white',
+                        wordBreak: 'break-word'
+                      }}
+                    >
+                      <div style={{ fontSize: '14px' }}>{msg.message_text}</div>
+                      <div style={{
+                        fontSize: '9px',
+                        marginTop: '4px',
+                        opacity: 0.6,
+                        textAlign: isMine ? 'right' : 'left'
+                      }}>
+                        {formatTime(msg.created_at)}
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* ─── INPUT ─── */}
+            <div style={{
+              padding: '16px 24px',
+              borderTop: '1px solid rgba(255,255,255,0.05)',
+              display: 'flex',
+              gap: '12px',
+              background: 'rgba(10,10,16,0.8)',
+              backdropFilter: 'blur(10px)'
+            }}>
+              <input
+                type="text"
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleSendMessage()
+                  }
+                }}
+                placeholder={`Message ${selectedUser?.full_name || 'user'}...`}
+                style={{
+                  flex: 1,
+                  padding: '12px 16px',
+                  background: 'rgba(255,255,255,0.04)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: '12px',
+                  color: 'white',
+                  fontSize: '14px',
+                  outline: 'none'
+                }}
+              />
+              <button
+                onClick={handleSendMessage}
+                disabled={sending || !newMessage.trim()}
+                style={{
+                  padding: '12px 28px',
+                  background: '#c8a200',
+                  border: 'none',
+                  borderRadius: '12px',
+                  color: '#0a0a0a',
+                  fontWeight: 'bold',
+                  fontSize: '14px',
+                  cursor: sending ? 'not-allowed' : 'pointer',
+                  opacity: sending || !newMessage.trim() ? 0.5 : 1
+                }}
+              >
+                {sending ? '...' : 'Send'}
+              </button>
+            </div>
+          </>
+        ) : (
+          <div style={{
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexDirection: 'column',
+            color: '#444'
+          }}>
+            <div style={{ fontSize: '60px', marginBottom: '16px' }}>💬</div>
+            <h2 style={{ color: '#666' }}>Select a conversation</h2>
+            <p style={{ fontSize: '14px' }}>Choose a player from the left to start messaging</p>
+          </div>
+        )}
+      </div>
+
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
-        * { box-sizing: border-box; }
-        @keyframes spin        { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
-        @keyframes fadeSlideUp { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes floatBlob   { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(-30px) scale(1.04)} }
-        @keyframes pulse       { 0%,100%{opacity:0.5;transform:scale(0.95)} 50%{opacity:1;transform:scale(1.05)} }
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: #0D0D0F; }
-        ::-webkit-scrollbar-thumb { background: rgba(200,162,0,0.3); border-radius: 3px; }
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
       `}</style>
     </div>
   )
 }
+
+export default Messages
