@@ -7,8 +7,6 @@ const PAYMENT_METHODS = ['JazzCash', 'EasyPaisa', 'Bank Transfer', 'Cash on Deli
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
   const configs: Record<string, any> = {
     'AVAILABLE': { label: '🟢 Available', color: '#4ade80', bg: 'rgba(34,197,94,0.1)', borderColor: 'rgba(34,197,94,0.3)' },
-    'ORDERED': { label: '🟡 Order Pending', color: '#eab308', bg: 'rgba(234,179,8,0.1)', borderColor: 'rgba(234,179,8,0.3)' },
-    'SOLD': { label: '✅ Sold', color: '#22c55e', bg: 'rgba(34,197,94,0.1)', borderColor: 'rgba(34,197,94,0.3)' },
   }
   const config = configs[status] || configs['AVAILABLE']
   return (
@@ -120,21 +118,9 @@ function SellButton({ active, onToggle }: { active: boolean; onToggle: () => voi
 }
 
 // ─── Listing Card ──────────────────────────────────────────────────────────
-function ListingCard({ item, isOwner, isBuyer, isProcessing, onBuy, onConfirm, onCancel, onOpen, onReport }: any) {
+function ListingCard({ item, isOwner, isProcessing, onBuy, onOpen }: any) {
   const [hovered, setHovered] = useState(false)
-  const isOrdered = item.status === 'ORDERED'
-  const isSold = item.status === 'SOLD'
   const isAvailable = item.status === 'AVAILABLE'
-
-  // ─── If ORDERED and NOT the seller, DON'T show ────────────────────────
-  if (isOrdered && !isOwner) {
-    return null
-  }
-
-  // ─── If SOLD, only show to seller and buyer ──────────────────────────
-  if (isSold && !isOwner && !isBuyer) {
-    return null
-  }
 
   return (
     <div
@@ -146,25 +132,14 @@ function ListingCard({ item, isOwner, isBuyer, isProcessing, onBuy, onConfirm, o
         background: hovered ? 'rgba(24,24,32,0.98)' : 'rgba(12,12,18,0.92)',
         backdropFilter: 'blur(28px)',
         borderRadius: '20px',
-        border: `1px solid ${isOrdered ? 'rgba(234,179,8,0.4)' : isSold ? 'rgba(34,197,94,0.15)' : hovered ? 'rgba(200,162,0,0.35)' : 'rgba(255,255,255,0.05)'}`,
+        border: `1px solid ${hovered ? 'rgba(200,162,0,0.35)' : 'rgba(255,255,255,0.05)'}`,
         overflow: 'hidden',
-        cursor: isSold ? 'default' : 'pointer',
+        cursor: 'pointer',
         transition: 'all 0.35s ease',
-        transform: hovered && !isSold ? 'translateY(-4px)' : 'translateY(0)',
-        boxShadow: hovered && !isSold ? '0 20px 60px rgba(0,0,0,0.5), 0 0 40px rgba(200,162,0,0.06)' : '0 4px 20px rgba(0,0,0,0.3)',
-        opacity: isSold ? 0.85 : isOrdered ? 0.85 : 1,
-        pointerEvents: isSold ? 'none' : 'auto',
+        transform: hovered ? 'translateY(-4px)' : 'translateY(0)',
+        boxShadow: hovered ? '0 20px 60px rgba(0,0,0,0.5), 0 0 40px rgba(200,162,0,0.06)' : '0 4px 20px rgba(0,0,0,0.3)',
       }}
     >
-      {isOrdered && (
-        <div style={{
-          position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(234,179,8,0.04)',
-          pointerEvents: 'none',
-          zIndex: 0,
-        }} />
-      )}
-
       <div style={{ padding: '20px', position: 'relative', zIndex: 1 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px', gap: '8px', flexWrap: 'wrap' }}>
           <ConditionBadge condition={item.condition} />
@@ -196,57 +171,7 @@ function ListingCard({ item, isOwner, isBuyer, isProcessing, onBuy, onConfirm, o
           }}>{item.description}</p>
         )}
 
-        {isOrdered && isOwner && (
-          <div style={{
-            background: 'rgba(234,179,8,0.1)',
-            border: '1px solid rgba(234,179,8,0.2)',
-            borderRadius: '10px',
-            padding: '8px 12px',
-            marginBottom: '12px',
-          }}>
-            <p style={{
-              color: '#eab308',
-              fontSize: '11px',
-              fontWeight: '700',
-              margin: 0,
-              fontFamily: "'Inter', sans-serif",
-            }}>
-              🟡 Order placed - Buyer: {item.buyer_phone || 'No phone provided'}
-            </p>
-            {item.ordered_at && (
-              <p style={{ color: '#4b5563', fontSize: '9px', margin: '2px 0 0 0', fontFamily: "'Inter', sans-serif" }}>
-                Ordered: {new Date(item.ordered_at).toLocaleString()}
-              </p>
-            )}
-          </div>
-        )}
-
-        {isSold && isOwner && (
-          <div style={{
-            background: 'rgba(34,197,94,0.1)',
-            border: '1px solid rgba(34,197,94,0.2)',
-            borderRadius: '10px',
-            padding: '8px 12px',
-            marginBottom: '12px',
-          }}>
-            <p style={{
-              color: '#4ade80',
-              fontSize: '11px',
-              fontWeight: '700',
-              margin: 0,
-              fontFamily: "'Inter', sans-serif",
-            }}>
-              ✅ Sold to: {item.buyer_phone || 'No phone provided'}
-            </p>
-            {item.sold_at && (
-              <p style={{ color: '#4b5563', fontSize: '9px', margin: '2px 0 0 0', fontFamily: "'Inter', sans-serif" }}>
-                Sold: {new Date(item.sold_at).toLocaleString()}
-              </p>
-            )}
-          </div>
-        )}
-
-        {item.payment_methods?.length > 0 && !isSold && (
+        {item.payment_methods?.length > 0 && (
           <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '12px' }}>
             {item.payment_methods.slice(0, 3).map((m: string) => (
               <span key={m} style={{
@@ -273,7 +198,7 @@ function ListingCard({ item, isOwner, isBuyer, isProcessing, onBuy, onConfirm, o
             <div style={{ color: '#4b5563', fontSize: '9px', fontWeight: '700', letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: "'Inter', sans-serif" }}>Price</div>
             <div style={{
               fontSize: '20px', fontWeight: '900',
-              color: isSold ? '#4b5563' : '#FFD700',
+              color: '#FFD700',
               fontFamily: "'Inter', sans-serif",
               letterSpacing: '-0.03em',
             }}>
@@ -281,51 +206,7 @@ function ListingCard({ item, isOwner, isBuyer, isProcessing, onBuy, onConfirm, o
             </div>
           </div>
 
-          {isSold ? (
-            <span style={{ color: '#4b5563', fontSize: '12px', fontWeight: '700', fontFamily: "'Inter', sans-serif" }}>✅ Sold</span>
-          ) : isOrdered && isOwner ? (
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              <button
-                onClick={(e) => { e.stopPropagation(); onConfirm(item) }}
-                disabled={isProcessing}
-                style={{
-                  padding: '8px 16px',
-                  borderRadius: '10px',
-                  border: 'none',
-                  background: isProcessing ? 'rgba(34,197,94,0.2)' : '#22c55e',
-                  color: '#0a0a0a',
-                  fontSize: '11px',
-                  fontWeight: '800',
-                  cursor: isProcessing ? 'not-allowed' : 'pointer',
-                  fontFamily: "'Inter', sans-serif",
-                  transition: 'all 0.2s ease',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                }}
-              >
-                {isProcessing ? <Spinner /> : '✅'} Confirm Sale
-              </button>
-              <button
-                onClick={(e) => { e.stopPropagation(); onReport(item) }}
-                disabled={isProcessing}
-                style={{
-                  padding: '8px 16px',
-                  borderRadius: '10px',
-                  border: '1px solid rgba(239,68,68,0.3)',
-                  background: 'transparent',
-                  color: '#f87171',
-                  fontSize: '11px',
-                  fontWeight: '800',
-                  cursor: isProcessing ? 'not-allowed' : 'pointer',
-                  fontFamily: "'Inter', sans-serif",
-                  transition: 'all 0.2s ease',
-                }}
-              >
-                🚫 Report Buyer
-              </button>
-            </div>
-          ) : isAvailable && !isOwner ? (
+          {isAvailable && !isOwner ? (
             <button
               onClick={(e) => { e.stopPropagation(); onBuy(item) }}
               disabled={isProcessing}
@@ -347,8 +228,6 @@ function ListingCard({ item, isOwner, isBuyer, isProcessing, onBuy, onConfirm, o
             >
               {isProcessing ? <Spinner /> : '🛒 Buy Now'}
             </button>
-          ) : isOrdered && isBuyer ? (
-            <span style={{ color: '#eab308', fontSize: '12px', fontWeight: '700', fontFamily: "'Inter', sans-serif" }}>⏳ Pending</span>
           ) : isOwner && isAvailable ? (
             <span style={{ color: '#4b5563', fontSize: '12px', fontWeight: '700', fontFamily: "'Inter', sans-serif" }}>Your Item</span>
           ) : null}
@@ -469,7 +348,7 @@ export const Marketplace: React.FC = () => {
     payment_methods: ['JazzCash', 'EasyPaisa'],
   })
 
-  // ─── LOAD DATA ───────────────────────────────────────────────────────────
+  // ─── LOAD DATA - Only show AVAILABLE listings ──────────────────────────
   const loadData = useCallback(async () => {
     setLoading(true)
     const { data: { user } } = await supabase.auth.getUser()
@@ -481,22 +360,12 @@ export const Marketplace: React.FC = () => {
       setUserProfile(profile)
     }
 
-    // ─── FIX: Show AVAILABLE to everyone, ORDERED only to seller, SOLD only to seller and buyer ───
-    let query = supabase.from('marketplace').select('*')
-
-    if (user) {
-      // Show AVAILABLE to everyone + ORDERED if user is seller + SOLD if user is seller or buyer
-      query = query.or(
-        `status.eq.AVAILABLE,` +
-        `and(status.eq.ORDERED,seller_id.eq.${user.id}),` +
-        `and(status.eq.SOLD,or(seller_id.eq.${user.id},buyer_id.eq.${user.id}))`
-      )
-    } else {
-      // Not logged in: only show AVAILABLE
-      query = query.eq('status', 'AVAILABLE')
-    }
-
-    const { data, error } = await query.order('created_at', { ascending: false })
+    // Only show AVAILABLE listings to everyone
+    const { data, error } = await supabase
+      .from('marketplace')
+      .select('*')
+      .eq('status', 'AVAILABLE')
+      .order('created_at', { ascending: false })
 
     if (error) {
       console.error('Error loading listings:', error)
@@ -518,14 +387,29 @@ export const Marketplace: React.FC = () => {
     }
   }, [notification])
 
-  const createNotification = async (userId: string, type: string, title: string, message: string, data?: any) => {
-    await supabase.from('notifications').insert({
-      user_id: userId,
-      type: type,
-      title: title,
-      message: message,
-      data: data || {}
+  // ─── Send auto message from buyer to seller ────────────────────────────
+  const sendAutoMessage = async (sellerId: string, buyerId: string, itemName: string, buyerPhone: string, price: number) => {
+    const messageText = `🛒 New Purchase!
+
+I want to buy "${itemName}" for $${price}.
+
+My phone number: ${buyerPhone}
+
+Please contact me to complete the transaction.`
+
+    const { error } = await supabase.from('messages').insert({
+      sender_id: buyerId,
+      receiver_id: sellerId,
+      message_text: messageText,
+      is_read: false,
+      created_at: new Date().toISOString()
     })
+
+    if (error) {
+      console.error('Failed to send auto message:', error)
+    } else {
+      console.log('✅ Auto message sent from buyer to seller')
+    }
   }
 
   // ─── CREATE LISTING ──────────────────────────────────────────────────────
@@ -572,8 +456,8 @@ export const Marketplace: React.FC = () => {
     }
   }
 
-  // ─── PLACE ORDER ─────────────────────────────────────────────────────────
-  const handlePlaceOrder = (listing: any) => {
+  // ─── BUY NOW - Delete listing & send auto message ─────────────────────
+  const handleBuyNow = async (listing: any) => {
     if (!userProfile) {
       setNotification({ text: '⚠️ Please login first', type: 'error' })
       return
@@ -593,13 +477,13 @@ export const Marketplace: React.FC = () => {
     setError('')
   }
 
-  const confirmOrder = async () => {
+  const confirmPurchase = async () => {
     if (!buyerPhone.trim() || buyerPhone.trim().length < 10) {
       setError('⚠️ Please enter a valid phone number (min 10 digits)')
       return
     }
 
-    if (!window.confirm('⚠️ This is a binding purchase. If you fail to complete the transaction, your account may be suspended. Continue?')) {
+    if (!window.confirm(`⚠️ Confirm purchase of "${selectedListing.item_name}" for $${selectedListing.price}?\n\nThis will send your phone number to the seller via auto-message and the listing will be removed.`)) {
       return
     }
 
@@ -607,196 +491,41 @@ export const Marketplace: React.FC = () => {
     setProcessingId(listing.id)
     setShowBuyModal(false)
 
-    // Update listing to ORDERED
-    const { error: updateError } = await supabase
+    // ─── 1. Send auto message from buyer to seller ──────────────────────
+    await sendAutoMessage(
+      listing.seller_id,
+      userProfile.id,
+      listing.item_name,
+      buyerPhone.trim(),
+      listing.price
+    )
+
+    // ─── 2. Delete the listing completely ───────────────────────────────
+    const { error: deleteError } = await supabase
       .from('marketplace')
-      .update({
-        status: 'ORDERED',
-        buyer_id: userProfile.id,
-        buyer_phone: buyerPhone.trim(),
-        ordered_at: new Date().toISOString(),
-        order_status: 'pending'
-      })
+      .delete()
       .eq('id', listing.id)
 
-    if (updateError) {
-      setNotification({ text: '❌ Failed to place order: ' + updateError.message, type: 'error' })
+    if (deleteError) {
+      setNotification({ text: '❌ Failed to process purchase: ' + deleteError.message, type: 'error' })
       setProcessingId(null)
       return
     }
 
-    // Create order record
+    // ─── 3. Create order record for admin tracking ──────────────────────
     await supabase.from('orders').insert({
       listing_id: listing.id,
       buyer_id: userProfile.id,
       seller_id: listing.seller_id,
       buyer_phone: buyerPhone.trim(),
       amount: listing.price,
+      item_name: listing.item_name,
       order_status: 'pending',
       ordered_at: new Date().toISOString()
     })
 
-    // NOTIFY SELLER
-    await createNotification(
-      listing.seller_id,
-      'order',
-      '🛒 New Order!',
-      `${userProfile.full_name} wants to buy "${listing.item_name}". Contact: ${buyerPhone.trim()}`,
-      { listing_id: listing.id, buyer_id: userProfile.id, buyer_phone: buyerPhone.trim() }
-    )
-
-    // NOTIFY BUYER
-    await createNotification(
-      userProfile.id,
-      'order',
-      '✅ Order Placed',
-      `You have placed an order for "${listing.item_name}". Contact seller at ${listing.seller_phone || 'not provided'}`,
-      { listing_id: listing.id }
-    )
-
-    setNotification({
-      text: `✅ Order placed! Seller has been notified. Contact: ${listing.seller_phone || 'not provided'}`,
-      type: 'success'
-    })
-    setProcessingId(null)
-    loadData()
-  }
-
-  // ─── CONFIRM SALE (Seller confirms payment received) ──────────────────
-  const handleConfirmSale = async (listing: any) => {
-    if (!window.confirm(`Confirm sale for "${listing.item_name}"?\nThis will mark it as SOLD and it will be removed from public view.`)) return
-
-    setProcessingId(listing.id)
-
-    // Update listing to SOLD
-    const { error: updateError } = await supabase
-      .from('marketplace')
-      .update({
-        status: 'SOLD',
-        seller_confirmed: true,
-        sold_at: new Date().toISOString(),
-        order_status: 'completed'
-      })
-      .eq('id', listing.id)
-
-    if (updateError) {
-      setNotification({ text: '❌ Failed to confirm: ' + updateError.message, type: 'error' })
-      setProcessingId(null)
-      return
-    }
-
-    // Update order status
-    await supabase
-      .from('orders')
-      .update({
-        order_status: 'completed',
-        confirmed_at: new Date().toISOString()
-      })
-      .eq('listing_id', listing.id)
-
-    // NOTIFY BUYER
-    await createNotification(
-      listing.buyer_id,
-      'sold',
-      '✅ Purchase Confirmed!',
-      `Seller confirmed payment for "${listing.item_name}". Enjoy your item!`,
-      { listing_id: listing.id }
-    )
-
-    setNotification({ text: `✅ "${listing.item_name}" marked as SOLD!`, type: 'success' })
-    setProcessingId(null)
-    loadData()
-  }
-
-  // ─── REPORT BUYER (Seller reports misuse) ──────────────────────────────
-  const handleReportBuyer = async (listing: any) => {
-    if (!window.confirm(`⚠️ Report buyer for "${listing.item_name}"?\nThis will notify the admin. The buyer will be investigated.`)) return
-
-    setProcessingId(listing.id)
-
-    // Get buyer details
-    const { data: buyerData } = await supabase
-      .from('users')
-      .select('full_name, email')
-      .eq('id', listing.buyer_id)
-      .single()
-
-    // Create admin notification
-    const adminMessage = `
-🚨 BUYER REPORTED
-
-Item: ${listing.item_name}
-Price: $${listing.price}
-Seller: ${userProfile?.full_name || 'Unknown'} (${userProfile?.email || 'No email'})
-Buyer: ${buyerData?.full_name || 'Unknown'} (${buyerData?.email || 'No email'})
-Buyer Phone: ${listing.buyer_phone || 'Not provided'}
-Order Date: ${new Date(listing.ordered_at).toLocaleString()}
-
-Report Reason: Buyer failed to complete transaction / misuse.
-    `.trim()
-
-    // Get all admins
-    const { data: admins } = await supabase
-      .from('users')
-      .select('id')
-      .eq('role', 'Admin')
-
-    if (admins && admins.length > 0) {
-      for (const admin of admins) {
-        await createNotification(
-          admin.id,
-          'report',
-          '🚨 Buyer Reported for Misuse',
-          adminMessage,
-          { 
-            listing_id: listing.id, 
-            buyer_id: listing.buyer_id,
-            seller_id: listing.seller_id,
-            report_type: 'buyer_misuse'
-          }
-        )
-      }
-    }
-
-    // Cancel the order and revert to AVAILABLE
-    const { error: revertError } = await supabase
-      .from('marketplace')
-      .update({
-        status: 'AVAILABLE',
-        buyer_id: null,
-        buyer_phone: null,
-        ordered_at: null,
-        order_status: null,
-        seller_confirmed: false
-      })
-      .eq('id', listing.id)
-
-    if (revertError) {
-      setNotification({ text: '❌ Failed to report: ' + revertError.message, type: 'error' })
-      setProcessingId(null)
-      return
-    }
-
-    // Update order status
-    await supabase
-      .from('orders')
-      .update({
-        order_status: 'reported',
-        cancelled_at: new Date().toISOString()
-      })
-      .eq('listing_id', listing.id)
-
-    // NOTIFY BUYER
-    await createNotification(
-      listing.buyer_id,
-      'warning',
-      '⚠️ Report Filed Against You',
-      `The seller has reported you for failing to complete the purchase of "${listing.item_name}". Admin will investigate.`,
-      { listing_id: listing.id }
-    )
-
     setNotification({ 
-      text: `✅ Buyer reported. Admin has been notified and the item is back available.`, 
+      text: `✅ Purchase confirmed! Auto-message sent to seller with your phone number. The listing has been removed.`, 
       type: 'success' 
     })
     setProcessingId(null)
@@ -876,7 +605,7 @@ Report Reason: Buyer failed to complete transaction / misuse.
               required
             />
             <p style={{ color: '#666', fontSize: '11px', marginTop: '4px' }}>
-              This will be shared with the seller for payment coordination.
+              This will be auto-sent to the seller via message.
             </p>
           </div>
 
@@ -907,11 +636,10 @@ Report Reason: Buyer failed to complete transaction / misuse.
             <span style={{ fontSize: '20px' }}>⚠️</span>
             <div>
               <p style={{ color: '#f87171', fontSize: '12px', fontWeight: 'bold' }}>
-                Warning: Binding Purchase
+                Your phone number will be sent to the seller
               </p>
               <p style={{ color: '#888', fontSize: '11px' }}>
-                This is a serious commitment. If you fail to complete the transaction,
-                your account may be suspended or banned.
+                The listing will be removed immediately after confirmation.
               </p>
             </div>
           </div>
@@ -933,7 +661,7 @@ Report Reason: Buyer failed to complete transaction / misuse.
               Cancel
             </button>
             <button
-              onClick={confirmOrder}
+              onClick={confirmPurchase}
               style={{
                 flex: 2,
                 padding: '12px',
@@ -946,7 +674,7 @@ Report Reason: Buyer failed to complete transaction / misuse.
                 fontSize: '16px'
               }}
             >
-              Confirm Order
+              Confirm & Buy
             </button>
           </div>
         </div>
@@ -1016,7 +744,7 @@ Report Reason: Buyer failed to complete transaction / misuse.
               🛒 Marketplace
             </h1>
             <p style={{ color: '#4b5563', margin: '4px 0 0', fontFamily: "'Inter', sans-serif" }}>
-              {listings.filter(l => l.status === 'AVAILABLE').length} available
+              {listings.length} available
             </p>
           </div>
           <SellButton active={showCreateForm} onToggle={() => setShowCreateForm(!showCreateForm)} />
@@ -1033,7 +761,7 @@ Report Reason: Buyer failed to complete transaction / misuse.
 
         {loading ? (
           <div style={{ textAlign: 'center', color: '#666', padding: '40px' }}>Loading...</div>
-        ) : listings.filter(l => l.status === 'AVAILABLE' || (l.status === 'ORDERED' && l.seller_id === userProfile?.id) || (l.status === 'SOLD' && (l.seller_id === userProfile?.id || l.buyer_id === userProfile?.id))).length === 0 ? (
+        ) : listings.length === 0 ? (
           <div style={{
             textAlign: 'center',
             padding: '80px 20px',
@@ -1063,30 +791,16 @@ Report Reason: Buyer failed to complete transaction / misuse.
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(270px, 1fr))', gap: '16px' }}>
-            {listings.map((item) => {
-              // ─── Hide ORDERED items from non-sellers ──────────────────
-              if (item.status === 'ORDERED' && item.seller_id !== userProfile?.id) {
-                return null
-              }
-              // ─── Hide SOLD items from non-seller and non-buyer ──────
-              if (item.status === 'SOLD' && item.seller_id !== userProfile?.id && item.buyer_id !== userProfile?.id) {
-                return null
-              }
-              return (
-                <ListingCard
-                  key={item.id}
-                  item={item}
-                  isOwner={item.seller_id === userProfile?.id}
-                  isBuyer={item.buyer_id === userProfile?.id}
-                  isProcessing={processingId === item.id}
-                  onBuy={handlePlaceOrder}
-                  onConfirm={handleConfirmSale}
-                  onCancel={() => {}}
-                  onReport={handleReportBuyer}
-                  onOpen={openDetail}
-                />
-              )
-            })}
+            {listings.map((item) => (
+              <ListingCard
+                key={item.id}
+                item={item}
+                isOwner={item.seller_id === userProfile?.id}
+                isProcessing={processingId === item.id}
+                onBuy={handleBuyNow}
+                onOpen={openDetail}
+              />
+            ))}
           </div>
         )}
 
@@ -1149,7 +863,7 @@ Report Reason: Buyer failed to complete transaction / misuse.
 
             {selectedListing.status === 'AVAILABLE' && selectedListing.seller_id !== userProfile?.id && (
               <button
-                onClick={() => { closeDetail(); handlePlaceOrder(selectedListing) }}
+                onClick={() => { closeDetail(); handleBuyNow(selectedListing) }}
                 disabled={processingId === selectedListing.id}
                 style={{
                   width: '100%',
@@ -1166,58 +880,6 @@ Report Reason: Buyer failed to complete transaction / misuse.
               >
                 🛒 Buy Now
               </button>
-            )}
-
-            {selectedListing.status === 'ORDERED' && selectedListing.seller_id === userProfile?.id && (
-              <div style={{ display: 'flex', gap: '8px', marginTop: '16px', flexWrap: 'wrap' }}>
-                <button
-                  onClick={() => { closeDetail(); handleConfirmSale(selectedListing) }}
-                  disabled={processingId === selectedListing.id}
-                  style={{
-                    flex: 1,
-                    padding: '12px',
-                    borderRadius: '10px',
-                    border: 'none',
-                    background: '#22c55e',
-                    color: '#0a0a0a',
-                    fontWeight: 'bold',
-                    cursor: 'pointer',
-                    fontSize: '14px'
-                  }}
-                >
-                  ✅ Confirm Sale
-                </button>
-                <button
-                  onClick={() => { closeDetail(); handleReportBuyer(selectedListing) }}
-                  disabled={processingId === selectedListing.id}
-                  style={{
-                    flex: 1,
-                    padding: '12px',
-                    borderRadius: '10px',
-                    border: '1px solid rgba(239,68,68,0.3)',
-                    background: 'transparent',
-                    color: '#f87171',
-                    fontWeight: 'bold',
-                    cursor: 'pointer',
-                    fontSize: '14px'
-                  }}
-                >
-                  🚫 Report Buyer
-                </button>
-              </div>
-            )}
-
-            {selectedListing.status === 'SOLD' && (
-              <div style={{ marginTop: '16px', padding: '12px', background: 'rgba(34,197,94,0.08)', borderRadius: '10px', textAlign: 'center' }}>
-                <p style={{ color: '#4ade80', fontSize: '14px', fontWeight: 'bold' }}>
-                  ✅ This item has been sold
-                </p>
-                {selectedListing.buyer_phone && (
-                  <p style={{ color: '#888', fontSize: '12px' }}>
-                    Buyer Contact: {selectedListing.buyer_phone}
-                  </p>
-                )}
-              </div>
             )}
           </div>
         </div>
