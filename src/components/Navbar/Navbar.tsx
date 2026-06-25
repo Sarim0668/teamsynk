@@ -593,7 +593,7 @@ export const Navbar: React.FC = () => {
     { path: '/messages', label: 'Chat', icon: <IconMessages /> },
     { path: '/competitions', label: 'Compete', icon: <IconTrophy /> },  // ← NEW
     // Add to navItems:
-    { path: '/leaderboard', label: 'Leaderboard', icon: <IconTrophy /> },
+    { path: '/leaderboard', label: 'Leaderboard', icon: <IconTrophy /> },  
   ]
 
   // Add Admin link only if user has Admin role

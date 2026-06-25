@@ -176,7 +176,7 @@ function CompetitionCard({ competition, index }: { competition: any; index: numb
             {competition.title}
           </div>
           <div style={{ fontSize: '13px', color: '#6b7280', marginTop: '2px' }}>
-            ⚽ {competition.sport_type}
+            ⚽ {competition.sport_type || 'Sports'}
           </div>
         </div>
         <span style={{
@@ -197,7 +197,7 @@ function CompetitionCard({ competition, index }: { competition: any; index: numb
           📅 {new Date(competition.start_date).toLocaleDateString()}
         </span>
         <span style={{ color: '#4b5563', fontSize: '12px' }}>
-          👥 {competition.participants || 0} participants
+          👥 {competition.participants_count || 0} participants
         </span>
         {competition.prize && (
           <span style={{ color: '#FFD700', fontSize: '12px' }}>
@@ -307,33 +307,56 @@ export const Dashboard: React.FC = () => {
     setUserUniversity(profileData?.university || '')
 
     // ─── Get university leaderboard ─────────────────────────────────────────
-    const { data: uniData } = await supabase
+    const { data: uniData, error: uniError } = await supabase
       .from('university_overall_leaderboard')
       .select('*')
-      .order('total_points', { ascending: false })
 
-    setUniversityStats(uniData || [])
+    if (!uniError && uniData) {
+      setUniversityStats(uniData)
+    } else {
+      console.error('Error loading university stats:', uniError)
+      setUniversityStats([])
+    }
 
-    // ─── Get active competitions ─────────────────────────────────────────────
-    const { data: compData } = await supabase
+    // ─── Get competitions with participant count ─────────────────────────────
+    const { data: compData, error: compError } = await supabase
       .from('competitions')
-      .select('*')
+      .select(`
+        *,
+        competition_participants(count)
+      `)
       .in('status', ['upcoming', 'active'])
       .order('start_date', { ascending: true })
       .limit(4)
 
-    setCompetitions(compData || [])
+    if (!compError && compData) {
+      // Transform data to include participant count
+      const compsWithCount = compData.map((comp: any) => ({
+        ...comp,
+        participants_count: comp.competition_participants?.[0]?.count || 0
+      }))
+      setCompetitions(compsWithCount)
+    } else {
+      console.error('Error loading competitions:', compError)
+      setCompetitions([])
+    }
 
     // ─── Get upcoming sessions ──────────────────────────────────────────────
     const today = new Date().toISOString().split('T')[0]
-    const { data: sessions } = await supabase
+    const { data: sessions, error: sessionsError } = await supabase
       .from('sports_sessions')
       .select('*')
       .gte('session_date', today)
       .order('session_date', { ascending: true })
       .limit(4)
 
-    setUpcomingSessions(sessions || [])
+    if (!sessionsError && sessions) {
+      setUpcomingSessions(sessions)
+    } else {
+      console.error('Error loading sessions:', sessionsError)
+      setUpcomingSessions([])
+    }
+
     setLoading(false)
   }
 
@@ -432,6 +455,9 @@ export const Dashboard: React.FC = () => {
               <span style={{ color: '#FFD700', fontSize: '13px', fontWeight: '600' }}>
                 {userUniversity}
               </span>
+              <span style={{ color: '#4b5563', fontSize: '11px' }}>
+                ({universityStats.find(u => u.name === userUniversity)?.total_members || 0} members)
+              </span>
             </div>
           )}
         </section>
@@ -497,17 +523,29 @@ export const Dashboard: React.FC = () => {
             flexDirection: 'column',
             gap: '10px',
           }}>
-            {universityStats.slice(0, 5).map((uni, i) => {
-              const isUserUni = uni.name === userUniversity
-              return (
-                <UniversityLeaderboardCard
-                  key={uni.id}
-                  uni={uni}
-                  index={i}
-                  isUserUni={isUserUni}
-                />
-              )
-            })}
+            {universityStats.length === 0 ? (
+              <div style={{
+                background: 'rgba(14,14,20,0.9)',
+                borderRadius: '12px',
+                padding: '30px',
+                textAlign: 'center',
+                color: '#4b5563'
+              }}>
+                No universities found. Add universities to get started.
+              </div>
+            ) : (
+              universityStats.slice(0, 5).map((uni, i) => {
+                const isUserUni = uni.name === userUniversity
+                return (
+                  <UniversityLeaderboardCard
+                    key={uni.id}
+                    uni={uni}
+                    index={i}
+                    isUserUni={isUserUni}
+                  />
+                )
+              })
+            )}
           </div>
         </section>
 
