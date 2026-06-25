@@ -126,7 +126,7 @@ function ListingCard({ item, isOwner, isBuyer, isProcessing, onBuy, onConfirm, o
   const isSold = item.status === 'SOLD'
   const isAvailable = item.status === 'AVAILABLE'
 
-  // If item is ORDERED and user is NOT the owner, DON'T show it
+  // ─── If ORDERED and NOT the seller, DON'T show ────────────────────────
   if (isOrdered && !isOwner) {
     return null
   }
@@ -292,7 +292,7 @@ function ListingCard({ item, isOwner, isBuyer, isProcessing, onBuy, onConfirm, o
                   transition: 'all 0.2s ease',
                 }}
               >
-                ❌ Cancel
+                ❌ Cancel Order
               </button>
             </div>
           ) : isAvailable && !isOwner ? (
@@ -451,7 +451,7 @@ export const Marketplace: React.FC = () => {
       setUserProfile(profile)
     }
 
-    // ─── CRITICAL FIX: Only show AVAILABLE to everyone, ORDERED only to seller ───
+    // ─── FIX: Only show AVAILABLE to everyone, ORDERED only to seller ───
     let query = supabase.from('marketplace').select('*')
 
     if (user) {
@@ -476,9 +476,10 @@ export const Marketplace: React.FC = () => {
     loadData()
   }, [loadData])
 
+  // ─── FIX: Notification stays for 8 seconds ─────────────────────────────
   useEffect(() => {
     if (notification) {
-      const timer = setTimeout(() => setNotification(null), 5000)
+      const timer = setTimeout(() => setNotification(null), 8000)
       return () => clearTimeout(timer)
     }
   }, [notification])
@@ -930,7 +931,7 @@ export const Marketplace: React.FC = () => {
 
         {loading ? (
           <div style={{ textAlign: 'center', color: '#666', padding: '40px' }}>Loading...</div>
-        ) : listings.filter(l => l.status === 'AVAILABLE' || l.status === 'ORDERED').length === 0 ? (
+        ) : listings.filter(l => l.status === 'AVAILABLE' || (l.status === 'ORDERED' && l.seller_id === userProfile?.id)).length === 0 ? (
           <div style={{
             textAlign: 'center',
             padding: '80px 20px',
@@ -961,7 +962,7 @@ export const Marketplace: React.FC = () => {
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(270px, 1fr))', gap: '16px' }}>
             {listings.map((item) => {
-              // Only show AVAILABLE to everyone, ORDERED only to seller
+              // ─── Hide ORDERED items from non-sellers ──────────────────
               if (item.status === 'ORDERED' && item.seller_id !== userProfile?.id) {
                 return null
               }
