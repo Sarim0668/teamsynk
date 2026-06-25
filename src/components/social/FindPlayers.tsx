@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'  // ← ADD THIS
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 
 // ─── Sport icon map ───────────────────────────────────────────────────────────
@@ -17,9 +17,25 @@ const ROLE_CONFIG: Record<string, { color: string; bg: string; border: string; l
 }
 const getRole = (role: string) => ROLE_CONFIG[role] || ROLE_CONFIG.Player
 
+// ─── University colors ──────────────────────────────────────────────────────
+const UNIVERSITY_COLORS: Record<string, string> = {
+  'FAST University': '#FF6B35',
+  'NUST': '#00A651',
+  'IIUI': '#8B1A4A',
+  'Bahria University': '#003366',
+  'Air University': '#FFD700',
+  'COMSATS': '#005A9C',
+  'GIKI': '#800000',
+  'LUMS': '#663399',
+}
+
+const getUniversityColor = (university: string) => {
+  return UNIVERSITY_COLORS[university] || '#6b7280'
+}
+
 // ─── Avatar with gold ring ────────────────────────────────────────────────────
-function PlayerAvatar({ name, avatarUrl, role, size = 52 }: {
-  name: string; avatarUrl?: string; role: string; size?: number
+function PlayerAvatar({ name, avatarUrl, role, university, size = 52 }: {
+  name: string; avatarUrl?: string; role: string; university?: string; size?: number
 }) {
   const [hovered, setHovered] = useState(false)
   const initials = name?.split(' ').map(p => p[0]).slice(0, 2).join('').toUpperCase() || '?'
@@ -72,6 +88,7 @@ function PlayerCard({ player, index, onMessage }: { player: any; index: number; 
   const [hovered, setHovered] = useState(false)
   const rc = getRole(player.role)
   const sportIcon = SPORT_ICONS[player.sport_interests] || '🎯'
+  const uniColor = getUniversityColor(player.university)
 
   return (
     <div
@@ -111,7 +128,13 @@ function PlayerCard({ player, index, onMessage }: { player: any; index: number; 
       }} />
 
       <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-        <PlayerAvatar name={player.full_name} avatarUrl={player.avatar_url} role={player.role} size={54} />
+        <PlayerAvatar 
+          name={player.full_name} 
+          avatarUrl={player.avatar_url} 
+          role={player.role} 
+          university={player.university}
+          size={54} 
+        />
 
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '5px', flexWrap: 'wrap' }}>
@@ -138,6 +161,30 @@ function PlayerCard({ player, index, onMessage }: { player: any; index: number; 
             )}
           </div>
 
+          {/* ─── UNIVERSITY BADGE ─── */}
+          {player.university && (
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              marginTop: '6px',
+              padding: '3px 10px',
+              background: `${uniColor}20`,
+              border: `1px solid ${uniColor}40`,
+              borderRadius: '99px',
+            }}>
+              <span style={{ fontSize: '12px' }}>🎓</span>
+              <span style={{ 
+                color: uniColor, 
+                fontSize: '11px', 
+                fontWeight: '600',
+                fontFamily: "'Inter', sans-serif",
+              }}>
+                {player.university}
+              </span>
+            </div>
+          )}
+
           {player.bio && (
             <p style={{
               color: '#4b5563', fontSize: '12px', lineHeight: '1.5',
@@ -150,7 +197,6 @@ function PlayerCard({ player, index, onMessage }: { player: any; index: number; 
           )}
         </div>
 
-        {/* ─── FIXED: Message button navigates to Messages ─── */}
         <MessageButton onMessage={() => onMessage(player)} hovered={hovered} />
       </div>
     </div>
@@ -184,7 +230,6 @@ function MetaChip({ icon, text, color }: { icon: string; text: string; color: st
   )
 }
 
-// ─── FIXED: Message Button navigates to Messages ────────────────────────────
 function MessageButton({ onMessage, hovered: cardHovered }: { onMessage: () => void; hovered: boolean }) {
   const [hovered, setHovered] = useState(false)
   return (
@@ -304,7 +349,7 @@ function EmptyState({ hasFilters }: { hasFilters: boolean }) {
           {hasFilters ? 'No players found' : 'No players yet'}
         </h3>
         <p style={{ color: '#4b5563', fontSize: '14px', margin: 0, lineHeight: 1.6, maxWidth: '300px', marginLeft: 'auto', marginRight: 'auto', fontFamily: "'Inter', sans-serif" }}>
-          {hasFilters ? 'Try adjusting your filters — different sport or location.' : 'Be the first to create a profile and get discovered.'}
+          {hasFilters ? 'Try adjusting your filters — different sport, location, or university.' : 'Be the first to create a profile and get discovered.'}
         </p>
       </div>
     </div>
@@ -315,14 +360,15 @@ function EmptyState({ hasFilters }: { hasFilters: boolean }) {
 function DiscoveryStats({ players }: { players: any[] }) {
   const roles = players.reduce((acc: any, p) => { acc[p.role || 'Player'] = (acc[p.role || 'Player'] || 0) + 1; return acc }, {})
   const sports = new Set(players.map(p => p.sport_interests).filter(Boolean)).size
+  const universities = new Set(players.map(p => p.university).filter(Boolean)).size
 
   return (
     <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginTop: '24px' }}>
       {[
         { label: 'Athletes',   value: players.length,          icon: '👥' },
         { label: 'Sports',     value: sports,                  icon: '🎯' },
+        { label: 'Universities', value: universities,          icon: '🎓' },
         { label: 'Coaches',    value: roles['Coach'] || 0,     icon: '🎓' },
-        { label: 'Organizers', value: roles['Organizer'] || 0, icon: '📋' },
       ].map((s, i) => (
         <div key={s.label} style={{
           display: 'inline-flex', alignItems: 'center', gap: '10px',
@@ -347,17 +393,32 @@ function DiscoveryStats({ players }: { players: any[] }) {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export const FindPlayers: React.FC = () => {
-  const navigate = useNavigate()  // ← ADD THIS
-  const [searchSport, setSearchSport]       = useState('')
+  const navigate = useNavigate()
+  const [searchSport, setSearchSport] = useState('')
   const [searchLocation, setSearchLocation] = useState('')
-  const [players, setPlayers]               = useState<any[]>([])
-  const [loading, setLoading]               = useState(false)
-  const [currentUser, setCurrentUser]       = useState<any>(null)
+  const [searchUniversity, setSearchUniversity] = useState('') // ← ADDED
+  const [players, setPlayers] = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
+  const [currentUser, setCurrentUser] = useState<any>(null)
+  const [universities, setUniversities] = useState<string[]>([]) // ← ADDED
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setCurrentUser(data.user))
+    loadUniversities()
     loadPlayers()
   }, [])
+
+  // ─── Load universities for filter dropdown ─────────────────────────────────
+  const loadUniversities = async () => {
+    const { data, error } = await supabase
+      .from('university_groups')
+      .select('name')
+      .order('name', { ascending: true })
+
+    if (!error && data) {
+      setUniversities(data.map(u => u.name))
+    }
+  }
 
   const loadPlayers = async () => {
     setLoading(true)
@@ -367,8 +428,9 @@ export const FindPlayers: React.FC = () => {
       .neq('id', currentUser?.id || '')
       .eq('status', 'active')
 
-    if (searchSport)    query = query.ilike('sport_interests', `%${searchSport}%`)
+    if (searchSport) query = query.ilike('sport_interests', `%${searchSport}%`)
     if (searchLocation) query = query.ilike('location', `%${searchLocation}%`)
+    if (searchUniversity) query = query.ilike('university', `%${searchUniversity}%`) // ← ADDED
 
     const { data, error } = await query
     if (!error) setPlayers(data || [])
@@ -383,15 +445,16 @@ export const FindPlayers: React.FC = () => {
   const handleClear = () => {
     setSearchSport('')
     setSearchLocation('')
+    setSearchUniversity('')
     loadPlayers()
   }
 
-  // ─── FIXED: Navigate to Messages with the selected player ────────────────
-const handleMessage = (player: any) => {
-  console.log('🔍 Navigating to messages with player:', player)
-  navigate('/messages', { state: { selectedUser: player } })
-}
-  const hasFilters = !!(searchSport || searchLocation)
+  const handleMessage = (player: any) => {
+    console.log('🔍 Navigating to messages with player:', player)
+    navigate('/messages', { state: { selectedUser: player } })
+  }
+
+  const hasFilters = !!(searchSport || searchLocation || searchUniversity)
 
   return (
     <div style={{
@@ -442,7 +505,7 @@ const handleMessage = (player: any) => {
             }}>Perfect Teammate</span>
           </h1>
           <p style={{ color: '#4b5563', fontSize: '15px', margin: 0, lineHeight: 1.5, maxWidth: '420px', fontFamily: "'Inter', sans-serif" }}>
-            Discover athletes, coaches, and organizers who match your sport and location.
+            Discover athletes, coaches, and organizers who match your sport, location, or university.
           </p>
 
           {!loading && players.length > 0 && <DiscoveryStats players={players} />}
@@ -482,6 +545,44 @@ const handleMessage = (player: any) => {
                   </svg>
                 }
               />
+              {/* ─── UNIVERSITY SEARCH ─── */}
+              <div style={{ position: 'relative', flex: 1, minWidth: '180px' }}>
+                <div style={{
+                  position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)',
+                  color: '#4b5563', pointerEvents: 'none', display: 'flex',
+                }}>
+                  <span style={{ fontSize: '15px' }}>🎓</span>
+                </div>
+                <select
+                  value={searchUniversity}
+                  onChange={(e) => setSearchUniversity(e.target.value)}
+                  style={{
+                    width: '100%', padding: '13px 16px 13px 42px',
+                    background: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: '12px', color: '#f9fafb',
+                    fontSize: '14px', fontWeight: '500',
+                    fontFamily: "'Inter', sans-serif",
+                    outline: 'none', appearance: 'none',
+                    cursor: 'pointer',
+                    transition: 'all 0.22s ease',
+                  }}
+                >
+                  <option value="">All Universities</option>
+                  {universities.map(uni => (
+                    <option key={uni} value={uni} style={{ background: '#111118', color: '#f9fafb' }}>
+                      {uni}
+                    </option>
+                  ))}
+                </select>
+                <div style={{
+                  position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)',
+                  pointerEvents: 'none', color: '#4b5563',
+                }}>
+                  ▼
+                </div>
+              </div>
+
               <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
                 <SearchButton />
                 {hasFilters && <ClearButton onClear={handleClear} />}
