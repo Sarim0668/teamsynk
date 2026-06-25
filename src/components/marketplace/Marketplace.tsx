@@ -120,7 +120,7 @@ function SellButton({ active, onToggle }: { active: boolean; onToggle: () => voi
 }
 
 // ─── Listing Card ──────────────────────────────────────────────────────────
-function ListingCard({ item, isOwner, isBuyer, isProcessing, onBuy, onConfirm, onCancel, onOpen }: any) {
+function ListingCard({ item, isOwner, isBuyer, isProcessing, onBuy, onConfirm, onCancel, onOpen, onReport }: any) {
   const [hovered, setHovered] = useState(false)
   const isOrdered = item.status === 'ORDERED'
   const isSold = item.status === 'SOLD'
@@ -128,6 +128,11 @@ function ListingCard({ item, isOwner, isBuyer, isProcessing, onBuy, onConfirm, o
 
   // ─── If ORDERED and NOT the seller, DON'T show ────────────────────────
   if (isOrdered && !isOwner) {
+    return null
+  }
+
+  // ─── If SOLD, only show to seller and buyer ──────────────────────────
+  if (isSold && !isOwner && !isBuyer) {
     return null
   }
 
@@ -147,7 +152,7 @@ function ListingCard({ item, isOwner, isBuyer, isProcessing, onBuy, onConfirm, o
         transition: 'all 0.35s ease',
         transform: hovered && !isSold ? 'translateY(-4px)' : 'translateY(0)',
         boxShadow: hovered && !isSold ? '0 20px 60px rgba(0,0,0,0.5), 0 0 40px rgba(200,162,0,0.06)' : '0 4px 20px rgba(0,0,0,0.3)',
-        opacity: isSold ? 0.5 : isOrdered ? 0.85 : 1,
+        opacity: isSold ? 0.85 : isOrdered ? 0.85 : 1,
         pointerEvents: isSold ? 'none' : 'auto',
       }}
     >
@@ -216,6 +221,31 @@ function ListingCard({ item, isOwner, isBuyer, isProcessing, onBuy, onConfirm, o
           </div>
         )}
 
+        {isSold && isOwner && (
+          <div style={{
+            background: 'rgba(34,197,94,0.1)',
+            border: '1px solid rgba(34,197,94,0.2)',
+            borderRadius: '10px',
+            padding: '8px 12px',
+            marginBottom: '12px',
+          }}>
+            <p style={{
+              color: '#4ade80',
+              fontSize: '11px',
+              fontWeight: '700',
+              margin: 0,
+              fontFamily: "'Inter', sans-serif",
+            }}>
+              ✅ Sold to: {item.buyer_phone || 'No phone provided'}
+            </p>
+            {item.sold_at && (
+              <p style={{ color: '#4b5563', fontSize: '9px', margin: '2px 0 0 0', fontFamily: "'Inter', sans-serif" }}>
+                Sold: {new Date(item.sold_at).toLocaleString()}
+              </p>
+            )}
+          </div>
+        )}
+
         {item.payment_methods?.length > 0 && !isSold && (
           <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '12px' }}>
             {item.payment_methods.slice(0, 3).map((m: string) => (
@@ -254,7 +284,7 @@ function ListingCard({ item, isOwner, isBuyer, isProcessing, onBuy, onConfirm, o
           {isSold ? (
             <span style={{ color: '#4b5563', fontSize: '12px', fontWeight: '700', fontFamily: "'Inter', sans-serif" }}>✅ Sold</span>
           ) : isOrdered && isOwner ? (
-            <div style={{ display: 'flex', gap: '8px' }}>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               <button
                 onClick={(e) => { e.stopPropagation(); onConfirm(item) }}
                 disabled={isProcessing}
@@ -274,10 +304,10 @@ function ListingCard({ item, isOwner, isBuyer, isProcessing, onBuy, onConfirm, o
                   gap: '4px',
                 }}
               >
-                {isProcessing ? <Spinner /> : '✅'} Confirm Payment
+                {isProcessing ? <Spinner /> : '✅'} Confirm Sale
               </button>
               <button
-                onClick={(e) => { e.stopPropagation(); onCancel(item) }}
+                onClick={(e) => { e.stopPropagation(); onReport(item) }}
                 disabled={isProcessing}
                 style={{
                   padding: '8px 16px',
@@ -292,7 +322,7 @@ function ListingCard({ item, isOwner, isBuyer, isProcessing, onBuy, onConfirm, o
                   transition: 'all 0.2s ease',
                 }}
               >
-                ❌ Cancel Order
+                🚫 Report Buyer
               </button>
             </div>
           ) : isAvailable && !isOwner ? (
@@ -329,7 +359,7 @@ function ListingCard({ item, isOwner, isBuyer, isProcessing, onBuy, onConfirm, o
 }
 
 // ─── Create Listing Form ──────────────────────────────────────────────────
-function CreateForm({ formData, setFormData, onSubmit, onCancel, togglePayment }: any) {
+function CreateForm({ formData, setFormData, onSubmit, onCancel }: any) {
   return (
     <div style={{
       background: 'rgba(10,10,16,0.96)',
@@ -451,12 +481,16 @@ export const Marketplace: React.FC = () => {
       setUserProfile(profile)
     }
 
-    // ─── FIX: Only show AVAILABLE to everyone, ORDERED only to seller ───
+    // ─── FIX: Show AVAILABLE to everyone, ORDERED only to seller, SOLD only to seller and buyer ───
     let query = supabase.from('marketplace').select('*')
 
     if (user) {
-      // Show AVAILABLE to everyone + ORDERED only if user is the seller
-      query = query.or(`status.eq.AVAILABLE,and(status.eq.ORDERED,seller_id.eq.${user.id})`)
+      // Show AVAILABLE to everyone + ORDERED if user is seller + SOLD if user is seller or buyer
+      query = query.or(
+        `status.eq.AVAILABLE,` +
+        `and(status.eq.ORDERED,seller_id.eq.${user.id}),` +
+        `and(status.eq.SOLD,or(seller_id.eq.${user.id},buyer_id.eq.${user.id}))`
+      )
     } else {
       // Not logged in: only show AVAILABLE
       query = query.eq('status', 'AVAILABLE')
@@ -476,7 +510,7 @@ export const Marketplace: React.FC = () => {
     loadData()
   }, [loadData])
 
-  // ─── FIX: Notification stays for 8 seconds ─────────────────────────────
+  // ─── Notification stays for 8 seconds ─────────────────────────────────
   useEffect(() => {
     if (notification) {
       const timer = setTimeout(() => setNotification(null), 8000)
@@ -628,12 +662,13 @@ export const Marketplace: React.FC = () => {
     loadData()
   }
 
-  // ─── CONFIRM PAYMENT ─────────────────────────────────────────────────────
-  const handleConfirmPayment = async (listing: any) => {
-    if (!window.confirm(`Confirm payment received for "${listing.item_name}"?\nThis will mark it as SOLD.`)) return
+  // ─── CONFIRM SALE (Seller confirms payment received) ──────────────────
+  const handleConfirmSale = async (listing: any) => {
+    if (!window.confirm(`Confirm sale for "${listing.item_name}"?\nThis will mark it as SOLD and it will be removed from public view.`)) return
 
     setProcessingId(listing.id)
 
+    // Update listing to SOLD
     const { error: updateError } = await supabase
       .from('marketplace')
       .update({
@@ -650,6 +685,16 @@ export const Marketplace: React.FC = () => {
       return
     }
 
+    // Update order status
+    await supabase
+      .from('orders')
+      .update({
+        order_status: 'completed',
+        confirmed_at: new Date().toISOString()
+      })
+      .eq('listing_id', listing.id)
+
+    // NOTIFY BUYER
     await createNotification(
       listing.buyer_id,
       'sold',
@@ -663,13 +708,58 @@ export const Marketplace: React.FC = () => {
     loadData()
   }
 
-  // ─── CANCEL ORDER ────────────────────────────────────────────────────────
-  const handleCancelOrder = async (listing: any) => {
-    if (!window.confirm(`Cancel order for "${listing.item_name}"?\nItem will return to AVAILABLE.`)) return
+  // ─── REPORT BUYER (Seller reports misuse) ──────────────────────────────
+  const handleReportBuyer = async (listing: any) => {
+    if (!window.confirm(`⚠️ Report buyer for "${listing.item_name}"?\nThis will notify the admin. The buyer will be investigated.`)) return
 
     setProcessingId(listing.id)
 
-    const { error: updateError } = await supabase
+    // Get buyer details
+    const { data: buyerData } = await supabase
+      .from('users')
+      .select('full_name, email')
+      .eq('id', listing.buyer_id)
+      .single()
+
+    // Create admin notification
+    const adminMessage = `
+🚨 BUYER REPORTED
+
+Item: ${listing.item_name}
+Price: $${listing.price}
+Seller: ${userProfile?.full_name || 'Unknown'} (${userProfile?.email || 'No email'})
+Buyer: ${buyerData?.full_name || 'Unknown'} (${buyerData?.email || 'No email'})
+Buyer Phone: ${listing.buyer_phone || 'Not provided'}
+Order Date: ${new Date(listing.ordered_at).toLocaleString()}
+
+Report Reason: Buyer failed to complete transaction / misuse.
+    `.trim()
+
+    // Get all admins
+    const { data: admins } = await supabase
+      .from('users')
+      .select('id')
+      .eq('role', 'Admin')
+
+    if (admins && admins.length > 0) {
+      for (const admin of admins) {
+        await createNotification(
+          admin.id,
+          'report',
+          '🚨 Buyer Reported for Misuse',
+          adminMessage,
+          { 
+            listing_id: listing.id, 
+            buyer_id: listing.buyer_id,
+            seller_id: listing.seller_id,
+            report_type: 'buyer_misuse'
+          }
+        )
+      }
+    }
+
+    // Cancel the order and revert to AVAILABLE
+    const { error: revertError } = await supabase
       .from('marketplace')
       .update({
         status: 'AVAILABLE',
@@ -681,21 +771,34 @@ export const Marketplace: React.FC = () => {
       })
       .eq('id', listing.id)
 
-    if (updateError) {
-      setNotification({ text: '❌ Failed to cancel: ' + updateError.message, type: 'error' })
+    if (revertError) {
+      setNotification({ text: '❌ Failed to report: ' + revertError.message, type: 'error' })
       setProcessingId(null)
       return
     }
 
+    // Update order status
+    await supabase
+      .from('orders')
+      .update({
+        order_status: 'reported',
+        cancelled_at: new Date().toISOString()
+      })
+      .eq('listing_id', listing.id)
+
+    // NOTIFY BUYER
     await createNotification(
       listing.buyer_id,
-      'cancelled',
-      '❌ Order Cancelled',
-      `Seller cancelled the order for "${listing.item_name}".`,
+      'warning',
+      '⚠️ Report Filed Against You',
+      `The seller has reported you for failing to complete the purchase of "${listing.item_name}". Admin will investigate.`,
       { listing_id: listing.id }
     )
 
-    setNotification({ text: `✅ Order cancelled. "${listing.item_name}" is available again.`, type: 'success' })
+    setNotification({ 
+      text: `✅ Buyer reported. Admin has been notified and the item is back available.`, 
+      type: 'success' 
+    })
     setProcessingId(null)
     loadData()
   }
@@ -925,13 +1028,12 @@ export const Marketplace: React.FC = () => {
             setFormData={setFormData}
             onSubmit={handleCreateListing}
             onCancel={() => setShowCreateForm(false)}
-            togglePayment={() => {}}
           />
         )}
 
         {loading ? (
           <div style={{ textAlign: 'center', color: '#666', padding: '40px' }}>Loading...</div>
-        ) : listings.filter(l => l.status === 'AVAILABLE' || (l.status === 'ORDERED' && l.seller_id === userProfile?.id)).length === 0 ? (
+        ) : listings.filter(l => l.status === 'AVAILABLE' || (l.status === 'ORDERED' && l.seller_id === userProfile?.id) || (l.status === 'SOLD' && (l.seller_id === userProfile?.id || l.buyer_id === userProfile?.id))).length === 0 ? (
           <div style={{
             textAlign: 'center',
             padding: '80px 20px',
@@ -966,6 +1068,10 @@ export const Marketplace: React.FC = () => {
               if (item.status === 'ORDERED' && item.seller_id !== userProfile?.id) {
                 return null
               }
+              // ─── Hide SOLD items from non-seller and non-buyer ──────
+              if (item.status === 'SOLD' && item.seller_id !== userProfile?.id && item.buyer_id !== userProfile?.id) {
+                return null
+              }
               return (
                 <ListingCard
                   key={item.id}
@@ -974,8 +1080,9 @@ export const Marketplace: React.FC = () => {
                   isBuyer={item.buyer_id === userProfile?.id}
                   isProcessing={processingId === item.id}
                   onBuy={handlePlaceOrder}
-                  onConfirm={handleConfirmPayment}
-                  onCancel={handleCancelOrder}
+                  onConfirm={handleConfirmSale}
+                  onCancel={() => {}}
+                  onReport={handleReportBuyer}
                   onOpen={openDetail}
                 />
               )
@@ -1062,9 +1169,9 @@ export const Marketplace: React.FC = () => {
             )}
 
             {selectedListing.status === 'ORDERED' && selectedListing.seller_id === userProfile?.id && (
-              <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+              <div style={{ display: 'flex', gap: '8px', marginTop: '16px', flexWrap: 'wrap' }}>
                 <button
-                  onClick={() => { closeDetail(); handleConfirmPayment(selectedListing) }}
+                  onClick={() => { closeDetail(); handleConfirmSale(selectedListing) }}
                   disabled={processingId === selectedListing.id}
                   style={{
                     flex: 1,
@@ -1078,10 +1185,10 @@ export const Marketplace: React.FC = () => {
                     fontSize: '14px'
                   }}
                 >
-                  ✅ Confirm Payment
+                  ✅ Confirm Sale
                 </button>
                 <button
-                  onClick={() => { closeDetail(); handleCancelOrder(selectedListing) }}
+                  onClick={() => { closeDetail(); handleReportBuyer(selectedListing) }}
                   disabled={processingId === selectedListing.id}
                   style={{
                     flex: 1,
@@ -1095,8 +1202,21 @@ export const Marketplace: React.FC = () => {
                     fontSize: '14px'
                   }}
                 >
-                  ❌ Cancel
+                  🚫 Report Buyer
                 </button>
+              </div>
+            )}
+
+            {selectedListing.status === 'SOLD' && (
+              <div style={{ marginTop: '16px', padding: '12px', background: 'rgba(34,197,94,0.08)', borderRadius: '10px', textAlign: 'center' }}>
+                <p style={{ color: '#4ade80', fontSize: '14px', fontWeight: 'bold' }}>
+                  ✅ This item has been sold
+                </p>
+                {selectedListing.buyer_phone && (
+                  <p style={{ color: '#888', fontSize: '12px' }}>
+                    Buyer Contact: {selectedListing.buyer_phone}
+                  </p>
+                )}
               </div>
             )}
           </div>
