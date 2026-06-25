@@ -482,89 +482,78 @@ Please contact me to complete the transaction.`
     setError('')
   }
 
-  const confirmPurchase = async () => {
-    if (!buyerPhone.trim() || buyerPhone.trim().length < 10) {
-      setError('⚠️ Please enter a valid phone number (min 10 digits)')
-      return
-    }
-
-    if (!window.confirm(`⚠️ Confirm purchase of "${selectedListing.item_name}" for $${selectedListing.price}?\n\nThis will send your phone number to the seller via auto-message and the listing will be REMOVED from the marketplace.`)) {
-      return
-    }
-
-    const listing = selectedListing
-    setProcessingId(listing.id)
-    setShowBuyModal(false)
-
-    try {
-      // ─── 1. Send auto message from buyer to seller ──────────────────────
-      const messageSent = await sendAutoMessage(
-        listing.seller_id,
-        userProfile.id,
-        listing.item_name,
-        buyerPhone.trim(),
-        listing.price
-      )
-
-      if (!messageSent) {
-        setNotification({ text: '⚠️ Auto-message failed, but purchase will continue', type: 'error' })
-      }
-
-      // ─── 2. UPDATE to REMOVED ────────────────────────────────────────────
-      console.log('🔄 Marking listing as REMOVED. ID:', listing.id)
-      const { error: updateError, data: updatedData } = await supabase
-        .from('marketplace')
-        .update({ 
-          status: 'REMOVED'
-        })
-        .eq('id', listing.id)
-        .select()
-
-      console.log('📊 Update response:', { updateError, updatedData })
-
-      if (updateError) {
-        console.error('❌ Update failed:', updateError)
-        setNotification({ text: '❌ Failed to remove listing: ' + updateError.message, type: 'error' })
-        setProcessingId(null)
-        return
-      }
-
-      console.log('✅ Listing marked as REMOVED. Updated data:', updatedData)
-
-      // ─── 3. Create order record for admin tracking ──────────────────────
-      await supabase.from('orders').insert({
-        listing_id: listing.id,
-        buyer_id: userProfile.id,
-        seller_id: listing.seller_id,
-        buyer_phone: buyerPhone.trim(),
-        amount: listing.price,
-        item_name: listing.item_name,
-        order_status: 'pending',
-        ordered_at: new Date().toISOString()
-      })
-
-      // ─── 4. HARD REMOVE from state ──────────────────────────────────────
-      setListings(prev => {
-        const filtered = prev.filter(item => item.id !== listing.id)
-        console.log('🔄 State before:', prev.length, 'After:', filtered.length)
-        return filtered
-      })
-      
-      // ─── 5. Force reload from database ──────────────────────────────────
-      await loadData()
-
-      setNotification({ 
-        text: `✅ Purchase confirmed! Auto-message sent to seller. The listing has been REMOVED.`, 
-        type: 'success' 
-      })
-      
-    } catch (err: any) {
-      console.error('❌ Purchase error:', err)
-      setNotification({ text: '❌ Error: ' + err.message, type: 'error' })
-    } finally {
-      setProcessingId(null)
-    }
+const confirmPurchase = async () => {
+  if (!buyerPhone.trim() || buyerPhone.trim().length < 10) {
+    setError('⚠️ Please enter a valid phone number (min 10 digits)')
+    return
   }
+
+  if (!window.confirm(`⚠️ Confirm purchase of "${selectedListing.item_name}" for $${selectedListing.price}?\n\nThis will send your phone number to the seller via auto-message and the listing will be REMOVED from the marketplace.`)) {
+    return
+  }
+
+  const listing = selectedListing
+  setProcessingId(listing.id)
+  setShowBuyModal(false)
+
+  try {
+    // ─── 1. Send auto message from buyer to seller ──────────────────────
+    const messageSent = await sendAutoMessage(
+      listing.seller_id,
+      userProfile.id,
+      listing.item_name,
+      buyerPhone.trim(),
+      listing.price
+    )
+
+    if (!messageSent) {
+      setNotification({ text: '⚠️ Auto-message failed, but purchase will continue', type: 'error' })
+    }
+
+    // ─── 2. Call Supabase RPC function (runs with admin privileges) ────
+    console.log('🔄 Calling purchase function for listing:', listing.id)
+    
+    const { data, error } = await supabase.rpc('purchase_listing', {
+      listing_id: listing.id,
+      buyer_id: userProfile.id,
+      buyer_phone: buyerPhone.trim()
+    })
+
+    console.log('📊 RPC Response:', { data, error })
+
+    if (error) {
+      console.error('❌ RPC failed:', error)
+      setNotification({ text: '❌ Failed to purchase: ' + error.message, type: 'error' })
+      setProcessingId(null)
+      return
+    }
+
+    if (!data?.success) {
+      setNotification({ text: '❌ ' + (data?.error || 'Purchase failed'), type: 'error' })
+      setProcessingId(null)
+      return
+    }
+
+    console.log('✅ Purchase successful!')
+
+    // ─── 3. Remove from state ────────────────────────────────────────────
+    setListings(prev => prev.filter(item => item.id !== listing.id))
+    
+    // ─── 4. Reload from database ─────────────────────────────────────────
+    await loadData()
+
+    setNotification({ 
+      text: `✅ Purchase confirmed! Auto-message sent to seller. The listing has been REMOVED.`, 
+      type: 'success' 
+    })
+    
+  } catch (err: any) {
+    console.error('❌ Purchase error:', err)
+    setNotification({ text: '❌ Error: ' + err.message, type: 'error' })
+  } finally {
+    setProcessingId(null)
+  }
+}
 
   const openDetail = (listing: any) => { setSelectedListing(listing); setShowDetail(true) }
   const closeDetail = () => { setShowDetail(false); setSelectedListing(null) }
