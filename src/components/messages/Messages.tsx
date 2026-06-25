@@ -15,6 +15,7 @@ export const Messages: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<any[]>([])
   const [showSearch, setShowSearch] = useState(false)
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({})
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   // ─── Check for selected user from navigation ──────────────────────────────
@@ -41,6 +42,8 @@ export const Messages: React.FC = () => {
       markMessagesAsRead(selectedUser.id)
       // 🔥 Refresh unread count in navbar after marking as read
       refreshUnreadCount()
+      // 🔥 Refresh unread counts for all conversations
+      loadUnreadCounts()
     }
   }, [selectedUser, user])
 
@@ -51,11 +54,45 @@ export const Messages: React.FC = () => {
     }
   }, [messages])
 
+  // ─── Refresh unread counts periodically ────────────────────────────────────
+  useEffect(() => {
+    if (user) {
+      loadUnreadCounts()
+      const interval = setInterval(() => {
+        loadUnreadCounts()
+      }, 10000) // Refresh every 10 seconds
+      return () => clearInterval(interval)
+    }
+  }, [user])
+
   // ─── Refresh unread count (notify navbar) ─────────────────────────────────
   const refreshUnreadCount = async () => {
-    // The navbar already polls every 10 seconds, but we can trigger a manual refresh
-    // by dispatching a custom event that the navbar can listen to
     window.dispatchEvent(new CustomEvent('refreshUnreadCount'))
+  }
+
+  // ─── Load unread counts for all conversations ─────────────────────────────
+  const loadUnreadCounts = async () => {
+    if (!user) return
+
+    const { data, error } = await supabase
+      .from('messages')
+      .select('sender_id, count')
+      .eq('receiver_id', user.id)
+      .eq('is_read', false)
+      .group('sender_id')
+
+    if (!error && data) {
+      const counts: Record<string, number> = {}
+      data.forEach((item: any) => {
+        counts[item.sender_id] = item.count || 0
+      })
+      setUnreadCounts(counts)
+      
+      // Also update navbar unread count
+      const totalUnread = Object.values(counts).reduce((a, b) => a + b, 0)
+      // Store total unread for navbar
+      window.dispatchEvent(new CustomEvent('refreshUnreadCount'))
+    }
   }
 
   const loadUserAndConversations = async () => {
@@ -69,28 +106,53 @@ export const Messages: React.FC = () => {
 
     const { data: conversationsData, error } = await supabase
       .from('messages')
-      .select('sender_id, receiver_id')
+      .select('sender_id, receiver_id, created_at')
       .or(`sender_id.eq.${currentUser.id},receiver_id.eq.${currentUser.id}`)
       .order('created_at', { ascending: false })
 
     if (!error && conversationsData) {
       const uniqueUserIds = new Set()
+      const latestMessages: Record<string, any> = {}
+      
       conversationsData.forEach((msg: any) => {
         const otherId = msg.sender_id === currentUser.id ? msg.receiver_id : msg.sender_id
-        if (otherId) uniqueUserIds.add(otherId)
+        if (otherId) {
+          uniqueUserIds.add(otherId)
+          // Keep the latest message for each conversation
+          if (!latestMessages[otherId] || msg.created_at > latestMessages[otherId].created_at) {
+            latestMessages[otherId] = msg
+          }
+        }
       })
 
       const userPromises = Array.from(uniqueUserIds).map(async (userId) => {
         const { data } = await supabase
           .from('users')
-          .select('id, full_name, sport_interests, location, role')
+          .select('id, full_name, sport_interests, location, role, avatar_url')
           .eq('id', userId)
           .single()
         return data
       })
 
       const users = (await Promise.all(userPromises)).filter(Boolean)
-      setConversations(users)
+      
+      // Add latest message timestamp to each user for sorting
+      const usersWithLatest = users.map((u: any) => ({
+        ...u,
+        lastMessageAt: latestMessages[u.id]?.created_at || null
+      }))
+      
+      // Sort by latest message
+      usersWithLatest.sort((a: any, b: any) => {
+        if (!a.lastMessageAt) return 1
+        if (!b.lastMessageAt) return -1
+        return new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime()
+      })
+      
+      setConversations(usersWithLatest)
+      
+      // Load unread counts
+      await loadUnreadCounts()
     }
 
     setLoading(false)
@@ -114,12 +176,21 @@ export const Messages: React.FC = () => {
   const markMessagesAsRead = async (otherUserId: string) => {
     if (!user || !user.id) return
     
-    await supabase
+    const { error } = await supabase
       .from('messages')
       .update({ is_read: true })
       .eq('receiver_id', user.id)
       .eq('sender_id', otherUserId)
       .eq('is_read', false)
+
+    if (!error) {
+      // Update unread counts
+      setUnreadCounts(prev => ({
+        ...prev,
+        [otherUserId]: 0
+      }))
+      refreshUnreadCount()
+    }
   }
 
   const handleSendMessage = async () => {
@@ -145,7 +216,6 @@ export const Messages: React.FC = () => {
       setNewMessage('')
       await loadMessages(selectedUser.id)
       scrollToBottom()
-      // 🔥 Refresh unread count after sending message (for the receiver)
       refreshUnreadCount()
     }
     setSending(false)
@@ -222,7 +292,6 @@ export const Messages: React.FC = () => {
     )
   }
 
-  // ─── ALWAYS SHOW THE FULL CHAT UI ──────────────────────────────────────────
   return (
     <div style={{
       minHeight: '100vh',
@@ -352,46 +421,99 @@ export const Messages: React.FC = () => {
               <p style={{ fontSize: '14px' }}>No conversations yet</p>
             </div>
           ) : (
-            conversations.map((conv: any) => (
-              <div
-                key={conv?.id || Math.random().toString()}
-                onClick={() => conv?.id && setSelectedUser(conv)}
-                style={{
-                  padding: '12px',
-                  borderRadius: '12px',
-                  background: selectedUser?.id === conv?.id ? 'rgba(200,162,0,0.08)' : 'transparent',
-                  border: selectedUser?.id === conv?.id ? '1px solid rgba(200,162,0,0.2)' : '1px solid transparent',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px'
-                }}
-              >
-                <div style={{
-                  width: '40px',
-                  height: '40px',
-                  borderRadius: '50%',
-                  background: 'linear-gradient(135deg, #c8a200, #FFD700)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '16px',
-                  fontWeight: 'bold',
-                  color: '#0a0a0a'
-                }}>
-                  {conv?.full_name?.charAt(0)?.toUpperCase() || '?'}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ color: 'white', fontWeight: 'bold', fontSize: '14px' }}>
-                    {conv?.full_name || 'Unknown'}
+            conversations.map((conv: any) => {
+              const unreadCount = unreadCounts[conv.id] || 0
+              return (
+                <div
+                  key={conv?.id || Math.random().toString()}
+                  onClick={() => conv?.id && setSelectedUser(conv)}
+                  style={{
+                    padding: '12px',
+                    borderRadius: '12px',
+                    background: selectedUser?.id === conv?.id ? 'rgba(200,162,0,0.08)' : 'transparent',
+                    border: selectedUser?.id === conv?.id ? '1px solid rgba(200,162,0,0.2)' : '1px solid transparent',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    position: 'relative'
+                  }}
+                >
+                  <div style={{
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '50%',
+                    background: 'linear-gradient(135deg, #c8a200, #FFD700)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '16px',
+                    fontWeight: 'bold',
+                    color: '#0a0a0a',
+                    position: 'relative'
+                  }}>
+                    {conv?.full_name?.charAt(0)?.toUpperCase() || '?'}
+                    {unreadCount > 0 && (
+                      <span style={{
+                        position: 'absolute',
+                        top: '-4px',
+                        right: '-4px',
+                        width: '18px',
+                        height: '18px',
+                        borderRadius: '50%',
+                        background: '#ef4444',
+                        color: 'white',
+                        fontSize: '9px',
+                        fontWeight: 'bold',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        border: '2px solid #0D0D0F'
+                      }}>
+                        {unreadCount > 9 ? '9+' : unreadCount}
+                      </span>
+                    )}
                   </div>
-                  <div style={{ color: '#666', fontSize: '12px' }}>
-                    {conv?.sport_interests || conv?.role || 'Player'}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ 
+                      color: 'white', 
+                      fontWeight: unreadCount > 0 ? 'bold' : '500',
+                      fontSize: '14px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}>
+                      {conv?.full_name || 'Unknown'}
+                      {unreadCount > 0 && (
+                        <span style={{
+                          background: '#ef4444',
+                          color: 'white',
+                          fontSize: '10px',
+                          fontWeight: 'bold',
+                          padding: '1px 8px',
+                          borderRadius: '99px',
+                          minWidth: '20px',
+                          textAlign: 'center'
+                        }}>
+                          {unreadCount}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ 
+                      color: unreadCount > 0 ? '#FFD700' : '#666', 
+                      fontSize: '12px',
+                      fontWeight: unreadCount > 0 ? '600' : '400'
+                    }}>
+                      {conv?.sport_interests || conv?.role || 'Player'}
+                      {unreadCount > 0 && (
+                        <span style={{ marginLeft: '6px', color: '#ef4444' }}>●</span>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))
+              )
+            })
           )}
         </div>
       </div>
@@ -406,7 +528,6 @@ export const Messages: React.FC = () => {
         background: 'rgba(0,0,0,0.3)'
       }}>
         {selectedUser ? (
-          // ─── CHAT WITH SELECTED USER ───
           <>
             {/* Chat Header */}
             <div style={{
@@ -543,7 +664,6 @@ export const Messages: React.FC = () => {
             </div>
           </>
         ) : (
-          // ─── NO USER SELECTED ───
           <div style={{
             flex: 1,
             display: 'flex',
