@@ -294,74 +294,72 @@ export const Dashboard: React.FC = () => {
   useEffect(() => { loadData() }, [])
 
   const loadData = async () => {
-  setLoading(true)
-  const { data: { user } } = await supabase.auth.getUser()
+    setLoading(true)
+    const { data: { user } } = await supabase.auth.getUser()
 
-  // ─── Get user profile ────────────────────────────────────────────────────
-  if (user) {
-    const { data: profileData } = await supabase
-      .from('users')
+    // ─── Get user profile ────────────────────────────────────────────────────
+    if (user) {
+      const { data: profileData } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', user.id)
+        .single()
+      setProfile(profileData)
+      setUserUniversity(profileData?.university || '')
+    }
+
+    // ─── Get university leaderboard ─────────────────────────────────────────
+    const { data: uniData, error: uniError } = await supabase
+      .from('university_overall_leaderboard')
       .select('*')
-      .eq('id', user.id)
-      .single()
-    setProfile(profileData)
-    setUserUniversity(profileData?.university || '')
+
+    if (!uniError && uniData) {
+      setUniversityStats(uniData)
+    } else {
+      console.error('Error loading university stats:', uniError)
+      setUniversityStats([])
+    }
+
+    // ─── Get upcoming sessions ──────────────────────────────────────────────
+    const today = new Date().toISOString().split('T')[0]
+    const { data: sessions, error: sessionsError } = await supabase
+      .from('sports_sessions')
+      .select('*')
+      .gte('session_date', today)
+      .order('session_date', { ascending: true })
+      .limit(4)
+
+    if (!sessionsError && sessions) {
+      setUpcomingSessions(sessions)
+    } else {
+      console.error('Error loading sessions:', sessionsError)
+      setUpcomingSessions([])
+    }
+
+    // ─── Get competitions with participant count ─────────────────────────────
+    const { data: compData, error: compError } = await supabase
+      .from('competitions')
+      .select(`
+        *,
+        competition_participants(count)
+      `)
+      .in('status', ['upcoming', 'active'])
+      .order('start_date', { ascending: true })
+      .limit(4)
+
+    if (!compError && compData) {
+      const compsWithCount = compData.map((comp: any) => ({
+        ...comp,
+        participants_count: comp.competition_participants?.[0]?.count || 0
+      }))
+      setCompetitions(compsWithCount)
+    } else {
+      console.error('Error loading competitions:', compError)
+      setCompetitions([])
+    }
+
+    setLoading(false)
   }
-
-  // ─── Get university leaderboard ─────────────────────────────────────────
-  const { data: uniData, error: uniError } = await supabase
-    .from('university_overall_leaderboard')
-    .select('*')
-
-  console.log('📊 University Data:', uniData) // Debug log
-
-  if (!uniError && uniData) {
-    setUniversityStats(uniData)
-  } else {
-    console.error('Error loading university stats:', uniError)
-    setUniversityStats([])
-  }
-
-  // ─── Get competitions with participant count ─────────────────────────────
-  const { data: compData, error: compError } = await supabase
-    .from('competitions')
-    .select(`
-      *,
-      competition_participants(count)
-    `)
-    .in('status', ['upcoming', 'active'])
-    .order('start_date', { ascending: true })
-    .limit(4)
-
-  if (!compError && compData) {
-    const compsWithCount = compData.map((comp: any) => ({
-      ...comp,
-      participants_count: comp.competition_participants?.[0]?.count || 0
-    }))
-    setCompetitions(compsWithCount)
-  } else {
-    console.error('Error loading competitions:', compError)
-    setCompetitions([])
-  }
-
-  // ─── Get upcoming sessions ──────────────────────────────────────────────
-  const today = new Date().toISOString().split('T')[0]
-  const { data: sessions, error: sessionsError } = await supabase
-    .from('sports_sessions')
-    .select('*')
-    .gte('session_date', today)
-    .order('session_date', { ascending: true })
-    .limit(4)
-
-  if (!sessionsError && sessions) {
-    setUpcomingSessions(sessions)
-  } else {
-    console.error('Error loading sessions:', sessionsError)
-    setUpcomingSessions([])
-  }
-
-  setLoading(false)
-}
 
   if (loading) {
     return (
@@ -445,24 +443,24 @@ export const Dashboard: React.FC = () => {
           </h1>
           
           {userUniversity && (
-  <div style={{
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: '8px',
-    padding: '8px 16px',
-    background: 'rgba(200,162,0,0.08)',
-    border: '1px solid rgba(200,162,0,0.2)',
-    borderRadius: '99px',
-  }}>
-    <span style={{ fontSize: '16px' }}>🎓</span>
-    <span style={{ color: '#FFD700', fontSize: '13px', fontWeight: '600' }}>
-      {userUniversity}
-    </span>
-    <span style={{ color: '#4ade80', fontSize: '12px', fontWeight: 'bold' }}>
-      ({universityStats.find(u => u.name === userUniversity)?.total_members || 0} members)
-    </span>
-  </div>
-)}
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '8px 16px',
+              background: 'rgba(200,162,0,0.08)',
+              border: '1px solid rgba(200,162,0,0.2)',
+              borderRadius: '99px',
+            }}>
+              <span style={{ fontSize: '16px' }}>🎓</span>
+              <span style={{ color: '#FFD700', fontSize: '13px', fontWeight: '600' }}>
+                {userUniversity}
+              </span>
+              <span style={{ color: '#4b5563', fontSize: '11px' }}>
+                ({universityStats.find(u => u.name === userUniversity)?.total_members || 0} members)
+              </span>
+            </div>
+          )}
         </section>
 
         {/* ─── UNIVERSITY LEADERBOARD ─── */}
@@ -552,7 +550,99 @@ export const Dashboard: React.FC = () => {
           </div>
         </section>
 
-        {/* ─── COMPETITIONS ─── */}
+        {/* ─── SESSIONS - MOVED UP (BEFORE COMPETITIONS) ─── */}
+        <section style={{ marginBottom: '40px' }}>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '16px',
+            flexWrap: 'wrap',
+            gap: '12px',
+          }}>
+            <div>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}>
+                <div style={{ width: '16px', height: '1px', background: 'rgba(200,162,0,0.4)' }} />
+                <span style={{ color: '#6b7280', fontSize: '10px', fontWeight: '700', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+                  ⚡ Live Arena
+                </span>
+              </div>
+              <h2 style={{
+                fontSize: '22px',
+                fontWeight: '700',
+                color: 'white',
+                letterSpacing: '-0.02em',
+                margin: '4px 0 0',
+              }}>
+                Upcoming Sessions
+              </h2>
+            </div>
+            <Link
+              to="/browse-sessions"
+              style={{
+                color: '#c8a200',
+                textDecoration: 'none',
+                fontSize: '13px',
+                fontWeight: '600',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+              }}
+            >
+              View all →
+            </Link>
+          </div>
+
+          {upcomingSessions.length === 0 ? (
+            <div style={{
+              background: 'rgba(14,14,20,0.9)',
+              backdropFilter: 'blur(24px)',
+              border: '1px solid rgba(255,255,255,0.05)',
+              borderRadius: '16px',
+              padding: '40px',
+              textAlign: 'center',
+            }}>
+              <div style={{ fontSize: '40px', marginBottom: '12px' }}>🏟️</div>
+              <h3 style={{ fontSize: '18px', fontWeight: '700', color: 'white', margin: '0 0 8px' }}>
+                No upcoming sessions
+              </h3>
+              <p style={{ color: '#4b5563', fontSize: '14px' }}>
+                The arena is quiet. Be the first to start something.
+              </p>
+              <Link
+                to="/create-session"
+                style={{
+                  display: 'inline-block',
+                  marginTop: '12px',
+                  padding: '10px 24px',
+                  background: 'linear-gradient(135deg, #c8a200, #FFD700)',
+                  color: '#0a0a0a',
+                  borderRadius: '12px',
+                  textDecoration: 'none',
+                  fontWeight: 'bold',
+                }}
+              >
+                ➕ Create Session
+              </Link>
+            </div>
+          ) : (
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+              gap: '14px',
+            }}>
+              {upcomingSessions.map((session, i) => (
+                <SessionCard key={session.id} session={session} index={i} />
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* ─── COMPETITIONS - MOVED DOWN (AFTER SESSIONS) ─── */}
         <section style={{ marginBottom: '40px' }}>
           <div style={{
             display: 'flex',
@@ -611,93 +701,6 @@ export const Dashboard: React.FC = () => {
             }}>
               {competitions.map((comp, i) => (
                 <CompetitionCard key={comp.id} competition={comp} index={i} />
-              ))}
-            </div>
-          )}
-        </section>
-
-        {/* ─── SESSIONS ─── */}
-        <section>
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: '16px',
-          }}>
-            <div>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-              }}>
-                <div style={{ width: '16px', height: '1px', background: 'rgba(200,162,0,0.4)' }} />
-                <span style={{ color: '#6b7280', fontSize: '10px', fontWeight: '700', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-                  Live Arena
-                </span>
-              </div>
-              <h2 style={{
-                fontSize: '22px',
-                fontWeight: '700',
-                color: 'white',
-                letterSpacing: '-0.02em',
-                margin: '4px 0 0',
-              }}>
-                Upcoming Sessions
-              </h2>
-            </div>
-            <Link
-              to="/browse-sessions"
-              style={{
-                color: '#c8a200',
-                textDecoration: 'none',
-                fontSize: '13px',
-                fontWeight: '600',
-              }}
-            >
-              View all →
-            </Link>
-          </div>
-
-          {upcomingSessions.length === 0 ? (
-            <div style={{
-              background: 'rgba(14,14,20,0.9)',
-              backdropFilter: 'blur(24px)',
-              border: '1px solid rgba(255,255,255,0.05)',
-              borderRadius: '16px',
-              padding: '40px',
-              textAlign: 'center',
-            }}>
-              <div style={{ fontSize: '40px', marginBottom: '12px' }}>🏟️</div>
-              <h3 style={{ fontSize: '18px', fontWeight: '700', color: 'white', margin: '0 0 8px' }}>
-                No upcoming sessions
-              </h3>
-              <p style={{ color: '#4b5563', fontSize: '14px' }}>
-                The arena is quiet. Be the first to start something.
-              </p>
-              <Link
-                to="/create-session"
-                style={{
-                  display: 'inline-block',
-                  marginTop: '12px',
-                  padding: '10px 24px',
-                  background: 'linear-gradient(135deg, #c8a200, #FFD700)',
-                  color: '#0a0a0a',
-                  borderRadius: '12px',
-                  textDecoration: 'none',
-                  fontWeight: 'bold',
-                }}
-              >
-                ➕ Create Session
-              </Link>
-            </div>
-          ) : (
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-              gap: '14px',
-            }}>
-              {upcomingSessions.map((session, i) => (
-                <SessionCard key={session.id} session={session} index={i} />
               ))}
             </div>
           )}
