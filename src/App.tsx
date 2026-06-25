@@ -12,7 +12,7 @@ import { Marketplace } from './components/marketplace/Marketplace'
 import { FindPlayers } from './components/social/FindPlayers'
 import { SessionDetail } from './components/sessions/SessionDetail'
 import { Profile } from './components/profile/Profile'
-import { Messages } from './components/messages/Messages'  // ← ADD THIS
+import { Messages } from './components/messages/Messages'
 import { BackgroundMusic } from './components/common/BackgroundMusic'
 import { AdminPanel } from './components/admin/AdminPanel'
 import { Competitions } from './components/competitions/Competitions'
@@ -352,12 +352,12 @@ function AppInner({ user }: { user: any }) {
           <Route path="/marketplace" element={user ? <Marketplace /> : <Navigate to="/login" />} />
           <Route path="/profile" element={user ? <Profile /> : <Navigate to="/login" />} />
           <Route path="/session/:id" element={user ? <SessionDetail /> : <Navigate to="/login" />} />
-          <Route path="/messages" element={user ? <Messages /> : <Navigate to="/login" />} />  {/* ← ADD THIS */}
+          <Route path="/messages" element={user ? <Messages /> : <Navigate to="/login" />} />
           <Route path="/admin" element={user ? <AdminPanel /> : <Navigate to="/login" />} />
           <Route path="/competitions" element={user ? <Competitions /> : <Navigate to="/login" />} />
-<Route path="/competition/:id" element={user ? <CompetitionDetail /> : <Navigate to="/login" />} />
-<Route path="/create-competition" element={user ? <CreateCompetition /> : <Navigate to="/login" />} />
-<Route path="/leaderboard" element={user ? <Leaderboard /> : <Navigate to="/login" />} />
+          <Route path="/competition/:id" element={user ? <CompetitionDetail /> : <Navigate to="/login" />} />
+          <Route path="/create-competition" element={user ? <CreateCompetition /> : <Navigate to="/login" />} />
+          <Route path="/leaderboard" element={user ? <Leaderboard /> : <Navigate to="/login" />} />
         </Routes>
       </main>
     </>

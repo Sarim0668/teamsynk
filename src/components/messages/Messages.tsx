@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 
-const Messages: React.FC = () => {
+export const Messages: React.FC = () => {
   const navigate = useNavigate()
   const location = useLocation()
   const [loading, setLoading] = useState(true)
@@ -677,5 +677,3 @@ const Messages: React.FC = () => {
     </div>
   )
 }
-
-export default Messages
