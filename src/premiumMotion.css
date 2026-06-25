@@ -12,6 +12,7 @@
  *  6. Premium scrollbar
  *  7. Page transition wrapper
  *  8. Reduced-motion safety
+ *  9. Full responsiveness for mobile & tablet
  */
 
 /* ─── Google Fonts ─────────────────────────────────────────────────────────── */
@@ -58,6 +59,7 @@
 
 html {
   scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
@@ -67,6 +69,10 @@ body {
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100vh;
 }
 
 /* ─── Premium Scrollbar ────────────────────────────────────────────────────── */
@@ -182,11 +188,13 @@ body {
   100% { background-position: 0% 50%; }
 }
 
+@keyframes ts-slideUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 /* ══════════════════════════════════════════════════════════════════════════════
    SCROLL REVEAL SYSTEM
-   Add .ts-reveal (or variant) to any element.
-   JavaScript: use IntersectionObserver to add .ts-visible when in view.
-   Or use the useScrollReveal hook below.
 ══════════════════════════════════════════════════════════════════════════════ */
 
 .ts-reveal,
@@ -195,9 +203,7 @@ body {
 .ts-reveal-scale,
 .ts-reveal-fade {
   opacity: 0;
-  transition:
-    opacity var(--transition-slow),
-    transform var(--transition-slow);
+  transition: opacity var(--transition-slow), transform var(--transition-slow);
 }
 
 .ts-reveal         { transform: translateY(28px); }
@@ -233,11 +239,8 @@ body {
   -webkit-backdrop-filter: blur(24px);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
-  transition:
-    border-color var(--transition-base),
-    box-shadow var(--transition-base),
-    transform var(--transition-base),
-    background var(--transition-base);
+  transition: border-color var(--transition-base), box-shadow var(--transition-base),
+              transform var(--transition-base), background var(--transition-base);
   position: relative;
   overflow: hidden;
 }
@@ -254,15 +257,11 @@ body {
 .ts-card:hover {
   border-color: var(--border-gold-active);
   transform: translateY(-4px);
-  box-shadow:
-    0 20px 60px rgba(0,0,0,0.5),
-    0 0 0 1px rgba(200,162,0,0.08),
-    0 0 30px rgba(200,162,0,0.08);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(200,162,0,0.08),
+              0 0 30px rgba(200,162,0,0.08);
 }
 
-.ts-card:hover::before {
-  opacity: 1;
-}
+.ts-card:hover::before { opacity: 1; }
 
 /* ══════════════════════════════════════════════════════════════════════════════
    PREMIUM BUTTON SYSTEM
@@ -283,16 +282,13 @@ body {
   color: #0a0a0a;
   background: linear-gradient(135deg, var(--gold-500) 0%, var(--gold-300) 50%, var(--gold-400) 100%);
   background-size: 200% auto;
-  box-shadow:
-    0 0 16px rgba(200,162,0,0.25),
-    inset 0 1px 0 rgba(255,255,255,0.2);
-  transition:
-    transform var(--transition-fast),
-    box-shadow var(--transition-base),
-    background-position var(--transition-slow);
+  box-shadow: 0 0 16px rgba(200,162,0,0.25), inset 0 1px 0 rgba(255,255,255,0.2);
+  transition: transform var(--transition-fast), box-shadow var(--transition-base),
+              background-position var(--transition-slow);
   position: relative;
   overflow: hidden;
   text-decoration: none;
+  min-height: 44px;
 }
 
 .ts-btn-gold::before {
@@ -307,10 +303,8 @@ body {
 .ts-btn-gold:hover {
   transform: scale(1.04) translateY(-1px);
   background-position: right center;
-  box-shadow:
-    0 0 32px rgba(200,162,0,0.5),
-    0 8px 24px rgba(200,162,0,0.3),
-    inset 0 1px 0 rgba(255,255,255,0.3);
+  box-shadow: 0 0 32px rgba(200,162,0,0.5), 0 8px 24px rgba(200,162,0,0.3),
+              inset 0 1px 0 rgba(255,255,255,0.3);
 }
 
 .ts-btn-gold:hover::before {
@@ -318,9 +312,7 @@ body {
   transition: left 0.55s ease;
 }
 
-.ts-btn-gold:active {
-  transform: scale(0.98) translateY(0);
-}
+.ts-btn-gold:active { transform: scale(0.98) translateY(0); }
 
 /* Ghost button */
 .ts-btn-ghost {
@@ -341,6 +333,7 @@ body {
   text-decoration: none;
   position: relative;
   overflow: hidden;
+  min-height: 44px;
 }
 
 .ts-btn-ghost:hover {
@@ -365,10 +358,9 @@ body {
   padding: 11px 16px;
   width: 100%;
   outline: none;
-  transition:
-    border-color var(--transition-base),
-    box-shadow var(--transition-base),
-    background var(--transition-base);
+  transition: border-color var(--transition-base), box-shadow var(--transition-base),
+              background var(--transition-base);
+  -webkit-appearance: none;
 }
 
 .ts-input::placeholder { color: var(--text-muted); }
@@ -376,14 +368,10 @@ body {
 .ts-input:focus {
   border-color: rgba(200,162,0,0.45);
   background: rgba(200,162,0,0.04);
-  box-shadow:
-    0 0 0 3px rgba(200,162,0,0.08),
-    0 0 20px rgba(200,162,0,0.08);
+  box-shadow: 0 0 0 3px rgba(200,162,0,0.08), 0 0 20px rgba(200,162,0,0.08);
 }
 
-.ts-input:hover:not(:focus) {
-  border-color: rgba(255,255,255,0.14);
-}
+.ts-input:hover:not(:focus) { border-color: rgba(255,255,255,0.14); }
 
 /* Select */
 .ts-select {
@@ -393,7 +381,6 @@ body {
 
 /* ══════════════════════════════════════════════════════════════════════════════
    ANIMATED BACKGROUND BLOBS
-   Add <div class="ts-bg-blobs"> as first child of your layout wrapper.
 ══════════════════════════════════════════════════════════════════════════════ */
 
 .ts-bg-blobs {
@@ -484,12 +471,7 @@ body {
 ══════════════════════════════════════════════════════════════════════════════ */
 
 .ts-skeleton {
-  background: linear-gradient(
-    90deg,
-    rgba(255,255,255,0.03) 25%,
-    rgba(200,162,0,0.07) 50%,
-    rgba(255,255,255,0.03) 75%
-  );
+  background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(200,162,0,0.07) 50%, rgba(255,255,255,0.03) 75%);
   background-size: 200% 100%;
   animation: ts-shimmer 1.8s ease-in-out infinite;
   border-radius: var(--radius-sm);
@@ -497,7 +479,6 @@ body {
 
 /* ══════════════════════════════════════════════════════════════════════════════
    PAGE TRANSITION WRAPPER
-   Wrap page content with <div class="ts-page-enter"> on route change
 ══════════════════════════════════════════════════════════════════════════════ */
 
 .ts-page-enter {
@@ -586,7 +567,7 @@ body {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════════
-   TOAST / NOTIFICATION (structure only — logic stays in your toaster)
+   TOAST / NOTIFICATION
 ══════════════════════════════════════════════════════════════════════════════ */
 
 .ts-toast {
@@ -697,7 +678,205 @@ body {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════════
-   REDUCED MOTION SAFETY
+   RESPONSIVE BREAKPOINTS
+══════════════════════════════════════════════════════════════════════════════ */
+
+/* ─── Tablet (768px and below) ────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  /* Background blobs */
+  .ts-bg-blobs::before {
+    width: 300px;
+    height: 300px;
+    top: -10%;
+    right: -30%;
+    filter: blur(60px);
+  }
+  .ts-bg-blobs::after {
+    width: 250px;
+    height: 250px;
+    bottom: -10%;
+    left: -20%;
+    filter: blur(60px);
+  }
+  .ts-bg-spotlight {
+    width: 400px;
+    height: 200px;
+    opacity: 0.5;
+  }
+
+  /* Cards */
+  .ts-card {
+    border-radius: var(--radius-md);
+    padding: 16px;
+  }
+  .ts-card:hover {
+    transform: translateY(-2px);
+  }
+
+  /* Buttons */
+  .ts-btn-gold,
+  .ts-btn-ghost {
+    padding: 8px 16px;
+    font-size: 12px;
+    min-height: 40px;
+    gap: 4px;
+  }
+
+  /* Inputs */
+  .ts-input {
+    font-size: 16px;
+    padding: 12px 14px;
+    border-radius: var(--radius-sm);
+  }
+
+  /* Modals */
+  .ts-modal {
+    border-radius: var(--radius-lg);
+    margin: 10px;
+    max-width: 95%;
+  }
+
+  /* Tables - horizontal scroll */
+  .ts-table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+  .ts-table th,
+  .ts-table td {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+
+  /* Badges */
+  .ts-badge-gold {
+    font-size: 9px;
+    padding: 2px 8px;
+  }
+
+  /* Empty state */
+  .ts-empty-state {
+    padding: 40px 20px;
+  }
+  .ts-empty-icon {
+    width: 56px;
+    height: 56px;
+    font-size: 24px;
+  }
+
+  /* Toast */
+  .ts-toast {
+    padding: 10px 14px;
+    font-size: 12px;
+    border-radius: var(--radius-sm);
+  }
+}
+
+/* ─── Mobile (480px and below) ────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  /* Background blobs - even smaller for performance */
+  .ts-bg-blobs::before {
+    width: 200px;
+    height: 200px;
+    top: -5%;
+    right: -40%;
+    filter: blur(40px);
+  }
+  .ts-bg-blobs::after {
+    width: 180px;
+    height: 180px;
+    bottom: -5%;
+    left: -30%;
+    filter: blur(40px);
+  }
+  .ts-bg-spotlight {
+    width: 250px;
+    height: 150px;
+    opacity: 0.3;
+  }
+
+  /* Cards */
+  .ts-card {
+    border-radius: var(--radius-sm);
+    padding: 12px;
+  }
+
+  /* Buttons */
+  .ts-btn-gold,
+  .ts-btn-ghost {
+    padding: 6px 12px;
+    font-size: 11px;
+    min-height: 36px;
+    border-radius: var(--radius-sm);
+  }
+
+  /* Text sizes */
+  .ts-gold-text {
+    font-size: 20px;
+  }
+  .ts-gold-text-shimmer {
+    font-size: 18px;
+  }
+
+  /* Modals */
+  .ts-modal {
+    border-radius: var(--radius-md);
+    padding: 16px;
+    margin: 8px;
+  }
+
+  /* Badges */
+  .ts-badge-gold {
+    font-size: 8px;
+    padding: 2px 6px;
+  }
+
+  /* Empty state */
+  .ts-empty-state {
+    padding: 30px 16px;
+  }
+  .ts-empty-icon {
+    width: 48px;
+    height: 48px;
+    font-size: 20px;
+  }
+
+  /* Toast */
+  .ts-toast {
+    padding: 8px 12px;
+    font-size: 11px;
+    border-radius: var(--radius-sm);
+    max-width: 90%;
+  }
+
+  /* Scrollbar - thinner on mobile */
+  ::-webkit-scrollbar {
+    width: 3px;
+    height: 3px;
+  }
+}
+
+/* ─── Touch-friendly improvements ────────────────────────────────────────── */
+@media (hover: none) and (pointer: coarse) {
+  .ts-btn-gold,
+  .ts-btn-ghost,
+  .ts-icon-btn {
+    min-height: 48px;
+    min-width: 48px;
+  }
+  
+  .ts-input {
+    font-size: 16px; /* Prevents iOS zoom */
+    padding: 14px 16px;
+  }
+  
+  .ts-card {
+    touch-action: manipulation;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   REDUCED MOTION SAFETY (Must be last)
 ══════════════════════════════════════════════════════════════════════════════ */
 
 @media (prefers-reduced-motion: reduce) {
@@ -717,13 +896,53 @@ body {
     opacity: 1 !important;
     transform: none !important;
   }
+
+  .ts-bg-blobs::before,
+  .ts-bg-blobs::after {
+    animation: none !important;
+  }
+
+  .ts-float,
+  .ts-float-delay-1,
+  .ts-float-delay-2,
+  .ts-float-delay-3 {
+    animation: none !important;
+  }
+
+  .ts-glow-border {
+    animation: none !important;
+  }
+
+  .ts-gold-text-shimmer {
+    animation: none !important;
+  }
 }
 
-/* ══════════════════════════════════════════════════════════════════════════════
-   RESPONSIVE
-══════════════════════════════════════════════════════════════════════════════ */
+/* ─── Dark mode support ────────────────────────────────────────────────────── */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface-0: #0D0D0F;
+    --surface-1: rgba(16,16,22,0.95);
+    --surface-2: rgba(22,22,30,0.98);
+    --surface-3: rgba(30,30,40,0.99);
+  }
+}
 
-@media (max-width: 768px) {
-  .ts-bg-blobs::before { width: 300px; height: 300px; }
-  .ts-bg-blobs::after  { width: 250px; height: 250px; }
+/* ─── Print styles ─────────────────────────────────────────────────────────── */
+@media print {
+  .ts-bg-blobs,
+  .ts-bg-spotlight {
+    display: none !important;
+  }
+  
+  .ts-card {
+    border: 1px solid #333 !important;
+    box-shadow: none !important;
+  }
+  
+  .ts-btn-gold,
+  .ts-btn-ghost {
+    background: #333 !important;
+    color: white !important;
+  }
 }
