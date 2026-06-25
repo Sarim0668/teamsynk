@@ -542,10 +542,74 @@ export const BrowseSessions: React.FC = () => {
   const [leavingId, setLeavingId]           = useState<string | null>(null)
   const [message, setMessage]               = useState<{ text: string; type: 'success' | 'error' | 'info' } | null>(null)
 
-  useEffect(() => { loadData() }, [])
+  // ─── Function to delete expired sessions ──────────────────────────────────
+  const deleteExpiredSessions = async () => {
+    const today = new Date().toISOString().split('T')[0]
+    const now = new Date().toTimeString().slice(0, 5)
+    
+    console.log(`🗑️ Checking for expired sessions (date: ${today}, time: ${now})`)
+    
+    // Delete sessions with date < today
+    const { data: expiredSessions, error: fetchError } = await supabase
+      .from('sports_sessions')
+      .select('id')
+      .lt('session_date', today)
+
+    if (fetchError) {
+      console.error('❌ Error fetching expired sessions:', fetchError)
+      return
+    }
+
+    if (expiredSessions && expiredSessions.length > 0) {
+      console.log(`🗑️ Found ${expiredSessions.length} expired sessions to delete`)
+      
+      const { error: deleteError } = await supabase
+        .from('sports_sessions')
+        .delete()
+        .lt('session_date', today)
+
+      if (deleteError) {
+        console.error('❌ Error deleting expired sessions:', deleteError)
+      } else {
+        console.log(`✅ Deleted ${expiredSessions.length} expired sessions`)
+      }
+    }
+
+    // Delete sessions that are today but already passed the time
+    const { data: todayExpired, error: todayFetchError } = await supabase
+      .from('sports_sessions')
+      .select('id')
+      .eq('session_date', today)
+      .lt('session_time', now)
+
+    if (todayFetchError) {
+      console.error('❌ Error fetching today\'s expired sessions:', todayFetchError)
+      return
+    }
+
+    if (todayExpired && todayExpired.length > 0) {
+      console.log(`🗑️ Found ${todayExpired.length} today's expired sessions to delete`)
+      
+      const { error: todayDeleteError } = await supabase
+        .from('sports_sessions')
+        .delete()
+        .eq('session_date', today)
+        .lt('session_time', now)
+
+      if (todayDeleteError) {
+        console.error('❌ Error deleting today\'s expired sessions:', todayDeleteError)
+      } else {
+        console.log(`✅ Deleted ${todayExpired.length} today's expired sessions`)
+      }
+    }
+  }
 
   const loadData = async () => {
-    setLoading(true); setMessage(null)
+    setLoading(true)
+    setMessage(null)
+
+    // ─── FIRST: Delete expired sessions ──────────────────────────────────────
+    await deleteExpiredSessions()
 
     const { data: { user: currentUser } } = await supabase.auth.getUser()
     setUser(currentUser)
@@ -558,7 +622,12 @@ export const BrowseSessions: React.FC = () => {
       .order('session_date', { ascending: true })
       .order('session_time', { ascending: true })
 
-    if (sessionsError) { console.error(sessionsError); setLoading(false); return }
+    if (sessionsError) { 
+      console.error(sessionsError)
+      setLoading(false)
+      return 
+    }
+    
     setSessions(sessionsData || [])
 
     if (sessionsData && sessionsData.length > 0) {
@@ -584,6 +653,20 @@ export const BrowseSessions: React.FC = () => {
     }
     setLoading(false)
   }
+
+  useEffect(() => {
+    loadData()
+  }, [])
+
+  // ─── Auto-refresh every 60 seconds to clean up expired sessions ──────────
+  useEffect(() => {
+    const interval = setInterval(() => {
+      console.log('🔄 Auto-refreshing sessions...')
+      loadData()
+    }, 60000)
+
+    return () => clearInterval(interval)
+  }, [])
 
   const handleJoin = async (sessionId: string) => {
     if (!user) { setMessage({ text: 'Please login first', type: 'error' }); return }
@@ -729,7 +812,7 @@ export const BrowseSessions: React.FC = () => {
           }}>
             <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 6px rgba(34,197,94,0.6)', display: 'inline-block' }} />
             <span style={{ color: '#374151', fontSize: '11px', fontWeight: '500', letterSpacing: '0.06em', fontFamily: "'Inter', sans-serif" }}>
-              LIVE · REFRESHED ON LOAD
+              LIVE · AUTO-CLEANUP ACTIVE
             </span>
           </div>
         </div>
