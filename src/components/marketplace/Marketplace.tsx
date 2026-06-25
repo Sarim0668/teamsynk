@@ -7,7 +7,6 @@ const PAYMENT_METHODS = ['JazzCash', 'EasyPaisa', 'Bank Transfer', 'Cash on Deli
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
   const configs: Record<string, any> = {
     'AVAILABLE': { label: '🟢 Available', color: '#4ade80', bg: 'rgba(34,197,94,0.1)', borderColor: 'rgba(34,197,94,0.3)' },
-    'SOLD': { label: '✅ Sold', color: '#6b7280', bg: 'rgba(107,114,128,0.1)', borderColor: 'rgba(107,114,128,0.3)' },
   }
   const config = configs[status] || configs['AVAILABLE']
   return (
@@ -199,7 +198,7 @@ function ListingCard({ item, isOwner, isProcessing, onBuy, onOpen }: any) {
             <div style={{ color: '#4b5563', fontSize: '9px', fontWeight: '700', letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: "'Inter', sans-serif" }}>Price</div>
             <div style={{
               fontSize: '20px', fontWeight: '900',
-              color: item.status === 'SOLD' ? '#4b5563' : '#FFD700',
+              color: '#FFD700',
               fontFamily: "'Inter', sans-serif",
               letterSpacing: '-0.03em',
             }}>
@@ -231,8 +230,6 @@ function ListingCard({ item, isOwner, isProcessing, onBuy, onOpen }: any) {
             </button>
           ) : isOwner && isAvailable ? (
             <span style={{ color: '#4b5563', fontSize: '12px', fontWeight: '700', fontFamily: "'Inter', sans-serif" }}>Your Item</span>
-          ) : item.status === 'SOLD' ? (
-            <span style={{ color: '#4b5563', fontSize: '12px', fontWeight: '700', fontFamily: "'Inter', sans-serif" }}>✅ Sold</span>
           ) : null}
         </div>
       </div>
@@ -364,11 +361,11 @@ export const Marketplace: React.FC = () => {
       setUserProfile(profile)
     }
 
-    // ─── ONLY show AVAILABLE listings ─────────────────────────────────────
+    // Only show AVAILABLE listings
     const { data, error } = await supabase
       .from('marketplace')
       .select('*')
-      .eq('status', 'AVAILABLE')  // This filters out SOLD items
+      .eq('status', 'AVAILABLE')
       .order('created_at', { ascending: false })
 
     if (error) {
@@ -463,7 +460,7 @@ Please contact me to complete the transaction.`
     }
   }
 
-  // ─── BUY NOW - Update to SOLD instead of delete ──────────────────────
+  // ─── BUY NOW - DELETE the listing (same as admin panel) ──────────────
   const handleBuyNow = async (listing: any) => {
     if (!userProfile) {
       setNotification({ text: '⚠️ Please login first', type: 'error' })
@@ -490,7 +487,7 @@ Please contact me to complete the transaction.`
       return
     }
 
-    if (!window.confirm(`⚠️ Confirm purchase of "${selectedListing.item_name}" for $${selectedListing.price}?\n\nThis will send your phone number to the seller via auto-message and the listing will be marked as SOLD.`)) {
+    if (!window.confirm(`⚠️ Confirm purchase of "${selectedListing.item_name}" for $${selectedListing.price}?\n\nThis will send your phone number to the seller via auto-message and the listing will be DELETED permanently.`)) {
       return
     }
 
@@ -512,26 +509,21 @@ Please contact me to complete the transaction.`
         setNotification({ text: '⚠️ Auto-message failed, but purchase will continue', type: 'error' })
       }
 
-      // ─── 2. UPDATE to SOLD instead of DELETE ────────────────────────────
-      console.log('🔄 Marking listing as SOLD:', listing.id)
-      const { error: updateError } = await supabase
+      // ─── 2. DELETE the listing (SAME AS ADMIN PANEL) ────────────────────
+      console.log('🗑️ DELETING listing:', listing.id)
+      const { error: deleteError } = await supabase
         .from('marketplace')
-        .update({
-          status: 'SOLD',
-          buyer_id: userProfile.id,
-          buyer_phone: buyerPhone.trim(),
-          sold_at: new Date().toISOString()
-        })
+        .delete()
         .eq('id', listing.id)
 
-      if (updateError) {
-        console.error('❌ Update failed:', updateError)
-        setNotification({ text: '❌ Failed to update listing: ' + updateError.message, type: 'error' })
+      if (deleteError) {
+        console.error('❌ Delete failed:', deleteError)
+        setNotification({ text: '❌ Failed to delete listing: ' + deleteError.message, type: 'error' })
         setProcessingId(null)
         return
       }
 
-      console.log('✅ Listing marked as SOLD')
+      console.log('✅ Listing DELETED successfully')
 
       // ─── 3. Create order record for admin tracking ──────────────────────
       await supabase.from('orders').insert({
@@ -546,15 +538,13 @@ Please contact me to complete the transaction.`
       })
 
       // ─── 4. IMMEDIATELY update state to remove the item ────────────────
-      // Filter out the sold listing from state
       setListings(prev => prev.filter(item => item.id !== listing.id))
       
       // ─── 5. Reload from database to be safe ─────────────────────────────
-      // This will only fetch AVAILABLE items, so SOLD ones won't come back
       await loadData()
 
       setNotification({ 
-        text: `✅ Purchase confirmed! Auto-message sent to seller with your phone number. The listing has been marked as SOLD and removed from marketplace.`, 
+        text: `✅ Purchase confirmed! Auto-message sent to seller with your phone number. The listing has been DELETED permanently.`, 
         type: 'success' 
       })
       
@@ -673,7 +663,7 @@ Please contact me to complete the transaction.`
                 Your phone number will be sent to the seller
               </p>
               <p style={{ color: '#888', fontSize: '11px' }}>
-                The listing will be marked as SOLD and removed from the marketplace.
+                The listing will be DELETED permanently after confirmation.
               </p>
             </div>
           </div>
@@ -885,7 +875,7 @@ Please contact me to complete the transaction.`
               <p style={{ color: '#aaa', fontSize: '14px', margin: '16px 0' }}>{selectedListing.description}</p>
             )}
 
-            <div style={{ fontSize: '28px', fontWeight: 'bold', color: selectedListing.status === 'SOLD' ? '#4b5563' : '#FFD700', marginBottom: '16px' }}>
+            <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#FFD700', marginBottom: '16px' }}>
               ${Number(selectedListing.price).toFixed(2)}
             </div>
 
@@ -914,20 +904,6 @@ Please contact me to complete the transaction.`
               >
                 🛒 Buy Now
               </button>
-            )}
-
-            {selectedListing.status === 'SOLD' && (
-              <div style={{
-                marginTop: '16px',
-                padding: '12px',
-                background: 'rgba(107,114,128,0.08)',
-                borderRadius: '10px',
-                textAlign: 'center'
-              }}>
-                <p style={{ color: '#6b7280', fontSize: '14px', fontWeight: 'bold' }}>
-                  ✅ This item has been sold
-                </p>
-              </div>
             )}
           </div>
         </div>
