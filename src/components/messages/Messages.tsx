@@ -40,9 +40,7 @@ export const Messages: React.FC = () => {
       console.log('🔄 Loading messages for:', selectedUser.full_name)
       loadMessages(selectedUser.id)
       markMessagesAsRead(selectedUser.id)
-      // 🔥 Refresh unread count in navbar after marking as read
       refreshUnreadCount()
-      // 🔥 Refresh unread counts for all conversations
       loadUnreadCounts()
     }
   }, [selectedUser, user])
@@ -60,12 +58,11 @@ export const Messages: React.FC = () => {
       loadUnreadCounts()
       const interval = setInterval(() => {
         loadUnreadCounts()
-      }, 10000) // Refresh every 10 seconds
+      }, 5000) // Refresh every 5 seconds
       return () => clearInterval(interval)
     }
   }, [user])
 
-  // ─── Refresh unread count (notify navbar) ─────────────────────────────────
   const refreshUnreadCount = async () => {
     window.dispatchEvent(new CustomEvent('refreshUnreadCount'))
   }
@@ -74,23 +71,23 @@ export const Messages: React.FC = () => {
   const loadUnreadCounts = async () => {
     if (!user) return
 
+    // Get all unread messages for this user
     const { data, error } = await supabase
       .from('messages')
-      .select('sender_id, count')
+      .select('sender_id, id')
       .eq('receiver_id', user.id)
       .eq('is_read', false)
-      .group('sender_id')
 
     if (!error && data) {
       const counts: Record<string, number> = {}
-      data.forEach((item: any) => {
-        counts[item.sender_id] = item.count || 0
+      data.forEach((msg: any) => {
+        const senderId = msg.sender_id
+        counts[senderId] = (counts[senderId] || 0) + 1
       })
+      console.log('📊 Unread counts:', counts)
       setUnreadCounts(counts)
       
-      // Also update navbar unread count
-      const totalUnread = Object.values(counts).reduce((a, b) => a + b, 0)
-      // Store total unread for navbar
+      // Update total for navbar
       window.dispatchEvent(new CustomEvent('refreshUnreadCount'))
     }
   }
@@ -104,21 +101,21 @@ export const Messages: React.FC = () => {
     }
     setUser(currentUser)
 
-    const { data: conversationsData, error } = await supabase
+    // Get all unique users that the current user has chatted with
+    const { data: messagesData, error } = await supabase
       .from('messages')
       .select('sender_id, receiver_id, created_at')
       .or(`sender_id.eq.${currentUser.id},receiver_id.eq.${currentUser.id}`)
       .order('created_at', { ascending: false })
 
-    if (!error && conversationsData) {
+    if (!error && messagesData) {
       const uniqueUserIds = new Set()
       const latestMessages: Record<string, any> = {}
       
-      conversationsData.forEach((msg: any) => {
+      messagesData.forEach((msg: any) => {
         const otherId = msg.sender_id === currentUser.id ? msg.receiver_id : msg.sender_id
         if (otherId) {
           uniqueUserIds.add(otherId)
-          // Keep the latest message for each conversation
           if (!latestMessages[otherId] || msg.created_at > latestMessages[otherId].created_at) {
             latestMessages[otherId] = msg
           }
@@ -136,13 +133,11 @@ export const Messages: React.FC = () => {
 
       const users = (await Promise.all(userPromises)).filter(Boolean)
       
-      // Add latest message timestamp to each user for sorting
       const usersWithLatest = users.map((u: any) => ({
         ...u,
         lastMessageAt: latestMessages[u.id]?.created_at || null
       }))
       
-      // Sort by latest message
       usersWithLatest.sort((a: any, b: any) => {
         if (!a.lastMessageAt) return 1
         if (!b.lastMessageAt) return -1
@@ -151,8 +146,8 @@ export const Messages: React.FC = () => {
       
       setConversations(usersWithLatest)
       
-      // Load unread counts
-      await loadUnreadCounts()
+      // Load unread counts after conversations are loaded
+      setTimeout(() => loadUnreadCounts(), 100)
     }
 
     setLoading(false)
@@ -184,11 +179,13 @@ export const Messages: React.FC = () => {
       .eq('is_read', false)
 
     if (!error) {
-      // Update unread counts
+      // Update unread counts for this specific user
       setUnreadCounts(prev => ({
         ...prev,
         [otherUserId]: 0
       }))
+      // Reload all unread counts to be safe
+      setTimeout(() => loadUnreadCounts(), 200)
       refreshUnreadCount()
     }
   }
@@ -423,6 +420,7 @@ export const Messages: React.FC = () => {
           ) : (
             conversations.map((conv: any) => {
               const unreadCount = unreadCounts[conv.id] || 0
+              console.log(`🔴 ${conv?.full_name} unread:`, unreadCount)
               return (
                 <div
                   key={conv?.id || Math.random().toString()}
@@ -459,7 +457,7 @@ export const Messages: React.FC = () => {
                         position: 'absolute',
                         top: '-4px',
                         right: '-4px',
-                        width: '18px',
+                        minWidth: '18px',
                         height: '18px',
                         borderRadius: '50%',
                         background: '#ef4444',
@@ -469,7 +467,8 @@ export const Messages: React.FC = () => {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        border: '2px solid #0D0D0F'
+                        border: '2px solid #0D0D0F',
+                        padding: '0 4px'
                       }}>
                         {unreadCount > 9 ? '9+' : unreadCount}
                       </span>
