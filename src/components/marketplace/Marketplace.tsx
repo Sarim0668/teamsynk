@@ -349,8 +349,9 @@ export const Marketplace: React.FC = () => {
   })
 
   // ─── LOAD DATA - Only show AVAILABLE listings ──────────────────────────
-  const loadData = useCallback(async () => {
-    setLoading(true)
+  const loadData = useCallback(async (silent: boolean = false) => {
+    if (!silent) setLoading(true)
+    
     const { data: { user } } = await supabase.auth.getUser()
     
     let userProfileData = null
@@ -360,7 +361,7 @@ export const Marketplace: React.FC = () => {
       setUserProfile(profile)
     }
 
-    // Only show AVAILABLE listings to everyone
+    // Only show AVAILABLE listings
     const { data, error } = await supabase
       .from('marketplace')
       .select('*')
@@ -370,6 +371,7 @@ export const Marketplace: React.FC = () => {
     if (error) {
       console.error('Error loading listings:', error)
     } else {
+      console.log('📦 Loaded listings:', data?.length || 0)
       setListings(data || [])
     }
     setLoading(false)
@@ -407,9 +409,10 @@ Please contact me to complete the transaction.`
 
     if (error) {
       console.error('Failed to send auto message:', error)
-    } else {
-      console.log('✅ Auto message sent from buyer to seller')
+      return false
     }
+    console.log('✅ Auto message sent from buyer to seller')
+    return true
   }
 
   // ─── CREATE LISTING ──────────────────────────────────────────────────────
@@ -491,45 +494,66 @@ Please contact me to complete the transaction.`
     setProcessingId(listing.id)
     setShowBuyModal(false)
 
-    // ─── 1. Send auto message from buyer to seller ──────────────────────
-    await sendAutoMessage(
-      listing.seller_id,
-      userProfile.id,
-      listing.item_name,
-      buyerPhone.trim(),
-      listing.price
-    )
+    try {
+      // ─── 1. Send auto message from buyer to seller ──────────────────────
+      const messageSent = await sendAutoMessage(
+        listing.seller_id,
+        userProfile.id,
+        listing.item_name,
+        buyerPhone.trim(),
+        listing.price
+      )
 
-    // ─── 2. Delete the listing completely ───────────────────────────────
-    const { error: deleteError } = await supabase
-      .from('marketplace')
-      .delete()
-      .eq('id', listing.id)
+      if (!messageSent) {
+        setNotification({ text: '⚠️ Auto-message failed, but purchase will continue', type: 'error' })
+      }
 
-    if (deleteError) {
-      setNotification({ text: '❌ Failed to process purchase: ' + deleteError.message, type: 'error' })
+      // ─── 2. DELETE the listing completely ───────────────────────────────
+      console.log('🗑️ Deleting listing:', listing.id)
+      const { error: deleteError } = await supabase
+        .from('marketplace')
+        .delete()
+        .eq('id', listing.id)
+
+      if (deleteError) {
+        console.error('❌ Delete failed:', deleteError)
+        setNotification({ text: '❌ Failed to delete listing: ' + deleteError.message, type: 'error' })
+        setProcessingId(null)
+        return
+      }
+
+      console.log('✅ Listing deleted successfully')
+
+      // ─── 3. Create order record for admin tracking ──────────────────────
+      await supabase.from('orders').insert({
+        listing_id: listing.id,
+        buyer_id: userProfile.id,
+        seller_id: listing.seller_id,
+        buyer_phone: buyerPhone.trim(),
+        amount: listing.price,
+        item_name: listing.item_name,
+        order_status: 'pending',
+        ordered_at: new Date().toISOString()
+      })
+
+      // ─── 4. IMMEDIATELY update state to remove the item ────────────────
+      // Filter out the deleted listing from state
+      setListings(prev => prev.filter(item => item.id !== listing.id))
+      
+      // Also reload from database to be safe
+      await loadData(true)
+
+      setNotification({ 
+        text: `✅ Purchase confirmed! Auto-message sent to seller with your phone number. The listing has been removed.`, 
+        type: 'success' 
+      })
+      
+    } catch (err: any) {
+      console.error('❌ Purchase error:', err)
+      setNotification({ text: '❌ Error: ' + err.message, type: 'error' })
+    } finally {
       setProcessingId(null)
-      return
     }
-
-    // ─── 3. Create order record for admin tracking ──────────────────────
-    await supabase.from('orders').insert({
-      listing_id: listing.id,
-      buyer_id: userProfile.id,
-      seller_id: listing.seller_id,
-      buyer_phone: buyerPhone.trim(),
-      amount: listing.price,
-      item_name: listing.item_name,
-      order_status: 'pending',
-      ordered_at: new Date().toISOString()
-    })
-
-    setNotification({ 
-      text: `✅ Purchase confirmed! Auto-message sent to seller with your phone number. The listing has been removed.`, 
-      type: 'success' 
-    })
-    setProcessingId(null)
-    loadData()
   }
 
   const openDetail = (listing: any) => { setSelectedListing(listing); setShowDetail(true) }
