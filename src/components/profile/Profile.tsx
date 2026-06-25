@@ -339,13 +339,32 @@ export const Profile: React.FC = () => {
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' | 'info' } | null>(null)
 
   const [formData, setFormData] = useState({
-    full_name: '', email: '', sport_interests: '',
-    location: '', role: 'Player', bio: '', skill_level: 'Beginner',
+    full_name: '',
+    email: '',
+    sport_interests: '',
+    location: '',
+    role: 'Player',
+    bio: '',
+    skill_level: 'Beginner',
+    university: '', // ← ADDED
   })
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
+
+  // ─── University options ──────────────────────────────────────────────────────
+  const universities = [
+    'FAST University',
+    'NUST',
+    'IIUI',
+    'Bahria University',
+    'Air University',
+    'COMSATS',
+    'GIKI',
+    'LUMS',
+    'Other'
+  ]
 
   useEffect(() => { loadProfile() }, [])
 
@@ -370,6 +389,7 @@ export const Profile: React.FC = () => {
         role: profileData.role || 'Player',
         bio: profileData.bio || '',
         skill_level: profileData.skill_level || 'Beginner',
+        university: profileData.university || '', // ← ADDED
       })
       setAvatarUrl(profileData.avatar_url || null)
     }
@@ -388,8 +408,10 @@ export const Profile: React.FC = () => {
         email: formData.email.trim(),
         sport_interests: formData.sport_interests || null,
         location: formData.location || null,
-        role: formData.role, bio: formData.bio || null,
+        role: formData.role,
+        bio: formData.bio || null,
         skill_level: formData.skill_level,
+        university: formData.university || null, // ← ADDED
         avatar_url: avatarUrl,
         updated_at: new Date().toISOString(),
       }).eq('id', user.id)
@@ -431,10 +453,14 @@ export const Profile: React.FC = () => {
   const handleCancel = () => {
     setEditMode(false)
     setFormData({
-      full_name: profile?.full_name || '', email: profile?.email || '',
-      sport_interests: profile?.sport_interests || '', location: profile?.location || '',
-      role: profile?.role || 'Player', bio: profile?.bio || '',
+      full_name: profile?.full_name || '',
+      email: profile?.email || '',
+      sport_interests: profile?.sport_interests || '',
+      location: profile?.location || '',
+      role: profile?.role || 'Player',
+      bio: profile?.bio || '',
       skill_level: profile?.skill_level || 'Beginner',
+      university: profile?.university || '', // ← ADDED
     })
     setAvatarUrl(profile?.avatar_url || null)
     setMessage(null)
@@ -568,6 +594,9 @@ export const Profile: React.FC = () => {
                   <Badge label={formData.role} variant="gold" />
                   <Badge label={formData.skill_level} variant={skillVariant[formData.skill_level] || 'gold'} />
                   {formData.sport_interests && <Badge label={formData.sport_interests} variant="blue" />}
+                  {formData.university && (
+                    <Badge label={'🎓 ' + formData.university} variant="purple" />
+                  )}
                   {formData.location && (
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: '#6b7280', fontSize: '12px', fontWeight: '500' }}>
                       <span style={{ fontSize: '12px' }}>◉</span> {formData.location}
@@ -659,6 +688,18 @@ export const Profile: React.FC = () => {
                 onChange={v => setFormData({ ...formData, skill_level: v })}
                 disabled={!editMode}
                 options={['Beginner', 'Intermediate', 'Advanced', 'Professional']} />
+            </div>
+
+            <SectionDivider label="University" />
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px' }}>
+              <PremiumSelect label="🎓 University" value={formData.university}
+                onChange={v => setFormData({ ...formData, university: v })}
+                disabled={!editMode}
+                options={[
+                  { value: '', label: 'Select your university' },
+                  ...universities.map(u => ({ value: u, label: u }))
+                ]} />
             </div>
 
             <SectionDivider label="About You" />
