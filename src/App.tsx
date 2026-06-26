@@ -19,6 +19,7 @@ import { Competitions } from './components/competitions/Competitions'
 import { CompetitionDetail } from './components/competitions/CompetitionDetail'
 import { CreateCompetition } from './components/competitions/CreateCompetition'
 import { Leaderboard } from './components/competitions/Leaderboard'
+import { AIVoice } from './components/ai/AIVoice'
 import './premiumMotion.css'
 
 // ─── Placeholder page ─────────────────────────────────────────────────────────
@@ -358,6 +359,8 @@ function AppInner({ user }: { user: any }) {
           <Route path="/competition/:id" element={user ? <CompetitionDetail /> : <Navigate to="/login" />} />
           <Route path="/create-competition" element={user ? <CreateCompetition /> : <Navigate to="/login" />} />
           <Route path="/leaderboard" element={user ? <Leaderboard /> : <Navigate to="/login" />} />
+          <Route path="/ai-assistant" element={user ? <AIVoice /> : <Navigate to="/login" />} />
+
         </Routes>
       </main>
     </>

@@ -284,6 +284,7 @@ export const Navbar: React.FC = () => {
     { path: '/marketplace', label: 'Market', icon: <IconShop /> },
     { path: '/messages', label: 'Chat', icon: <IconMessages unreadCount={unreadCount} /> },
     { path: '/competitions', label: 'Compete', icon: <IconTrophy /> },
+    { path: '/ai-assistant', label: 'AI Voice', icon: <span>🎙️</span> },
   ]
 
   if (userRole === 'Admin') {
