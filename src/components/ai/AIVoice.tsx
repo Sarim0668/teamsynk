@@ -1,4 +1,4 @@
-// src/components/ai/AIVoice.tsx - DIRECT OLLAMA - FASTEST
+// src/components/ai/AIVoice.tsx
 import React, { useState, useRef, useEffect } from 'react'
 
 declare global {
@@ -7,6 +7,9 @@ declare global {
     webkitSpeechRecognition: any;
   }
 }
+
+// ─── UPDATE THIS WITH YOUR NGROK URL ──────────────────────────────────────
+const OLLAMA_URL = 'https://teamsynk-ollama.loca.lt';  // ← Replace with your ngrok URL
 
 export const AIVoice: React.FC = () => {
   const [isListening, setIsListening] = useState(false)
@@ -32,7 +35,7 @@ export const AIVoice: React.FC = () => {
 
   const checkStatus = async () => {
     try {
-      const res = await fetch('http://localhost:11434/api/tags')
+      const res = await fetch(`${OLLAMA_URL}/api/tags`)
       setIsOllamaOnline(res.ok)
       if (res.ok) setStatus('🟢 Ready')
       else setStatus('🔴 AI Offline')
@@ -239,7 +242,7 @@ export const AIVoice: React.FC = () => {
     window.speechSynthesis.speak(utterance)
   }
 
-  // ─── Send Message Directly to Ollama (OPTIMIZED FOR SPEED) ────────────
+  // ─── Send Message Directly to Ollama via Ngrok ──────────────────────
   const sendMessage = async (text: string) => {
     if (!text.trim() || isProcessing) return
 
@@ -249,18 +252,17 @@ export const AIVoice: React.FC = () => {
     setUserText(text)
 
     try {
-      // ─── SUPER SHORT PROMPT - MINIMAL TOKENS ────────────────────────────
-      const response = await fetch('http://localhost:11434/api/generate', {
+      const response = await fetch(`${OLLAMA_URL}/api/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: 'tinyllama',
           prompt: `User: ${text}\nAI:`,
           stream: false,
-          temperature: 0.3,      // ← LOWER = FASTER
-          max_tokens: 15,        // ← VERY SHORT
+          temperature: 0.3,
+          max_tokens: 15,
           num_predict: 15,
-          num_ctx: 64,           // ← MINIMAL CONTEXT = FASTEST
+          num_ctx: 64,
           stop: ['\n', 'User:', 'AI:']
         })
       })
@@ -274,7 +276,6 @@ export const AIVoice: React.FC = () => {
       
       aiReply = aiReply.replace(/^(AI:|Response:|Friend:|User:)/i, '').trim()
       
-      // If empty, use fallback
       if (!aiReply || aiReply.length < 2) {
         const fallbacks = [
           "Hey! 😊", "I'm here! 💕", "Tell me more! ✨",
@@ -450,7 +451,18 @@ export const AIVoice: React.FC = () => {
               background: voiceGender === 'female' ? 'rgba(200,162,0,0.15)' : 'transparent',
               color: voiceGender === 'female' ? '#FFD700' : '#6b7280',
               cursor: 'pointer',
-              fontSize: '12px'
+              fontSize: '12px',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseEnter={(e) => {
+              if (voiceGender !== 'female') {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.05)'
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (voiceGender !== 'female') {
+                e.currentTarget.style.background = 'transparent'
+              }
             }}
           >
             👩 Female
@@ -464,7 +476,18 @@ export const AIVoice: React.FC = () => {
               background: voiceGender === 'kid' ? 'rgba(200,162,0,0.15)' : 'transparent',
               color: voiceGender === 'kid' ? '#FFD700' : '#6b7280',
               cursor: 'pointer',
-              fontSize: '12px'
+              fontSize: '12px',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseEnter={(e) => {
+              if (voiceGender !== 'kid') {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.05)'
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (voiceGender !== 'kid') {
+                e.currentTarget.style.background = 'transparent'
+              }
             }}
           >
             🧒 Kid
@@ -478,7 +501,18 @@ export const AIVoice: React.FC = () => {
               background: voiceGender === 'male' ? 'rgba(200,162,0,0.15)' : 'transparent',
               color: voiceGender === 'male' ? '#FFD700' : '#6b7280',
               cursor: 'pointer',
-              fontSize: '12px'
+              fontSize: '12px',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseEnter={(e) => {
+              if (voiceGender !== 'male') {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.05)'
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (voiceGender !== 'male') {
+                e.currentTarget.style.background = 'transparent'
+              }
             }}
           >
             👨 Male
@@ -593,10 +627,17 @@ export const AIVoice: React.FC = () => {
               color: '#f87171',
               cursor: 'pointer',
               fontSize: '13px',
-              fontWeight: '600'
+              fontWeight: '600',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(239,68,68,0.15)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'rgba(239,68,68,0.08)'
             }}
           >
-            🗑️ Clear
+            🗑️ Clear Conversation
           </button>
         )}
 
