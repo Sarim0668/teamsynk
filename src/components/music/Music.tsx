@@ -1,15 +1,92 @@
+// src/components/music/Music.tsx
 import React, { useState, useEffect } from 'react'
-import { supabase } from '../../lib/supabaseClient'
 import { useNavigate } from 'react-router-dom'
+import { supabase } from '../../lib/supabaseClient'
 
 const CATEGORIES = [
+  '🎧 All',
   '💪 Workout',
   '⚡ Pre-Match',
   '😌 Cool Down',
   '🎉 Party',
   '📚 Study Focus',
-  '🏆 Campus Hits',
-  '🎧 All'
+  '🏆 Campus Hits'
+]
+
+// ─── DEFAULT SONGS (shows when database is empty) ──────────────────────────
+const DEFAULT_SONGS = [
+  {
+    id: 'default-1',
+    title: 'Believer',
+    artist: 'Imagine Dragons',
+    category: '💪 Workout',
+    youtube_url: 'https://www.youtube.com/embed/7wtfhZwyrcc',
+    votes: 25,
+    suggested_by_user: { full_name: 'TeamSynk' }
+  },
+  {
+    id: 'default-2',
+    title: 'Eye of the Tiger',
+    artist: 'Survivor',
+    category: '⚡ Pre-Match',
+    youtube_url: 'https://www.youtube.com/embed/btPJPFnesV4',
+    votes: 20,
+    suggested_by_user: { full_name: 'TeamSynk' }
+  },
+  {
+    id: 'default-3',
+    title: 'Shape of You',
+    artist: 'Ed Sheeran',
+    category: '🎉 Party',
+    youtube_url: 'https://www.youtube.com/embed/JGwWNGJdvx8',
+    votes: 18,
+    suggested_by_user: { full_name: 'TeamSynk' }
+  },
+  {
+    id: 'default-4',
+    title: 'Lose Yourself',
+    artist: 'Eminem',
+    category: '⚡ Pre-Match',
+    youtube_url: 'https://www.youtube.com/embed/xFYQQPAOz7Y',
+    votes: 22,
+    suggested_by_user: { full_name: 'TeamSynk' }
+  },
+  {
+    id: 'default-5',
+    title: 'Uptown Funk',
+    artist: 'Mark Ronson ft. Bruno Mars',
+    category: '🎉 Party',
+    youtube_url: 'https://www.youtube.com/embed/OPf0YbXqDm0',
+    votes: 15,
+    suggested_by_user: { full_name: 'TeamSynk' }
+  },
+  {
+    id: 'default-6',
+    title: 'Blinding Lights',
+    artist: 'The Weeknd',
+    category: '💪 Workout',
+    youtube_url: 'https://www.youtube.com/embed/fHI8X4OXluQ',
+    votes: 19,
+    suggested_by_user: { full_name: 'TeamSynk' }
+  },
+  {
+    id: 'default-7',
+    title: 'Counting Stars',
+    artist: 'OneRepublic',
+    category: '📚 Study Focus',
+    youtube_url: 'https://www.youtube.com/embed/hT_nvWreIhg',
+    votes: 14,
+    suggested_by_user: { full_name: 'TeamSynk' }
+  },
+  {
+    id: 'default-8',
+    title: 'Roar',
+    artist: 'Katy Perry',
+    category: '😌 Cool Down',
+    youtube_url: 'https://www.youtube.com/embed/CevxZvSJLk8',
+    votes: 16,
+    suggested_by_user: { full_name: 'TeamSynk' }
+  }
 ]
 
 interface Song {
@@ -18,22 +95,17 @@ interface Song {
   artist: string
   category: string
   youtube_url: string
-  suggested_by: string
   status: string
   votes: number
-  created_at: string
   suggested_by_user?: { full_name: string }
 }
 
 export const Music: React.FC = () => {
-  const [songs, setSongs] = useState<Song[]>([])
-  const [filteredSongs, setFilteredSongs] = useState<Song[]>([])
+  const [songs, setSongs] = useState<Song[]>(DEFAULT_SONGS as any)
+  const [filteredSongs, setFilteredSongs] = useState<Song[]>(DEFAULT_SONGS as any)
   const [selectedCategory, setSelectedCategory] = useState('🎧 All')
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [user, setUser] = useState<any>(null)
-  const [isAdmin, setIsAdmin] = useState(false)
-
-  // ─── Suggest Song Modal ──────────────────────────────────────────────────
   const [showSuggestModal, setShowSuggestModal] = useState(false)
   const [suggestForm, setSuggestForm] = useState({
     title: '',
@@ -44,35 +116,39 @@ export const Music: React.FC = () => {
   })
 
   useEffect(() => {
-    loadSongs()
     checkUser()
+    loadSongs()
   }, [])
 
   const checkUser = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     setUser(user)
-    if (user) {
-      const { data: profile } = await supabase
-        .from('users')
-        .select('role')
-        .eq('id', user.id)
-        .single()
-      setIsAdmin(profile?.role === 'Admin')
-    }
   }
 
   const loadSongs = async () => {
     setLoading(true)
-    const { data, error } = await supabase
-      .from('songs')
-      .select('*, suggested_by_user:users!suggested_by(full_name)')
-      .eq('status', 'approved')
-      .order('votes', { ascending: false })
+    
+    try {
+      const { data, error } = await supabase
+        .from('songs')
+        .select('*, suggested_by_user:users!suggested_by(full_name)')
+        .eq('status', 'approved')
+        .order('votes', { ascending: false })
 
-    if (!error && data) {
-      setSongs(data)
-      setFilteredSongs(data)
+      if (!error && data && data.length > 0) {
+        setSongs(data)
+        setFilteredSongs(data)
+      } else {
+        // Use default songs if no data
+        setSongs(DEFAULT_SONGS as any)
+        setFilteredSongs(DEFAULT_SONGS as any)
+      }
+    } catch (error) {
+      console.error('Error loading songs:', error)
+      setSongs(DEFAULT_SONGS as any)
+      setFilteredSongs(DEFAULT_SONGS as any)
     }
+    
     setLoading(false)
   }
 
@@ -91,44 +167,50 @@ export const Music: React.FC = () => {
       return
     }
 
-    // Check if user already voted
-    const { data: existing } = await supabase
-      .from('song_votes')
-      .select('*')
-      .eq('song_id', songId)
-      .eq('user_id', user.id)
-      .single()
-
-    if (existing) {
-      if (existing.vote_type === voteType) {
-        alert('You already voted this way!')
-        return
-      }
-      // Update vote
-      await supabase
-        .from('song_votes')
-        .update({ vote_type: voteType })
-        .eq('id', existing.id)
-    } else {
-      // Insert new vote
-      await supabase
-        .from('song_votes')
-        .insert({ song_id: songId, user_id: user.id, vote_type: voteType })
+    if (songId.startsWith('default-')) {
+      alert('🔥 You liked this song! Suggest it to add to the official playlist!')
+      return
     }
 
-    // Update song vote count
-    const { data: votes } = await supabase
-      .from('song_votes')
-      .select('vote_type')
-      .eq('song_id', songId)
+    try {
+      const { data: existing } = await supabase
+        .from('song_votes')
+        .select('*')
+        .eq('song_id', songId)
+        .eq('user_id', user.id)
+        .single()
 
-    const total = votes?.reduce((acc, v) => acc + (v.vote_type === 'up' ? 1 : -1), 0) || 0
-    await supabase
-      .from('songs')
-      .update({ votes: total })
-      .eq('id', songId)
+      if (existing) {
+        if (existing.vote_type === voteType) {
+          alert('You already voted this way!')
+          return
+        }
+        await supabase
+          .from('song_votes')
+          .update({ vote_type: voteType })
+          .eq('id', existing.id)
+      } else {
+        await supabase
+          .from('song_votes')
+          .insert({ song_id: songId, user_id: user.id, vote_type: voteType })
+      }
 
-    loadSongs()
+      const { data: votes } = await supabase
+        .from('song_votes')
+        .select('vote_type')
+        .eq('song_id', songId)
+
+      const total = votes?.reduce((acc, v) => acc + (v.vote_type === 'up' ? 1 : -1), 0) || 0
+      await supabase
+        .from('songs')
+        .update({ votes: total })
+        .eq('id', songId)
+
+      loadSongs()
+    } catch (error) {
+      console.error('Vote error:', error)
+      alert('Failed to vote. Please try again.')
+    }
   }
 
   const handleSuggest = async (e: React.FormEvent) => {
@@ -138,56 +220,41 @@ export const Music: React.FC = () => {
       return
     }
 
-    const { error } = await supabase
-      .from('songs')
-      .insert({
-        title: suggestForm.title,
-        artist: suggestForm.artist,
-        category: suggestForm.category,
-        youtube_url: suggestForm.youtube_url,
-        suggested_by: user.id,
-        status: 'pending'
-      })
+    if (!suggestForm.title.trim() || !suggestForm.artist.trim()) {
+      alert('Please enter both song title and artist name')
+      return
+    }
 
-    if (error) {
-      alert('Failed to suggest song: ' + error.message)
-    } else {
-      alert('✅ Song suggested! Admin will review it.')
-      setShowSuggestModal(false)
-      setSuggestForm({ title: '', artist: '', category: '💪 Workout', youtube_url: '', note: '' })
+    try {
+      const { error } = await supabase
+        .from('songs')
+        .insert({
+          title: suggestForm.title.trim(),
+          artist: suggestForm.artist.trim(),
+          category: suggestForm.category,
+          youtube_url: suggestForm.youtube_url.trim() || null,
+          suggested_by: user.id,
+          status: 'pending'
+        })
+
+      if (error) {
+        alert('Failed to suggest song: ' + error.message)
+      } else {
+        alert('✅ Song suggested! Admin will review it.')
+        setShowSuggestModal(false)
+        setSuggestForm({ title: '', artist: '', category: '💪 Workout', youtube_url: '', note: '' })
+        loadSongs()
+      }
+    } catch (error) {
+      console.error('Suggest error:', error)
+      alert('Failed to suggest song. Please try again.')
     }
   }
 
-  // ─── Extract YouTube ID ──────────────────────────────────────────────────
   const getYoutubeEmbed = (url: string) => {
+    if (!url) return ''
     const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&]+)/)
     return match ? `https://www.youtube.com/embed/${match[1]}` : url
-  }
-
-  if (loading) {
-    return (
-      <div style={{
-        minHeight: '100vh',
-        background: '#0D0D0F',
-        color: 'white',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center'
-      }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{
-            width: '48px',
-            height: '48px',
-            border: '4px solid #c8a200',
-            borderTopColor: 'transparent',
-            borderRadius: '50%',
-            margin: '0 auto 16px',
-            animation: 'spin 1s linear infinite'
-          }} />
-          <p style={{ color: '#666' }}>Loading music...</p>
-        </div>
-      </div>
-    )
   }
 
   return (
@@ -368,6 +435,18 @@ export const Music: React.FC = () => {
                       Suggested by {song.suggested_by_user.full_name}
                     </span>
                   )}
+                  {song.id.startsWith('default-') && (
+                    <span style={{
+                      color: '#c8a200',
+                      fontSize: '9px',
+                      marginLeft: 'auto',
+                      background: 'rgba(200,162,0,0.1)',
+                      padding: '2px 8px',
+                      borderRadius: '99px'
+                    }}>
+                      Default
+                    </span>
+                  )}
                 </div>
               </div>
             ))
@@ -540,13 +619,6 @@ export const Music: React.FC = () => {
           </div>
         )}
       </div>
-
-      <style>{`
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
     </div>
   )
 }
