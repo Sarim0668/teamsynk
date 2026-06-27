@@ -1,5 +1,6 @@
 // src/components/ai/AIVoice.tsx
 import React, { useState, useRef, useEffect } from 'react'
+import { config } from '../../config'
 
 declare global {
   interface Window {
@@ -8,16 +9,12 @@ declare global {
   }
 }
 
-// ─── UPDATE THIS WITH YOUR NGROK URL ──────────────────────────────────────
-const OLLAMA_URL = 'https://teamsynk-ollama.loca.lt';  // ← Replace with your ngrok URL
-
 export const AIVoice: React.FC = () => {
   const [isListening, setIsListening] = useState(false)
   const [userText, setUserText] = useState('')
   const [aiResponse, setAiResponse] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
   const [status, setStatus] = useState('🟢 Ready')
-  const [isOllamaOnline, setIsOllamaOnline] = useState(false)
   const [isThinking, setIsThinking] = useState(false)
   const [conversationHistory, setConversationHistory] = useState<string[]>([])
   const [voiceGender, setVoiceGender] = useState<'female' | 'male' | 'kid'>('female')
@@ -25,30 +22,6 @@ export const AIVoice: React.FC = () => {
   const recognitionRef = useRef<any>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const retryCountRef = useRef(0)
-
-  // ─── Check Ollama Status ──────────────────────────────────────────────
-  useEffect(() => {
-    checkStatus()
-    const interval = setInterval(checkStatus, 30000)
-    return () => clearInterval(interval)
-  }, [])
-
-  const checkStatus = async () => {
-    try {
-      const res = await fetch(`${OLLAMA_URL}/api/tags`)
-      setIsOllamaOnline(res.ok)
-      if (res.ok) setStatus('🟢 Ready')
-      else setStatus('🔴 AI Offline')
-    } catch {
-      setIsOllamaOnline(false)
-      setStatus('🔴 AI Offline')
-    }
-  }
-
-  // ─── Scroll to bottom ──────────────────────────────────────────────────
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [userText, aiResponse, isThinking])
 
   // ─── Speech Recognition ──────────────────────────────────────────────
   useEffect(() => {
@@ -242,7 +215,7 @@ export const AIVoice: React.FC = () => {
     window.speechSynthesis.speak(utterance)
   }
 
-  // ─── Send Message Directly to Ollama via Ngrok ──────────────────────
+  // ─── Send Message to DeepSeek API ────────────────────────────────────
   const sendMessage = async (text: string) => {
     if (!text.trim() || isProcessing) return
 
@@ -252,38 +225,48 @@ export const AIVoice: React.FC = () => {
     setUserText(text)
 
     try {
-      const response = await fetch(`${OLLAMA_URL}/api/generate`, {
+      // ─── READ API KEY FROM CONFIG ──────────────────────────────────────
+      const apiKey = config.deepseekApiKey
+      
+      // ─── CHECK IF KEY EXISTS ──────────────────────────────────────────
+      if (!apiKey) {
+        throw new Error('⚠️ DeepSeek API key not found. Please add REACT_APP_DEEPSEEK_API_KEY to .env file and Vercel environment variables.')
+      }
+
+      // ─── LOG FOR DEBUG (KEY IS NOT EXPOSED - JUST CHECKS IF EXISTS) ──
+      console.log('✅ DeepSeek API key loaded successfully!')
+
+      const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
         body: JSON.stringify({
-          model: 'tinyllama',
-          prompt: `User: ${text}\nAI:`,
-          stream: false,
-          temperature: 0.3,
-          max_tokens: 15,
-          num_predict: 15,
-          num_ctx: 64,
-          stop: ['\n', 'User:', 'AI:']
+          model: 'deepseek-chat',
+          messages: [
+            { 
+              role: 'system', 
+              content: 'You are a friendly AI companion. Be supportive and conversational. Keep responses very short (1-2 sentences). Use emojis occasionally. Be warm and caring.' 
+            },
+            { 
+              role: 'user', 
+              content: text 
+            }
+          ],
+          max_tokens: 60,
+          temperature: 0.7
         })
       })
 
       if (!response.ok) {
-        throw new Error(`Ollama Error: ${response.status}`)
+        const errorText = await response.text()
+        console.error('API Error:', errorText)
+        throw new Error(`API Error: ${response.status}`)
       }
 
       const data = await response.json()
-      let aiReply = data.response || "Hey! 😊"
-      
-      aiReply = aiReply.replace(/^(AI:|Response:|Friend:|User:)/i, '').trim()
-      
-      if (!aiReply || aiReply.length < 2) {
-        const fallbacks = [
-          "Hey! 😊", "I'm here! 💕", "Tell me more! ✨",
-          "That's cool! 😊", "Got it! 🎯", "Nice! 😄",
-          "Hmm, interesting! 🤔", "Go on! 💬", "I hear you! 💕"
-        ]
-        aiReply = fallbacks[Math.floor(Math.random() * fallbacks.length)]
-      }
+      const aiReply = data.choices?.[0]?.message?.content || "Hey! 😊"
 
       setAiResponse(aiReply)
       setStatus('💬 AI replied')
@@ -307,11 +290,6 @@ export const AIVoice: React.FC = () => {
       try { recognitionRef.current?.abort() } catch (e) {}
       setIsListening(false)
       setStatus('🟢 Ready')
-      return
-    }
-
-    if (!isOllamaOnline) {
-      setStatus('🔴 AI is offline')
       return
     }
 
@@ -402,13 +380,13 @@ export const AIVoice: React.FC = () => {
           <div style={{
             padding: '4px 14px',
             borderRadius: '99px',
-            background: isOllamaOnline ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)',
-            border: `1px solid ${isOllamaOnline ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'}`,
-            color: isOllamaOnline ? '#4ade80' : '#f87171',
+            background: 'rgba(34,197,94,0.12)',
+            border: '1px solid rgba(34,197,94,0.3)',
+            color: '#4ade80',
             fontSize: '11px',
             fontWeight: '600'
           }}>
-            {isOllamaOnline ? '🟢 Online' : '🔴 Offline'}
+            🟢 Online
           </div>
         </div>
 
@@ -436,7 +414,6 @@ export const AIVoice: React.FC = () => {
           {isListening ? 'Listening... Speak freely! 😊' : 
            isProcessing ? 'Processing...' : 
            isThinking ? 'Thinking... 🤔' : 
-           !isOllamaOnline ? 'AI is offline' :
            'Tap mic to talk 💬'}
         </p>
 
@@ -451,18 +428,7 @@ export const AIVoice: React.FC = () => {
               background: voiceGender === 'female' ? 'rgba(200,162,0,0.15)' : 'transparent',
               color: voiceGender === 'female' ? '#FFD700' : '#6b7280',
               cursor: 'pointer',
-              fontSize: '12px',
-              transition: 'all 0.2s ease'
-            }}
-            onMouseEnter={(e) => {
-              if (voiceGender !== 'female') {
-                e.currentTarget.style.background = 'rgba(255,255,255,0.05)'
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (voiceGender !== 'female') {
-                e.currentTarget.style.background = 'transparent'
-              }
+              fontSize: '12px'
             }}
           >
             👩 Female
@@ -476,18 +442,7 @@ export const AIVoice: React.FC = () => {
               background: voiceGender === 'kid' ? 'rgba(200,162,0,0.15)' : 'transparent',
               color: voiceGender === 'kid' ? '#FFD700' : '#6b7280',
               cursor: 'pointer',
-              fontSize: '12px',
-              transition: 'all 0.2s ease'
-            }}
-            onMouseEnter={(e) => {
-              if (voiceGender !== 'kid') {
-                e.currentTarget.style.background = 'rgba(255,255,255,0.05)'
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (voiceGender !== 'kid') {
-                e.currentTarget.style.background = 'transparent'
-              }
+              fontSize: '12px'
             }}
           >
             🧒 Kid
@@ -501,18 +456,7 @@ export const AIVoice: React.FC = () => {
               background: voiceGender === 'male' ? 'rgba(200,162,0,0.15)' : 'transparent',
               color: voiceGender === 'male' ? '#FFD700' : '#6b7280',
               cursor: 'pointer',
-              fontSize: '12px',
-              transition: 'all 0.2s ease'
-            }}
-            onMouseEnter={(e) => {
-              if (voiceGender !== 'male') {
-                e.currentTarget.style.background = 'rgba(255,255,255,0.05)'
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (voiceGender !== 'male') {
-                e.currentTarget.style.background = 'transparent'
-              }
+              fontSize: '12px'
             }}
           >
             👨 Male
@@ -547,7 +491,7 @@ export const AIVoice: React.FC = () => {
         {/* ─── Mic Button ─── */}
         <button
           onClick={toggleListening}
-          disabled={isProcessing || !isOllamaOnline}
+          disabled={isProcessing}
           style={{
             width: '80px',
             height: '80px',
@@ -555,11 +499,10 @@ export const AIVoice: React.FC = () => {
             border: 'none',
             background: isListening ? '#ef4444' :
                       isProcessing ? 'rgba(200,162,0,0.3)' : 
-                      !isOllamaOnline ? 'rgba(255,255,255,0.05)' :
                       'linear-gradient(135deg, #c8a200, #FFD700)',
             color: isListening || isProcessing ? 'white' : '#0a0a0a',
             fontSize: '40px',
-            cursor: (isProcessing || !isOllamaOnline) ? 'not-allowed' : 'pointer',
+            cursor: isProcessing ? 'not-allowed' : 'pointer',
             transition: 'all 0.3s ease',
             boxShadow: isListening ? '0 0 60px rgba(239,68,68,0.5)' : '0 0 40px rgba(200,162,0,0.4)',
             animation: isListening ? 'pulse 1s infinite' : 'none',
@@ -569,12 +512,11 @@ export const AIVoice: React.FC = () => {
             justifyContent: 'center'
           }}
         >
-          {!isOllamaOnline ? '🔴' : isListening ? '⏹️' : isProcessing ? '⏳' : '🎤'}
+          {isListening ? '⏹️' : isProcessing ? '⏳' : '🎤'}
         </button>
 
         <p style={{ color: '#4b5563', fontSize: '13px', marginTop: '12px' }}>
-          {!isOllamaOnline ? '🔄 AI is offline...' : 
-           isListening ? '🔴 Tap to stop' : 
+          {isListening ? '🔴 Tap to stop' : 
            isProcessing ? '⏳ Processing...' : 
            '🎤 Tap to talk'}
         </p>
@@ -627,14 +569,7 @@ export const AIVoice: React.FC = () => {
               color: '#f87171',
               cursor: 'pointer',
               fontSize: '13px',
-              fontWeight: '600',
-              transition: 'all 0.2s ease'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'rgba(239,68,68,0.15)'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'rgba(239,68,68,0.08)'
+              fontWeight: '600'
             }}
           >
             🗑️ Clear Conversation
