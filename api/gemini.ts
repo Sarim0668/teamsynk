@@ -9,7 +9,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(200).end()
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
-  const apiKey = process.env.VITE_GEMINI_API_KEY
+  const apiKey = process.env.GEMINI_API_KEY
 
   // ─── Debug log — check Vercel dashboard → Logs after a request ───────────
   console.log('=== GEMINI API DEBUG ===')
