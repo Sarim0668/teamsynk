@@ -285,6 +285,7 @@ export const Navbar: React.FC = () => {
     { path: '/messages', label: 'Chat', icon: <IconMessages unreadCount={unreadCount} /> },
     { path: '/competitions', label: 'Compete', icon: <IconTrophy /> },
     { path: '/ai-assistant', label: 'AI Voice', icon: <span>🎙️</span> },
+    { path: '/chat', label: 'AI Chat', icon: <IconChat /> },
   ]
 
   if (userRole === 'Admin') {
@@ -726,4 +727,11 @@ function DropdownItem({ to, icon, label }: { to: string; icon: React.ReactNode; 
       {label}
     </Link>
   )
-}
+}// ─── Add this icon function in your Navbar.tsx ────────────────────────────
+const IconChat = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+    <circle cx="9" cy="10" r="1"/>
+    <circle cx="15" cy="10" r="1"/>
+  </svg>
+)
