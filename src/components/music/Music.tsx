@@ -1,6 +1,5 @@
 // src/components/music/Music.tsx
 import React, { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 
 const CATEGORIES = [
@@ -13,19 +12,204 @@ const CATEGORIES = [
   '🏆 Campus Hits'
 ]
 
-// ─── DEFAULT SONGS (shows when database is empty) ──────────────────────────
-const DEFAULT_SONGS = [
+// ─── ALL YOUR SONGS ──────────────────────────────────────────────────────────
+
+// ─── COOL DOWN SONGS ──────────────────────────────────────────────────────
+const COOLDOWN_SONGS = [
   {
-    id: 'default-1',
-    title: 'Believer',
-    artist: 'Imagine Dragons',
-    category: '💪 Workout',
-    youtube_url: 'https://www.youtube.com/embed/7wtfhZwyrcc',
+    id: 'cooldown-1',
+    title: 'Calm Down',
+    artist: 'Rema ft. Selena Gomez',
+    category: '😌 Cool Down',
+    youtube_url: 'https://www.youtube.com/embed/MLjhE6EHgkk',
+    votes: 12,
+    suggested_by_user: { full_name: 'TeamSynk' }
+  },
+  {
+    id: 'cooldown-2',
+    title: 'Perfect',
+    artist: 'Ed Sheeran',
+    category: '😌 Cool Down',
+    youtube_url: 'https://www.youtube.com/embed/heK-1nbZMCE',
+    votes: 11,
+    suggested_by_user: { full_name: 'TeamSynk' }
+  },
+  {
+    id: 'cooldown-3',
+    title: 'Senorita',
+    artist: 'Shawn Mendes & Camila Cabello',
+    category: '😌 Cool Down',
+    youtube_url: 'https://www.youtube.com/embed/m1wKgdQ8bCw',
+    votes: 10,
+    suggested_by_user: { full_name: 'TeamSynk' }
+  },
+  {
+    id: 'cooldown-4',
+    title: 'Someone You Loved',
+    artist: 'Lewis Capaldi',
+    category: '😌 Cool Down',
+    youtube_url: 'https://www.youtube.com/embed/VNPlb2d3LFE',
+    votes: 9,
+    suggested_by_user: { full_name: 'TeamSynk' }
+  },
+  {
+    id: 'cooldown-5',
+    title: 'Save Your Tears',
+    artist: 'The Weeknd',
+    category: '😌 Cool Down',
+    youtube_url: 'https://www.youtube.com/embed/S8Rq5H-PLXY',
+    votes: 8,
+    suggested_by_user: { full_name: 'TeamSynk' }
+  }
+]
+
+// ─── PARTY SONGS ──────────────────────────────────────────────────────────
+const PARTY_SONGS = [
+  {
+    id: 'party-1',
+    title: 'Dance Monkey',
+    artist: 'Tones and I',
+    category: '🎉 Party',
+    youtube_url: 'https://www.youtube.com/embed/PZZRr04Q7zM',
     votes: 25,
     suggested_by_user: { full_name: 'TeamSynk' }
   },
   {
-    id: 'default-2',
+    id: 'party-2',
+    title: 'Can\'t Stop The Feeling',
+    artist: 'Justin Timberlake',
+    category: '🎉 Party',
+    youtube_url: 'https://www.youtube.com/embed/wfVwF1E5WJk',
+    votes: 22,
+    suggested_by_user: { full_name: 'TeamSynk' }
+  },
+  {
+    id: 'party-3',
+    title: 'Let Me Love You',
+    artist: 'DJ Snake ft. Justin Bieber',
+    category: '🎉 Party',
+    youtube_url: 'https://www.youtube.com/embed/G2m37J03hg0',
+    votes: 20,
+    suggested_by_user: { full_name: 'TeamSynk' }
+  }
+]
+
+// ─── WORKOUT SONGS ────────────────────────────────────────────────────────
+const WORKOUT_SONGS = [
+  {
+    id: 'workout-1',
+    title: 'Till I Collapse',
+    artist: 'Eminem',
+    category: '💪 Workout',
+    youtube_url: 'https://www.youtube.com/embed/_PXCqGLJuVc',
+    votes: 30,
+    suggested_by_user: { full_name: 'TeamSynk' }
+  },
+  {
+    id: 'workout-2',
+    title: 'My Songs Know What You Did In The Dark',
+    artist: 'Fall Out Boy',
+    category: '💪 Workout',
+    youtube_url: 'https://www.youtube.com/embed/iCGdF4YMvFY',
+    votes: 28,
+    suggested_by_user: { full_name: 'TeamSynk' }
+  },
+  {
+    id: 'workout-3',
+    title: 'Numb',
+    artist: 'Linkin Park',
+    category: '💪 Workout',
+    youtube_url: 'https://www.youtube.com/embed/iLHEGrNVf5Y',
+    votes: 26,
+    suggested_by_user: { full_name: 'TeamSynk' }
+  },
+  {
+    id: 'workout-4',
+    title: 'In The End',
+    artist: 'Linkin Park',
+    category: '💪 Workout',
+    youtube_url: 'https://www.youtube.com/embed/3Kxf2dHlDpQ',
+    votes: 24,
+    suggested_by_user: { full_name: 'TeamSynk' }
+  },
+  {
+    id: 'workout-5',
+    title: 'Centuries',
+    artist: 'Fall Out Boy',
+    category: '💪 Workout',
+    youtube_url: 'https://www.youtube.com/embed/XKBol-3Eliw',
+    votes: 23,
+    suggested_by_user: { full_name: 'TeamSynk' }
+  },
+  {
+    id: 'workout-6',
+    title: 'Fight Song',
+    artist: 'Rachel Platten',
+    category: '💪 Workout',
+    youtube_url: 'https://www.youtube.com/embed/oeyqrg-gL24',
+    votes: 21,
+    suggested_by_user: { full_name: 'TeamSynk' }
+  }
+]
+
+// ─── STUDY FOCUS SONGS ────────────────────────────────────────────────────
+const STUDY_SONGS = [
+  {
+    id: 'study-1',
+    title: 'Lofi Chill',
+    artist: 'Lofi Music',
+    category: '📚 Study Focus',
+    youtube_url: 'https://www.youtube.com/embed/2L6gsn7rGqI',
+    votes: 15,
+    suggested_by_user: { full_name: 'TeamSynk' }
+  },
+  {
+    id: 'study-2',
+    title: 'Lofi Hip Hop',
+    artist: 'Lofi Music',
+    category: '📚 Study Focus',
+    youtube_url: 'https://www.youtube.com/embed/Wj8C_bpnkTY',
+    votes: 14,
+    suggested_by_user: { full_name: 'TeamSynk' }
+  },
+  {
+    id: 'study-3',
+    title: 'Study Lofi',
+    artist: 'Lofi Music',
+    category: '📚 Study Focus',
+    youtube_url: 'https://www.youtube.com/embed/nmK3dXXE_Vg',
+    votes: 13,
+    suggested_by_user: { full_name: 'TeamSynk' }
+  },
+  {
+    id: 'study-4',
+    title: 'Peaceful Lofi',
+    artist: 'Lofi Music',
+    category: '📚 Study Focus',
+    youtube_url: 'https://www.youtube.com/embed/Wamoy4hoMZI',
+    votes: 12,
+    suggested_by_user: { full_name: 'TeamSynk' }
+  },
+  {
+    id: 'study-5',
+    title: 'Lofi Study Beats',
+    artist: 'Lofi Music',
+    category: '📚 Study Focus',
+    youtube_url: 'https://www.youtube.com/embed/OTYtQKm8O9E',
+    votes: 11,
+    suggested_by_user: { full_name: 'TeamSynk' }
+  }
+]
+
+// ─── ALL SONGS ──────────────────────────────────────────────────────────────
+const DEFAULT_SONGS = [
+  ...WORKOUT_SONGS,
+  ...PARTY_SONGS,
+  ...COOLDOWN_SONGS,
+  ...STUDY_SONGS,
+  // ─── PRE-MATCH SONGS ──────────────────────────────────────────────────
+  {
+    id: 'prematch-1',
     title: 'Eye of the Tiger',
     artist: 'Survivor',
     category: '⚡ Pre-Match',
@@ -34,16 +218,7 @@ const DEFAULT_SONGS = [
     suggested_by_user: { full_name: 'TeamSynk' }
   },
   {
-    id: 'default-3',
-    title: 'Shape of You',
-    artist: 'Ed Sheeran',
-    category: '🎉 Party',
-    youtube_url: 'https://www.youtube.com/embed/JGwWNGJdvx8',
-    votes: 18,
-    suggested_by_user: { full_name: 'TeamSynk' }
-  },
-  {
-    id: 'default-4',
+    id: 'prematch-2',
     title: 'Lose Yourself',
     artist: 'Eminem',
     category: '⚡ Pre-Match',
@@ -51,38 +226,57 @@ const DEFAULT_SONGS = [
     votes: 22,
     suggested_by_user: { full_name: 'TeamSynk' }
   },
+  // ─── CAMPUS HITS ──────────────────────────────────────────────────────
   {
-    id: 'default-5',
-    title: 'Uptown Funk',
-    artist: 'Mark Ronson ft. Bruno Mars',
-    category: '🎉 Party',
-    youtube_url: 'https://www.youtube.com/embed/OPf0YbXqDm0',
-    votes: 15,
-    suggested_by_user: { full_name: 'TeamSynk' }
-  },
-  {
-    id: 'default-6',
+    id: 'campus-1',
     title: 'Blinding Lights',
     artist: 'The Weeknd',
-    category: '💪 Workout',
+    category: '🏆 Campus Hits',
     youtube_url: 'https://www.youtube.com/embed/fHI8X4OXluQ',
     votes: 19,
     suggested_by_user: { full_name: 'TeamSynk' }
   },
   {
-    id: 'default-7',
+    id: 'campus-2',
     title: 'Counting Stars',
     artist: 'OneRepublic',
-    category: '📚 Study Focus',
+    category: '🏆 Campus Hits',
     youtube_url: 'https://www.youtube.com/embed/hT_nvWreIhg',
     votes: 14,
     suggested_by_user: { full_name: 'TeamSynk' }
   },
   {
-    id: 'default-8',
+    id: 'campus-3',
+    title: 'Believer',
+    artist: 'Imagine Dragons',
+    category: '🏆 Campus Hits',
+    youtube_url: 'https://www.youtube.com/embed/7wtfhZwyrcc',
+    votes: 25,
+    suggested_by_user: { full_name: 'TeamSynk' }
+  },
+  {
+    id: 'campus-4',
+    title: 'Shape of You',
+    artist: 'Ed Sheeran',
+    category: '🏆 Campus Hits',
+    youtube_url: 'https://www.youtube.com/embed/JGwWNGJdvx8',
+    votes: 18,
+    suggested_by_user: { full_name: 'TeamSynk' }
+  },
+  {
+    id: 'campus-5',
+    title: 'Uptown Funk',
+    artist: 'Mark Ronson ft. Bruno Mars',
+    category: '🏆 Campus Hits',
+    youtube_url: 'https://www.youtube.com/embed/OPf0YbXqDm0',
+    votes: 15,
+    suggested_by_user: { full_name: 'TeamSynk' }
+  },
+  {
+    id: 'campus-6',
     title: 'Roar',
     artist: 'Katy Perry',
-    category: '😌 Cool Down',
+    category: '🏆 Campus Hits',
     youtube_url: 'https://www.youtube.com/embed/CevxZvSJLk8',
     votes: 16,
     suggested_by_user: { full_name: 'TeamSynk' }
@@ -139,7 +333,6 @@ export const Music: React.FC = () => {
         setSongs(data)
         setFilteredSongs(data)
       } else {
-        // Use default songs if no data
         setSongs(DEFAULT_SONGS as any)
         setFilteredSongs(DEFAULT_SONGS as any)
       }
@@ -167,7 +360,9 @@ export const Music: React.FC = () => {
       return
     }
 
-    if (songId.startsWith('default-')) {
+    if (songId.startsWith('cooldown-') || songId.startsWith('party-') || 
+        songId.startsWith('workout-') || songId.startsWith('study-') ||
+        songId.startsWith('prematch-') || songId.startsWith('campus-')) {
       alert('🔥 You liked this song! Suggest it to add to the official playlist!')
       return
     }
@@ -435,7 +630,9 @@ export const Music: React.FC = () => {
                       Suggested by {song.suggested_by_user.full_name}
                     </span>
                   )}
-                  {song.id.startsWith('default-') && (
+                  {song.id.startsWith('cooldown-') || song.id.startsWith('party-') || 
+                   song.id.startsWith('workout-') || song.id.startsWith('study-') ||
+                   song.id.startsWith('prematch-') || song.id.startsWith('campus-') ? (
                     <span style={{
                       color: '#c8a200',
                       fontSize: '9px',
@@ -446,7 +643,7 @@ export const Music: React.FC = () => {
                     }}>
                       Default
                     </span>
-                  )}
+                  ) : null}
                 </div>
               </div>
             ))

@@ -286,8 +286,6 @@ export const Navbar: React.FC = () => {
     { path: '/competitions', label: 'Compete', icon: <IconTrophy /> },
     { path: '/ai-assistant', label: 'AI Voice', icon: <span>🎙️</span> },
     { path: '/music', label: 'Music', icon: <IconMusic /> },
-    // ─── Add to navItems ──────────────────────────────────────────────────────
-{ path: '/music', label: 'Music', icon: <IconMusic /> },
   ]
 
   if (userRole === 'Admin') {
