@@ -1,8 +1,0 @@
-{
-  "functions": {
-    "api/chat.ts": {
-      "runtime": "edge",
-      "maxDuration": 15
-    }
-  }
-}
