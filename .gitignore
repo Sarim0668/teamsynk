@@ -6,3 +6,4 @@ build/
 .vercel/ 
 .env 
 .env.local 
+src/config.ts 
