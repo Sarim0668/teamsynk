@@ -1,0 +1,73 @@
+[33m5592494c[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m Remove config.ts from Git and add to .gitignore
+[33m5838617f[m Remove config.ts from Git and add to .gitignore
+[33me4479b58[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Remove config.ts from Git and add to .gitignore
+[33md8c364de[m Add AI Voice with DeepSeek API
+[33m23095a11[m Add permanent LocalTunnel URL for Ollama
+[33m4f9a870f[m Add AI Voice Assistant with Ollama integration
+[33ma68c7a75[m Add .env to gitignore
+[33m9a8090c2[m Add .gitignore and remove .env from tracking
+[33madbbd13f[m Fix NotificationBell TypeScript errors and Marketplace updates
+[33m4d40d0f1[m Fix NotificationBell TypeScript errors and Marketplace updates
+[33m8098eb5b[m Ui fixing
+[33mf276be8b[m Fix NotificationBell TypeScript errors and Marketplace updates
+[33m2358c8ef[m Fix NotificationBell TypeScript errors and Marketplace updates
+[33m81aa58b7[m Fix NotificationBell TypeScript errors and Marketplace updates
+[33m2a4d3501[m Fix NotificationBell TypeScript errors and Marketplace updates
+[33m892e3cd5[m Fix NotificationBell TypeScript errors and Marketplace updates
+[33m26b030cb[m Fix NotificationBell TypeScript errors and Marketplace updates
+[33mce231312[m Fix NotificationBell TypeScript errors and Marketplace updates
+[33m569548f6[m Fix NotificationBell TypeScript errors and Marketplace updates
+[33m42bd6a3c[m Fix NotificationBell TypeScript errors and Marketplace updates
+[33m6f238ae4[m Fix NotificationBell TypeScript errors and Marketplace updates
+[33m8dbc5312[m Fix NotificationBell TypeScript errors and Marketplace updates
+[33m8eee4418[m Fix NotificationBell TypeScript errors and Marketplace updates
+[33m1e65b077[m Fix NotificationBell TypeScript errors and Marketplace updates
+[33m24cd44e5[m Fix NotificationBell TypeScript errors and Marketplace updates
+[33mefb3600d[m Fix NotificationBell TypeScript errors and Marketplace updates
+[33m84eef548[m Fix NotificationBell TypeScript errors and Marketplace updates
+[33m713b1820[m Fix NotificationBell TypeScript errors and Marketplace updates
+[33m74d9b972[m Fix NotificationBell TypeScript errors and Marketplace updates
+[33maac662d6[m Fix NotificationBell TypeScript errors and Marketplace updates
+[33mc7e74a30[m Fix NotificationBell TypeScript errors and Marketplace updates
+[33m58c2287b[m Fix NotificationBell TypeScript errors and Marketplace updates
+[33mc5d3284b[m Fix NotificationBell TypeScript errors and Marketplace updates
+[33m7ed1adb0[m Fix NotificationBell TypeScript errors and Marketplace updates
+[33mea7e3867[m Fix NotificationBell TypeScript errors and Marketplace updates
+[33mff7fc7c2[m Fix NotificationBell TypeScript errors and Marketplace updates
+[33m13b56f48[m Fix NotificationBell TypeScript errors and Marketplace updates
+[33me4072f74[m Fix NotificationBell TypeScript errors and Marketplace updates
+[33m579cec64[m Fix NotificationBell TypeScript errors and Marketplace updates
+[33m38ac4e9f[m Fix NotificationBell TypeScript errors and Marketplace updates
+[33m6763e6ff[m Fix NotificationBell TypeScript errors and Marketplace updates
+[33md322ff04[m Fix NotificationBell TypeScript errors and Marketplace updates
+[33m74bbddf3[m WORKING code editor with browser evaluation
+[33mcb9a7d92[m WORKING code editor with browser evaluation
+[33ma6c999c2[m CODE EDITOR FIXING
+[33m88c05643[m CODE EDITOR FIXING
+[33m7d7c606f[m Fix JDoodle input handling
+[33m818d283e[m WORKING code editor with browser evaluation
+[33m58f0b68c[m Fix JDoodle input handling
+[33m78e31e3d[m Fix JDoodle input handling
+[33m0ae1eb1c[m Fix JDoodle input handling
+[33m2c886d41[m Add Python-based C++ compiler on Vercel
+[33m65130119[m Fix JDoodle input handling
+[33mb4cf7794[m Fix JDoodle input handling
+[33m18aad403[m Fix JDoodle input handling
+[33mfd6e654c[m Add JDoodle API keys
+[33md5819eca[m Fix JDoodle input handling
+[33m685fcece[m Add JDoodle API
+[33mab0cd9a5[m Fix: Use Vercel API as proxy for code execution
+[33m1e5bbbf7[m Add complete Coding Competition Platform with:
+[33mda21b642[m Fix: Prevent suspended users from logging in
+[33m25ab4ddc[m Add Admin Panel
+[33m38af5b5d[m Add Admin Panel with user and listing management
+[33m758aeac3[m Fix: Move typescript to dependencies
+[33m8c9a0d80[m FIX: Use node directly to run react-scripts
+[33me9734e2b[m Fix: Add preinstall and postinstall scripts
+[33me21e3309[m Fix: Add CI=false to build script for Vercel
+[33m2df66795[m Fix build: clean install, remove types, add .npmrc
+[33mb46032d0[m Fix package.json - remove vercel-build script
+[33m79adc1e4[m Remove vercel.json - using Vercel defaults
+[33m35894124[m Fix vercel.json - clean version
+[33me2aaf4a0[m Fix vercel.json JSON syntax
+[33m8c2e108b[m TeamSynk - Full Sports Community App
