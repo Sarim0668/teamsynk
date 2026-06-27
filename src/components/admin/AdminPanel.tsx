@@ -25,12 +25,26 @@ interface Listing {
   created_at: string
 }
 
+interface Song {
+  id: string
+  title: string
+  artist: string
+  category: string
+  youtube_url: string
+  suggested_by: string
+  status: string
+  votes: number
+  created_at: string
+  suggested_by_user?: { full_name: string }
+}
+
 export const AdminPanel: React.FC = () => {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [users, setUsers] = useState<User[]>([])
   const [listings, setListings] = useState<Listing[]>([])
-  const [activeTab, setActiveTab] = useState<'users' | 'listings'>('users')
+  const [songs, setSongs] = useState<Song[]>([])
+  const [activeTab, setActiveTab] = useState<'users' | 'listings' | 'songs'>('users')
   const [searchQuery, setSearchQuery] = useState('')
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' | 'info' } | null>(null)
   const [currentUser, setCurrentUser] = useState<any>(null)
@@ -48,7 +62,6 @@ export const AdminPanel: React.FC = () => {
       return
     }
 
-    // Check if user is admin
     const { data: profile } = await supabase
       .from('users')
       .select('role')
@@ -69,7 +82,8 @@ export const AdminPanel: React.FC = () => {
   const loadData = async () => {
     await Promise.all([
       loadUsers(),
-      loadListings()
+      loadListings(),
+      loadSongs()
     ])
   }
 
@@ -95,6 +109,19 @@ export const AdminPanel: React.FC = () => {
     }
   }
 
+  const loadSongs = async () => {
+    const { data, error } = await supabase
+      .from('songs')
+      .select('*, suggested_by_user:users!suggested_by(full_name)')
+      .neq('status', 'approved')
+      .order('created_at', { ascending: false })
+
+    if (!error && data) {
+      setSongs(data)
+    }
+  }
+
+  // ─── User Actions ──────────────────────────────────────────────────────────
   const handleSuspendUser = async (userId: string) => {
     if (!window.confirm('Are you sure you want to suspend this user?')) return
 
@@ -143,6 +170,7 @@ export const AdminPanel: React.FC = () => {
     }
   }
 
+  // ─── Listing Actions ──────────────────────────────────────────────────────
   const handleRemoveListing = async (listingId: string) => {
     if (!window.confirm('Are you sure you want to remove this listing?')) return
 
@@ -173,9 +201,65 @@ export const AdminPanel: React.FC = () => {
     }
   }
 
+  // ─── Song Actions ──────────────────────────────────────────────────────────
+  const handleApproveSong = async (songId: string) => {
+    const { error } = await supabase
+      .from('songs')
+      .update({ 
+        status: 'approved',
+        approved_by: currentUser?.id,
+        approved_at: new Date().toISOString()
+      })
+      .eq('id', songId)
+
+    if (error) {
+      setMessage({ text: 'Failed to approve song: ' + error.message, type: 'error' })
+    } else {
+      setMessage({ text: '✅ Song approved successfully!', type: 'success' })
+      await loadSongs()
+    }
+  }
+
+  const handleRejectSong = async (songId: string) => {
+    if (!window.confirm('Are you sure you want to reject this song suggestion?')) return
+
+    const { error } = await supabase
+      .from('songs')
+      .update({ status: 'rejected' })
+      .eq('id', songId)
+
+    if (error) {
+      setMessage({ text: 'Failed to reject song: ' + error.message, type: 'error' })
+    } else {
+      setMessage({ text: '✅ Song rejected', type: 'success' })
+      await loadSongs()
+    }
+  }
+
+  const handleDeleteSong = async (songId: string) => {
+    if (!window.confirm('⚠️ Are you sure you want to DELETE this song?')) return
+
+    const { error } = await supabase
+      .from('songs')
+      .delete()
+      .eq('id', songId)
+
+    if (error) {
+      setMessage({ text: 'Failed to delete song: ' + error.message, type: 'error' })
+    } else {
+      setMessage({ text: '✅ Song deleted', type: 'success' })
+      await loadSongs()
+    }
+  }
+
   const filteredUsers = users.filter(u =>
     u.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     u.email?.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+
+  const filteredSongs = songs.filter(s =>
+    s.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    s.artist?.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   if (loading) {
@@ -242,7 +326,7 @@ export const AdminPanel: React.FC = () => {
             Manage Your Platform
           </h1>
           <p style={{ color: '#888', fontSize: '14px' }}>
-            Users: {users.length} • Listings: {listings.length}
+            Users: {users.length} • Listings: {listings.length} • Pending Songs: {songs.length}
           </p>
         </div>
 
@@ -274,7 +358,8 @@ export const AdminPanel: React.FC = () => {
           gap: '0',
           marginBottom: '24px',
           borderBottom: '1px solid rgba(255,255,255,0.05)',
-          position: 'relative'
+          position: 'relative',
+          flexWrap: 'wrap'
         }}>
           <button
             onClick={() => setActiveTab('users')}
@@ -308,6 +393,22 @@ export const AdminPanel: React.FC = () => {
           >
             📦 Listings
           </button>
+          <button
+            onClick={() => setActiveTab('songs')}
+            style={{
+              padding: '12px 24px',
+              background: activeTab === 'songs' ? 'rgba(200,162,0,0.1)' : 'transparent',
+              border: 'none',
+              color: activeTab === 'songs' ? '#FFD700' : '#666',
+              fontWeight: activeTab === 'songs' ? 'bold' : 'normal',
+              cursor: 'pointer',
+              borderBottom: activeTab === 'songs' ? '2px solid #c8a200' : '2px solid transparent',
+              transition: 'all 0.3s',
+              fontSize: '14px'
+            }}
+          >
+            🎵 Songs
+          </button>
         </div>
 
         {/* Search */}
@@ -316,7 +417,7 @@ export const AdminPanel: React.FC = () => {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={`Search ${activeTab === 'users' ? 'users...' : 'listings...'}`}
+            placeholder={`Search ${activeTab === 'users' ? 'users...' : activeTab === 'listings' ? 'listings...' : 'songs...'}`}
             style={{
               width: '100%',
               maxWidth: '400px',
@@ -586,10 +687,149 @@ export const AdminPanel: React.FC = () => {
           </div>
         )}
 
+        {/* Songs Tab */}
+        {activeTab === 'songs' && (
+          <div style={{
+            background: 'rgba(13,13,13,0.95)',
+            backdropFilter: 'blur(20px)',
+            border: '1px solid #c8a20020',
+            borderRadius: '12px',
+            overflow: 'hidden'
+          }}>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '60px 1fr 1fr 120px 80px 80px 140px 160px',
+              padding: '12px 16px',
+              background: 'rgba(200,162,0,0.05)',
+              borderBottom: '1px solid rgba(255,255,255,0.05)',
+              fontSize: '12px',
+              color: '#666',
+              fontWeight: 'bold',
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              gap: '8px'
+            }}>
+              <span>#</span>
+              <span>Title</span>
+              <span>Artist</span>
+              <span>Category</span>
+              <span>Votes</span>
+              <span>Status</span>
+              <span>Suggested By</span>
+              <span>Actions</span>
+            </div>
+
+            {filteredSongs.length === 0 ? (
+              <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
+                No pending song suggestions
+              </div>
+            ) : (
+              filteredSongs.map((song, index) => (
+                <div
+                  key={song.id}
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '60px 1fr 1fr 120px 80px 80px 140px 160px',
+                    padding: '10px 16px',
+                    borderBottom: '1px solid rgba(255,255,255,0.03)',
+                    alignItems: 'center',
+                    gap: '8px',
+                    fontSize: '13px',
+                    color: '#ddd'
+                  }}
+                >
+                  <span style={{ color: '#666' }}>#{index + 1}</span>
+                  <span style={{ fontWeight: 'bold', color: 'white' }}>{song.title}</span>
+                  <span style={{ color: '#aaa' }}>{song.artist}</span>
+                  <span style={{
+                    fontSize: '11px',
+                    color: '#c8a200',
+                    background: 'rgba(200,162,0,0.1)',
+                    padding: '2px 8px',
+                    borderRadius: '99px',
+                    border: '1px solid rgba(200,162,0,0.2)',
+                    display: 'inline-block',
+                    textAlign: 'center',
+                    width: 'fit-content'
+                  }}>
+                    {song.category}
+                  </span>
+                  <span style={{ color: '#FFD700' }}>{song.votes || 0}</span>
+                  <span>
+                    <span style={{
+                      padding: '2px 8px',
+                      borderRadius: '4px',
+                      background: song.status === 'pending' ? 'rgba(234,179,8,0.15)' : 'rgba(255,68,68,0.15)',
+                      color: song.status === 'pending' ? '#eab308' : '#f87171',
+                      fontSize: '11px'
+                    }}>
+                      {song.status}
+                    </span>
+                  </span>
+                  <span style={{ color: '#888', fontSize: '12px' }}>
+                    {song.suggested_by_user?.full_name || 'Unknown'}
+                  </span>
+                  <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                    {song.status === 'pending' && (
+                      <>
+                        <button
+                          onClick={() => handleApproveSong(song.id)}
+                          style={{
+                            padding: '4px 10px',
+                            background: 'rgba(82,192,122,0.1)',
+                            border: '1px solid rgba(82,192,122,0.2)',
+                            borderRadius: '6px',
+                            color: '#52c07a',
+                            fontSize: '10px',
+                            cursor: 'pointer',
+                            fontWeight: 'bold'
+                          }}
+                        >
+                          ✅ Approve
+                        </button>
+                        <button
+                          onClick={() => handleRejectSong(song.id)}
+                          style={{
+                            padding: '4px 10px',
+                            background: 'rgba(255,68,68,0.1)',
+                            border: '1px solid rgba(255,68,68,0.2)',
+                            borderRadius: '6px',
+                            color: '#f87171',
+                            fontSize: '10px',
+                            cursor: 'pointer',
+                            fontWeight: 'bold'
+                          }}
+                        >
+                          ❌ Reject
+                        </button>
+                      </>
+                    )}
+                    <button
+                      onClick={() => handleDeleteSong(song.id)}
+                      style={{
+                        padding: '4px 10px',
+                        background: 'rgba(239,68,68,0.1)',
+                        border: '1px solid rgba(239,68,68,0.2)',
+                        borderRadius: '6px',
+                        color: '#ef4444',
+                        fontSize: '10px',
+                        cursor: 'pointer',
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      🗑️ Delete
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
         {/* Footer */}
         <div style={{ marginTop: '40px', textAlign: 'center' }}>
           <span style={{ color: '#374151', fontSize: '11px', letterSpacing: '0.06em' }}>
-            ⚡ Admin Panel v1.0 • UC10 & UC11
+            ⚡ Admin Panel v2.0 • Users • Listings • Songs
           </span>
         </div>
       </div>

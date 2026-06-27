@@ -285,6 +285,8 @@ export const Navbar: React.FC = () => {
     { path: '/messages', label: 'Chat', icon: <IconMessages unreadCount={unreadCount} /> },
     { path: '/competitions', label: 'Compete', icon: <IconTrophy /> },
     { path: '/ai-assistant', label: 'AI Voice', icon: <span>🎙️</span> },
+    // ─── Add to navItems ──────────────────────────────────────────────────────
+{ path: '/music', label: 'Music', icon: <IconMusic /> },
   ]
 
   if (userRole === 'Admin') {
@@ -732,5 +734,14 @@ const IconChat = () => (
     <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
     <circle cx="9" cy="10" r="1"/>
     <circle cx="15" cy="10" r="1"/>
+  </svg>
+)
+// ─── Music Icon ──────────────────────────────────────────────────────────────
+const IconMusic = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M9 18V5l12-2v13"/>
+    <circle cx="6" cy="18" r="3"/>
+    <circle cx="18" cy="16" r="3"/>
+    <line x1="9" y1="7" x2="21" y2="5"/>
   </svg>
 )
