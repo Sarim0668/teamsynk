@@ -21,6 +21,7 @@ import { Leaderboard } from './components/competitions/Leaderboard'
 import { AIVoice } from './components/ai/AIVoice'
 import { Music } from './components/music/Music'
 import { CommunityHub } from './components/community/CommunityHub'
+import { CommunityChat } from './components/community/CommunityChat'
 import './premiumMotion.css'
 
 // ─── Placeholder page ─────────────────────────────────────────────────────────
@@ -362,6 +363,7 @@ function AppInner({ user }: { user: any }) {
           <Route path="/ai-assistant" element={user ? <AIVoice /> : <Navigate to="/login" />} />
           <Route path="/music" element={user ? <Music /> : <Navigate to="/login" />} />  
           <Route path="/community" element={user ? <CommunityHub /> : <Navigate to="/login" />} />
+          <Route path="/community/:id" element={user ? <CommunityChat /> : <Navigate to="/login" />} />
         </Routes>
       </main>
     </>

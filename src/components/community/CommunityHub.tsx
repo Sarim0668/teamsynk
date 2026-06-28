@@ -27,7 +27,7 @@ const CATEGORIES = [
   { value: 'other', icon: '✨', label: 'Other' },
 ]
 
-// ─── DEMO COMMUNITIES (Shows when database is empty) ──────────────────────
+// ─── DEMO COMMUNITIES ──────────────────────────────────────────────────────────
 const DEMO_COMMUNITIES: Community[] = [
   {
     id: 'demo-1',
@@ -96,6 +96,7 @@ export const CommunityHub: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [tableExists, setTableExists] = useState(false)
+  const [joinedCommunities, setJoinedCommunities] = useState<Set<string>>(new Set())
 
   const [formData, setFormData] = useState({
     name: '',
@@ -113,13 +114,27 @@ export const CommunityHub: React.FC = () => {
   const checkUser = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     setUser(user)
+    if (user) {
+      loadUserJoinedCommunities(user.id)
+    }
+  }
+
+  const loadUserJoinedCommunities = async (userId: string) => {
+    const { data, error } = await supabase
+      .from('community_members')
+      .select('community_id')
+      .eq('user_id', userId)
+
+    if (!error && data) {
+      const joined = new Set(data.map((item: any) => item.community_id))
+      setJoinedCommunities(joined)
+    }
   }
 
   const checkTableAndLoad = async () => {
     setLoading(true)
     
     try {
-      // Check if communities table exists
       const { error: checkError } = await supabase
         .from('communities')
         .select('id')
@@ -136,7 +151,6 @@ export const CommunityHub: React.FC = () => {
 
       setTableExists(true)
 
-      // Load real data
       const { data, error } = await supabase
         .from('communities')
         .select(`
@@ -154,7 +168,6 @@ export const CommunityHub: React.FC = () => {
         setCommunities(communitiesWithCount)
         setFilteredCommunities(communitiesWithCount)
       } else {
-        // Use demo data if no real data
         setCommunities(DEMO_COMMUNITIES)
         setFilteredCommunities(DEMO_COMMUNITIES)
       }
@@ -199,8 +212,6 @@ export const CommunityHub: React.FC = () => {
     }
 
     if (!tableExists) {
-      alert('⚠️ Communities table not found in database. Using demo mode.')
-      // Add to demo communities locally
       const newCommunity: Community = {
         id: 'demo-' + Date.now(),
         name: formData.name,
@@ -216,7 +227,7 @@ export const CommunityHub: React.FC = () => {
       setFilteredCommunities(prev => [newCommunity, ...prev])
       setShowCreateModal(false)
       setFormData({ name: '', description: '', category: 'sports', member_limit: 20, is_private: false })
-      alert('✅ Community created in demo mode! (Table not found)')
+      alert('✅ Community created in demo mode!')
       return
     }
 
@@ -253,7 +264,7 @@ export const CommunityHub: React.FC = () => {
     }
 
     if (communityId.startsWith('demo-')) {
-      alert('🔥 You liked this community! Create real communities by adding the table.')
+      alert('🔥 Demo community! Join real communities by creating the table.')
       return
     }
 
@@ -270,11 +281,16 @@ export const CommunityHub: React.FC = () => {
         alert('Failed to join: ' + error.message)
       } else {
         alert('✅ You joined the community!')
+        setJoinedCommunities(prev => new Set(prev).add(communityId))
         checkTableAndLoad()
       }
     } catch (error: any) {
       alert('Error: ' + error.message)
     }
+  }
+
+  const handleOpenChat = (communityId: string) => {
+    navigate(`/community/${communityId}`)
   }
 
   const getCategoryIcon = (category: string) => {
@@ -448,6 +464,7 @@ export const CommunityHub: React.FC = () => {
           }}>
             {filteredCommunities.map(community => {
               const isFull = community.member_count >= community.member_limit
+              const isMember = joinedCommunities.has(community.id) || community.id.startsWith('demo-')
               
               return (
                 <div
@@ -458,7 +475,8 @@ export const CommunityHub: React.FC = () => {
                     borderRadius: '16px',
                     border: '1px solid rgba(255,255,255,0.05)',
                     padding: '20px',
-                    transition: 'all 0.3s ease'
+                    transition: 'all 0.3s ease',
+                    cursor: 'pointer'
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.transform = 'translateY(-4px)'
@@ -468,6 +486,7 @@ export const CommunityHub: React.FC = () => {
                     e.currentTarget.style.transform = 'translateY(0)'
                     e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)'
                   }}
+                  onClick={() => handleOpenChat(community.id)}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
                     <div style={{
@@ -511,6 +530,18 @@ export const CommunityHub: React.FC = () => {
                         Demo
                       </span>
                     )}
+                    {isMember && (
+                      <span style={{
+                        fontSize: '9px',
+                        color: '#4ade80',
+                        background: 'rgba(34,197,94,0.1)',
+                        padding: '2px 8px',
+                        borderRadius: '99px',
+                        border: '1px solid rgba(34,197,94,0.2)'
+                      }}>
+                        ✅ Member
+                      </span>
+                    )}
                   </div>
                   <p style={{ color: '#9ca3af', fontSize: '13px', marginBottom: '12px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                     {community.description || 'No description yet'}
@@ -536,7 +567,7 @@ export const CommunityHub: React.FC = () => {
                       <span style={{ color: '#4b5563', fontSize: '11px' }}>
                         {community.member_count || 0}/{community.member_limit || 20}
                       </span>
-                      {!isFull && (
+                      {!isMember && !isFull && !community.id.startsWith('demo-') && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
@@ -556,8 +587,22 @@ export const CommunityHub: React.FC = () => {
                           Join
                         </button>
                       )}
-                      {isFull && (
+                      {isFull && !isMember && (
                         <span style={{ color: '#f87171', fontSize: '11px' }}>Full</span>
+                      )}
+                      {isMember && (
+                        <span style={{ 
+                          fontSize: '11px',
+                          color: '#c8a200',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}>
+                          💬 Chat
+                        </span>
+                      )}
+                      {community.id.startsWith('demo-') && !isMember && (
+                        <span style={{ color: '#6b7280', fontSize: '10px' }}>Demo</span>
                       )}
                     </div>
                   </div>
