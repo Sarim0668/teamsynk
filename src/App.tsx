@@ -361,7 +361,7 @@ function AppInner({ user }: { user: any }) {
           <Route path="/leaderboard" element={user ? <Leaderboard /> : <Navigate to="/login" />} />
           <Route path="/ai-assistant" element={user ? <AIVoice /> : <Navigate to="/login" />} />
           <Route path="/music" element={user ? <Music /> : <Navigate to="/login" />} />  
-          <Route path="/communities" element={user ? <CommunityHub /> : <Navigate to="/login" />} />
+          <Route path="/community" element={user ? <CommunityHub /> : <Navigate to="/login" />} />
         </Routes>
       </main>
     </>
