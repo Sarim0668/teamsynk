@@ -287,6 +287,7 @@ export const Navbar: React.FC = () => {
     { path: '/ai-assistant', label: 'AI Voice', icon: <span>🎙️</span> },
     { path: '/music', label: 'Music', icon: <IconMusic /> },
     { path: '/community', label: 'Community', icon: <IconCommunity /> },
+     { path: '/create-tournament', label: 'Tournament', icon: <IconTournament /> },
   ]
 
   if (userRole === 'Admin') {
@@ -749,5 +750,18 @@ const IconMusic = () => (
 const IconCommunity = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+  </svg>
+)
+
+// ─── Tournament Icon ──────────────────────────────────────────────────────────
+const IconTournament = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/>
+    <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/>
+    <path d="M4 22h16"/>
+    <path d="M12 15v7"/>
+    <path d="M8 22v-3.5a3 3 0 0 1 3-3h2a3 3 0 0 1 3 3V22"/>
+    <path d="M6 9h12a2 2 0 0 1 2 2v1.5a3.5 3.5 0 0 1-7 0"/>
+    <path d="M6 9V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v5"/>
   </svg>
 )

@@ -610,7 +610,7 @@ export const Dashboard: React.FC = () => {
           )}
         </section>
 
-        {/* ─── COMPETITIONS (NO CREATE BUTTON) ─── */}
+        {/* ─── COMPETITIONS ─── */}
         <section style={{ marginBottom: '40px' }}>
           <div style={{
             display: 'flex',
@@ -641,7 +641,34 @@ export const Dashboard: React.FC = () => {
                 Live & Upcoming
               </h2>
             </div>
-            {/* ─── CREATE COMPETITION BUTTON REMOVED ─── */}
+            {/* ─── CREATE TOURNAMENT BUTTON ─── */}
+            <Link
+              to="/create-tournament"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '7px',
+                padding: '10px 22px',
+                borderRadius: '12px',
+                textDecoration: 'none',
+                background: 'linear-gradient(135deg, #c8a200, #FFD700)',
+                color: '#0a0a0a',
+                fontSize: '13px',
+                fontWeight: '800',
+                boxShadow: '0 0 20px rgba(200,162,0,0.3)',
+                transition: 'all 0.3s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'scale(1.05)'
+                e.currentTarget.style.boxShadow = '0 0 40px rgba(200,162,0,0.5)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'scale(1)'
+                e.currentTarget.style.boxShadow = '0 0 20px rgba(200,162,0,0.3)'
+              }}
+            >
+              🏆 Create Tournament
+            </Link>
           </div>
 
           {competitions.length === 0 ? (
