@@ -23,6 +23,8 @@ interface Match {
   group_name: string
   match_number: number
   status: string
+  round_type: string
+  round_number: number
   team1?: { name: string }
   team2?: { name: string }
   winner_id?: string
@@ -45,6 +47,10 @@ export const TournamentDetail: React.FC = () => {
   const [user, setUser] = useState<any>(null)
   const [isCreator, setIsCreator] = useState(false)
   const [isCompleted, setIsCompleted] = useState(false)
+  const [champion, setChampion] = useState<string | null>(null)
+  const [groupStandings, setGroupStandings] = useState<Record<string, any[]>>({})
+  const [advanceOptions, setAdvanceOptions] = useState<number[]>([1, 2, 3, 4])
+  const [showAdvanceModal, setShowAdvanceModal] = useState(false)
 
   useEffect(() => {
     if (id) {
@@ -58,7 +64,6 @@ export const TournamentDetail: React.FC = () => {
     const { data: { user: currentUser } } = await supabase.auth.getUser()
     setUser(currentUser)
 
-    // Load tournament
     const { data: tournData } = await supabase
       .from('tournaments')
       .select('*')
@@ -68,14 +73,12 @@ export const TournamentDetail: React.FC = () => {
     setIsCreator(tournData?.created_by === currentUser?.id)
     setIsCompleted(tournData?.status === 'completed')
 
-    // Load teams
     const { data: teamData } = await supabase
       .from('tournament_teams')
       .select('*')
       .eq('tournament_id', id)
     setTeams(teamData || [])
 
-    // Load matches with team names
     const { data: matchData } = await supabase
       .from('tournament_matches')
       .select('*, team1:team1_id(name), team2:team2_id(name), winner:winner_id(name)')
@@ -83,8 +86,9 @@ export const TournamentDetail: React.FC = () => {
       .order('match_number', { ascending: true })
     setMatches(matchData || [])
 
-    // Calculate standings
     calculateStandings(teamData || [], matchData || [])
+    await checkAndAdvanceRound(matchData || [], teamData || [])
+    findChampion(matchData || [])
 
     setLoading(false)
   }
@@ -103,7 +107,9 @@ export const TournamentDetail: React.FC = () => {
       }
     })
 
-    matchesList.forEach(match => {
+    const groupMatches = matchesList.filter(m => m.round_type === 'group')
+
+    groupMatches.forEach(match => {
       if (match.status === 'completed' && match.winner_id) {
         const team1 = standingsMap[match.team1_id]
         const team2 = standingsMap[match.team2_id]
@@ -121,7 +127,6 @@ export const TournamentDetail: React.FC = () => {
             team2.points += 2
             team1.losses++
           } else {
-            // Draw
             team1.draws++
             team1.points += 1
             team2.draws++
@@ -131,41 +136,232 @@ export const TournamentDetail: React.FC = () => {
       }
     })
 
-    const sortedStandings = Object.values(standingsMap).sort((a, b) => {
-      if (a.points !== b.points) return b.points - a.points
-      return (b.wins - b.losses) - (a.wins - a.losses)
+    const grouped: Record<string, any[]> = {}
+    Object.values(standingsMap).forEach(team => {
+      const group = team.group_name || 'Group A'
+      if (!grouped[group]) grouped[group] = []
+      grouped[group].push(team)
     })
 
-    setStandings(sortedStandings)
+    Object.keys(grouped).forEach(group => {
+      grouped[group].sort((a, b) => {
+        if (a.points !== b.points) return b.points - a.points
+        return (b.wins - b.losses) - (a.wins - a.losses)
+      })
+    })
+
+    setGroupStandings(grouped)
+    setStandings(Object.values(standingsMap))
+  }
+
+  const checkAndAdvanceRound = async (matchesList: Match[], teamsList: Team[]) => {
+    if (!id) return
+
+    const groupMatches = matchesList.filter(m => m.round_type === 'group')
+    const allGroupCompleted = groupMatches.every(m => m.status === 'completed')
+    
+    const knockoutMatches = matchesList.filter(m => m.round_type === 'knockout')
+    const semifinalMatches = matchesList.filter(m => m.round_type === 'semifinal')
+    const finalMatches = matchesList.filter(m => m.round_type === 'final')
+
+    if (groupMatches.length === 0) return
+
+    if (allGroupCompleted && knockoutMatches.length === 0 && semifinalMatches.length === 0 && finalMatches.length === 0) {
+      const maxAdvance = Math.max(...Object.keys(groupStandings).map(g => groupStandings[g].length))
+      const options = []
+      for (let i = 1; i <= Math.min(maxAdvance, 4); i++) {
+        options.push(i)
+      }
+      setAdvanceOptions(options)
+      setShowAdvanceModal(true)
+      return
+    }
+
+    if (knockoutMatches.length > 0) {
+      const allKnockoutComplete = knockoutMatches.every(m => m.status === 'completed')
+      if (allKnockoutComplete && semifinalMatches.length === 0) {
+        await generateNextRound(knockoutMatches, 'semifinal')
+      }
+    }
+
+    if (semifinalMatches.length > 0) {
+      const allSemisComplete = semifinalMatches.every(m => m.status === 'completed')
+      if (allSemisComplete && finalMatches.length === 0) {
+        await generateNextRound(semifinalMatches, 'final')
+      }
+    }
+  }
+
+  const handleAdvanceTeams = async (count: number) => {
+    setShowAdvanceModal(false)
+    await generateKnockoutRounds(count)
+  }
+
+  const generateKnockoutRounds = async (advanceCount: number) => {
+    if (!id) return
+
+    const qualifiedTeams: any[] = []
+    Object.keys(groupStandings).forEach(group => {
+      const topTeams = groupStandings[group].slice(0, advanceCount)
+      qualifiedTeams.push(...topTeams)
+    })
+
+    if (qualifiedTeams.length < 2) {
+      alert('Not enough teams to continue!')
+      return
+    }
+
+    const shuffled = [...qualifiedTeams].sort(() => Math.random() - 0.5)
+    const matchesToCreate: any[] = []
+    let matchNumber = matches.length + 1
+    let remainingTeams = [...shuffled]
+
+    while (remainingTeams.length >= 2) {
+      const team1 = remainingTeams[0]
+      let team2 = null
+      let found = false
+
+      for (let i = 1; i < remainingTeams.length; i++) {
+        if (remainingTeams[i].group_name !== team1.group_name) {
+          team2 = remainingTeams[i]
+          found = true
+          break
+        }
+      }
+
+      if (!found && remainingTeams.length >= 2) {
+        team2 = remainingTeams[1]
+      }
+
+      if (team2) {
+        matchesToCreate.push({
+          team1: team1,
+          team2: team2,
+          round_type: 'knockout',
+          round_number: 1,
+          match_number: matchNumber++
+        })
+        remainingTeams = remainingTeams.filter(t => t.id !== team1.id && t.id !== team2.id)
+      } else {
+        break
+      }
+    }
+
+    for (const match of matchesToCreate) {
+      await supabase
+        .from('tournament_matches')
+        .insert({
+          tournament_id: id,
+          team1_id: match.team1.id,
+          team2_id: match.team2.id,
+          group_name: `Knockout Round`,
+          match_number: match.match_number,
+          round_type: match.round_type,
+          round_number: match.round_number,
+          status: 'scheduled'
+        })
+    }
+
+    await loadData()
+  }
+
+  const generateNextRound = async (currentMatches: Match[], nextRoundType: string) => {
+    if (!id) return
+
+    const winners = currentMatches
+      .filter(m => m.status === 'completed' && m.winner_id)
+      .map(m => teams.find(t => t.id === m.winner_id))
+      .filter((t): t is Team => t !== undefined)
+
+    if (winners.length < 2) {
+      alert('Not enough winners to continue!')
+      return
+    }
+
+    const shuffled = [...winners].sort(() => Math.random() - 0.5)
+    const matchesToCreate: any[] = []
+    let matchNumber = matches.length + 1
+    let remainingTeams = [...shuffled]
+
+    while (remainingTeams.length >= 2) {
+      const team1 = remainingTeams[0]
+      let team2 = null
+      let found = false
+
+      for (let i = 1; i < remainingTeams.length; i++) {
+        if (remainingTeams[i].group_name !== team1.group_name) {
+          team2 = remainingTeams[i]
+          found = true
+          break
+        }
+      }
+
+      if (!found && remainingTeams.length >= 2) {
+        team2 = remainingTeams[1]
+      }
+
+      if (team2) {
+        matchesToCreate.push({
+          team1: team1,
+          team2: team2,
+          round_type: nextRoundType,
+          match_number: matchNumber++,
+          group_name: nextRoundType === 'final' ? 'Final' : 'Semi-Final'
+        })
+        remainingTeams = remainingTeams.filter(t => t.id !== team1.id && t.id !== team2.id)
+      } else {
+        break
+      }
+    }
+
+    for (const match of matchesToCreate) {
+      await supabase
+        .from('tournament_matches')
+        .insert({
+          tournament_id: id,
+          team1_id: match.team1.id,
+          team2_id: match.team2.id,
+          group_name: match.group_name,
+          match_number: match.match_number,
+          round_type: match.round_type,
+          round_number: 1,
+          status: 'scheduled'
+        })
+    }
+
+    await loadData()
+  }
+
+  const findChampion = (matchesList: Match[]) => {
+    const finalMatch = matchesList.find(m => m.round_type === 'final' && m.status === 'completed')
+    if (finalMatch && finalMatch.winner_id) {
+      const winner = matchesList.find(m => m.id === finalMatch.id)?.winner
+      setChampion(winner?.name || null)
+    }
   }
 
   const updateMatchResult = async () => {
     if (!selectedMatch || !id) return
 
     let winnerId = null
-    let team1Score = 0
-    let team2Score = 0
 
     if (selectedResult === 'team1_win') {
       winnerId = selectedMatch.team1_id
-      team1Score = 1
-      team2Score = 0
     } else if (selectedResult === 'team2_win') {
       winnerId = selectedMatch.team2_id
-      team1Score = 0
-      team2Score = 1
     } else {
-      // Draw
+      if (selectedMatch.round_type !== 'group') {
+        alert('⚠️ Knockout matches cannot end in a draw! Please select a winner.')
+        return
+      }
       winnerId = null
-      team1Score = 0
-      team2Score = 0
     }
 
     const { error } = await supabase
       .from('tournament_matches')
       .update({
-        team1_score: team1Score,
-        team2_score: team2Score,
+        team1_score: selectedResult === 'team1_win' ? 1 : selectedResult === 'draw' ? 0 : 0,
+        team2_score: selectedResult === 'team2_win' ? 1 : selectedResult === 'draw' ? 0 : 0,
         status: 'completed',
         winner_id: winnerId
       })
@@ -178,62 +374,72 @@ export const TournamentDetail: React.FC = () => {
       setSelectedMatch(null)
       setSelectedResult('draw')
       await loadData()
-      
-      // Check if all matches are completed
       await checkAndCompleteTournament()
     }
   }
 
   const checkAndCompleteTournament = async () => {
-    if (!id) return
+  if (!id) return
 
-    // Get all matches for this tournament
-    const { data: allMatches } = await supabase
-      .from('tournament_matches')
-      .select('status')
-      .eq('tournament_id', id)
+  // Get ALL matches with full data
+  const { data: allMatches } = await supabase
+    .from('tournament_matches')
+    .select('*')
+    .eq('tournament_id', id)
 
-    if (allMatches && allMatches.every(m => m.status === 'completed')) {
-      // All matches completed - mark tournament as completed
-      const { error } = await supabase
-        .from('tournaments')
-        .update({ status: 'completed' })
-        .eq('id', id)
+  if (!allMatches) return
 
-      if (!error) {
-        setIsCompleted(true)
-        alert('🏆 Tournament completed! All matches have been played.')
-        // Clean up - delete tournament data after 30 days
-        scheduleTournamentCleanup(id)
+  const hasFinal = allMatches.some((m: any) => m.round_type === 'final')
+  const allCompleted = allMatches.every((m: any) => m.status === 'completed')
+
+  if (allCompleted && hasFinal) {
+    const { error } = await supabase
+      .from('tournaments')
+      .update({ status: 'completed' })
+      .eq('id', id)
+
+    if (!error) {
+      setIsCompleted(true)
+      
+      // Find the final match
+      const finalMatch = allMatches.find((m: any) => m.round_type === 'final')
+      if (finalMatch) {
+        // Get winner details
+        const { data: matchWithWinner } = await supabase
+          .from('tournament_matches')
+          .select('*, winner:winner_id(name)')
+          .eq('id', finalMatch.id)
+          .single()
+        
+        if (matchWithWinner?.winner) {
+          setChampion(matchWithWinner.winner.name)
+          alert(`🏆🏆🏆 Tournament Complete! Champion: ${matchWithWinner.winner.name} 🏆🏆🏆`)
+        }
       }
+      
+      scheduleTournamentCleanup(id)
     }
   }
+}
 
   const scheduleTournamentCleanup = (tournamentId: string) => {
-    // Delete tournament after 30 days
     const cleanupDate = new Date()
     cleanupDate.setDate(cleanupDate.getDate() + 30)
     
-    // Store cleanup schedule in localStorage (or you can use a cron job)
     const cleanupJobs = JSON.parse(localStorage.getItem('tournament_cleanup') || '{}')
     cleanupJobs[tournamentId] = cleanupDate.toISOString()
     localStorage.setItem('tournament_cleanup', JSON.stringify(cleanupJobs))
-    
-    console.log(`🧹 Tournament ${tournamentId} scheduled for cleanup on ${cleanupDate}`)
   }
 
-  // Run cleanup check on mount
   useEffect(() => {
     const cleanupJobs = JSON.parse(localStorage.getItem('tournament_cleanup') || '{}')
     const now = new Date()
     
     Object.entries(cleanupJobs).forEach(async ([tournamentId, cleanupDate]) => {
       if (new Date(cleanupDate as string) < now) {
-        // Delete tournament
         await supabase.from('tournaments').delete().eq('id', tournamentId)
         delete cleanupJobs[tournamentId]
         localStorage.setItem('tournament_cleanup', JSON.stringify(cleanupJobs))
-        console.log(`🗑️ Tournament ${tournamentId} cleaned up`)
       }
     })
   }, [])
@@ -244,26 +450,29 @@ export const TournamentDetail: React.FC = () => {
     setShowScoreModal(true)
   }
 
-  const getMatchResult = (match: Match) => {
+  const getMatchResult = (match: Match): React.ReactNode => {
     if (match.status !== 'completed' || !match.winner_id) {
       return <span style={{ color: '#4b5563' }}>⏳ Pending</span>
     }
     
     if (match.winner_id === match.team1_id) {
-      return <span style={{ color: '#4ade80', fontWeight: 'bold' }}>🏆 {match.team1?.name} wins</span>
+      return <span style={{ color: '#4ade80', fontWeight: 'bold' }}>🏆 {match.team1?.name || 'Team 1'} wins</span>
     } else if (match.winner_id === match.team2_id) {
-      return <span style={{ color: '#4ade80', fontWeight: 'bold' }}>🏆 {match.team2?.name} wins</span>
+      return <span style={{ color: '#4ade80', fontWeight: 'bold' }}>🏆 {match.team2?.name || 'Team 2'} wins</span>
     } else {
       return <span style={{ color: '#eab308', fontWeight: 'bold' }}>🤝 Draw</span>
     }
   }
 
-  const getGroupStandings = (groupName: string) => {
-    return standings.filter(t => t.group_name === groupName)
+  const getRoundLabel = (roundType: string): string => {
+    const labels: Record<string, string> = {
+      group: '📋 Group',
+      knockout: '🏅 Knockout',
+      semifinal: '🏅 Semi-Final',
+      final: '🏆 Final'
+    }
+    return labels[roundType] || '📋 Group'
   }
-
-  // Get unique groups
-  const groups = [...new Set(teams.map(t => t.group_name).filter(Boolean))]
 
   if (loading) {
     return (
@@ -323,6 +532,11 @@ export const TournamentDetail: React.FC = () => {
     )
   }
 
+  const groupMatches = matches.filter(m => m.round_type === 'group')
+  const knockoutMatches = matches.filter(m => m.round_type === 'knockout')
+  const semifinalMatches = matches.filter(m => m.round_type === 'semifinal')
+  const finalMatches = matches.filter(m => m.round_type === 'final')
+
   return (
     <div style={{
       minHeight: '100vh',
@@ -338,7 +552,6 @@ export const TournamentDetail: React.FC = () => {
       }} />
 
       <div style={{ maxWidth: '1000px', margin: '0 auto', position: 'relative', zIndex: 1 }}>
-        {/* ─── Back Button ─── */}
         <button
           onClick={() => navigate('/tournaments')}
           style={{
@@ -356,7 +569,6 @@ export const TournamentDetail: React.FC = () => {
           ← Back to Tournaments
         </button>
 
-        {/* ─── Header ─── */}
         <div style={{ marginBottom: '24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
             <div>
@@ -384,7 +596,21 @@ export const TournamentDetail: React.FC = () => {
           </div>
         </div>
 
-        {/* ─── Standings ─── */}
+        {champion && isCompleted && (
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(200,162,0,0.15), rgba(255,215,0,0.05))',
+            border: '2px solid rgba(200,162,0,0.3)',
+            borderRadius: '16px',
+            padding: '20px',
+            textAlign: 'center',
+            marginBottom: '24px'
+          }}>
+            <div style={{ fontSize: '48px' }}>🏆</div>
+            <h2 style={{ color: '#FFD700', fontSize: '24px' }}>Champion: {champion}</h2>
+            <p style={{ color: '#6b7280' }}>Congratulations to the tournament winner!</p>
+          </div>
+        )}
+
         <div style={{
           background: 'rgba(16,16,22,0.95)',
           borderRadius: '16px',
@@ -392,26 +618,21 @@ export const TournamentDetail: React.FC = () => {
           padding: '20px',
           marginBottom: '24px'
         }}>
-          <h3 style={{ color: '#FFD700', marginBottom: '16px' }}>📊 Standings</h3>
+          <h3 style={{ color: '#FFD700', marginBottom: '16px' }}>📊 Group Standings</h3>
           
-          {standings.length === 0 ? (
+          {Object.keys(groupStandings).length === 0 ? (
             <div style={{ textAlign: 'center', color: '#4b5563', padding: '20px' }}>
               No teams added yet
             </div>
           ) : (
-            <>
-              {groups.length > 0 ? (
-                // Group-wise standings
-                groups.map(group => (
-                  <div key={group} style={{ marginBottom: '16px' }}>
-                    <h4 style={{ color: '#c8a200', fontSize: '14px', marginBottom: '8px' }}>🏷️ {group}</h4>
-                    <StandingsTable standings={getGroupStandings(group)} />
-                  </div>
-                ))
-              ) : (
-                <StandingsTable standings={standings} />
-              )}
-            </>
+            Object.keys(groupStandings).map(group => (
+              <div key={group} style={{ marginBottom: '16px' }}>
+                <h4 style={{ color: '#c8a200', fontSize: '14px', marginBottom: '8px' }}>
+                  🏷️ {group}
+                </h4>
+                <StandingsTable standings={groupStandings[group]} />
+              </div>
+            ))
           )}
 
           <div style={{
@@ -422,82 +643,149 @@ export const TournamentDetail: React.FC = () => {
             fontSize: '11px',
             color: '#6b7280'
           }}>
-            ⭐ Points: Win=2, Draw=1, Loss=0 • Top teams qualify for next round
+            ⭐ Points: Win=2, Draw=1, Loss=0
           </div>
         </div>
 
-        {/* ─── Matches ─── */}
         <div style={{
           background: 'rgba(16,16,22,0.95)',
           borderRadius: '16px',
           border: '1px solid rgba(255,255,255,0.05)',
           padding: '20px'
         }}>
-          <h3 style={{ color: '#FFD700', marginBottom: '16px' }}>📋 Matches</h3>
+          <h3 style={{ color: '#FFD700', marginBottom: '16px' }}>📋 All Matches</h3>
           
-          {matches.length === 0 ? (
+          {groupMatches.length > 0 && (
+            <>
+              <h4 style={{ color: '#6b7280', fontSize: '13px', marginBottom: '8px' }}>📋 Group Stage</h4>
+              <MatchList 
+                matches={groupMatches} 
+                isCreator={isCreator}
+                isCompleted={isCompleted}
+                onMatchClick={openScoreModal}
+                getMatchResult={getMatchResult}
+                getRoundLabel={getRoundLabel}
+              />
+            </>
+          )}
+
+          {knockoutMatches.length > 0 && (
+            <>
+              <h4 style={{ color: '#c8a200', fontSize: '13px', marginBottom: '8px', marginTop: '16px' }}>🏅 Knockout Rounds</h4>
+              <MatchList 
+                matches={knockoutMatches} 
+                isCreator={isCreator}
+                isCompleted={isCompleted}
+                onMatchClick={openScoreModal}
+                getMatchResult={getMatchResult}
+                getRoundLabel={getRoundLabel}
+              />
+            </>
+          )}
+
+          {semifinalMatches.length > 0 && (
+            <>
+              <h4 style={{ color: '#c8a200', fontSize: '13px', marginBottom: '8px', marginTop: '16px' }}>🏅 Semi-Finals</h4>
+              <MatchList 
+                matches={semifinalMatches} 
+                isCreator={isCreator}
+                isCompleted={isCompleted}
+                onMatchClick={openScoreModal}
+                getMatchResult={getMatchResult}
+                getRoundLabel={getRoundLabel}
+              />
+            </>
+          )}
+
+          {finalMatches.length > 0 && (
+            <>
+              <h4 style={{ color: '#FFD700', fontSize: '13px', marginBottom: '8px', marginTop: '16px' }}>🏆 Final</h4>
+              <MatchList 
+                matches={finalMatches} 
+                isCreator={isCreator}
+                isCompleted={isCompleted}
+                onMatchClick={openScoreModal}
+                getMatchResult={getMatchResult}
+                getRoundLabel={getRoundLabel}
+              />
+            </>
+          )}
+
+          {matches.length === 0 && (
             <div style={{ textAlign: 'center', color: '#4b5563', padding: '20px' }}>
               No matches scheduled yet
             </div>
-          ) : (
-            matches.map((match) => (
-              <div
-                key={match.id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  padding: '10px 12px',
-                  borderBottom: '1px solid rgba(255,255,255,0.03)',
-                  cursor: match.status !== 'completed' && isCreator && !isCompleted ? 'pointer' : 'default',
-                  opacity: match.status === 'completed' ? 0.8 : 1
-                }}
-                onClick={() => {
-                  if (match.status !== 'completed' && isCreator && !isCompleted) {
-                    openScoreModal(match)
-                  }
-                }}
-              >
-                <span style={{ color: '#4b5563', minWidth: '40px', fontSize: '13px' }}>
-                  #{match.match_number}
-                </span>
-                {match.group_name && (
-                  <span style={{
-                    padding: '2px 8px',
-                    borderRadius: '4px',
-                    background: 'rgba(200,162,0,0.1)',
-                    color: '#c8a200',
-                    fontSize: '11px',
-                    minWidth: '70px',
-                    textAlign: 'center'
-                  }}>
-                    {match.group_name}
-                  </span>
-                )}
-                <span style={{ flex: 1, fontSize: '14px' }}>
-                  {match.team1?.name} vs {match.team2?.name}
-                </span>
-                {match.status === 'completed' ? (
-                  getMatchResult(match)
-                ) : (
-                  <span style={{
-                    padding: '4px 12px',
-                    borderRadius: '6px',
-                    background: isCreator && !isCompleted ? 'rgba(200,162,0,0.1)' : 'rgba(255,255,255,0.03)',
-                    color: isCreator && !isCompleted ? '#c8a200' : '#4b5563',
-                    fontSize: '12px',
-                    cursor: isCreator && !isCompleted ? 'pointer' : 'default'
-                  }}>
-                    {isCreator && !isCompleted ? '✏️ Add Result' : '⏳ Pending'}
-                  </span>
-                )}
-              </div>
-            ))
           )}
         </div>
       </div>
 
-      {/* ─── Result Modal ─── */}
+      {showAdvanceModal && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 9999,
+          background: 'rgba(0,0,0,0.85)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px'
+        }}>
+          <div style={{
+            background: 'rgba(10,10,16,0.98)',
+            borderRadius: '24px',
+            border: '1px solid rgba(200,162,0,0.2)',
+            maxWidth: '450px',
+            width: '100%',
+            padding: '32px'
+          }}>
+            <h3 style={{ color: '#FFD700', marginBottom: '16px' }}>🏅 Advance to Knockout</h3>
+            <p style={{ color: '#6b7280', marginBottom: '16px' }}>
+              How many teams from each group should advance to the knockout stage?
+            </p>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
+              {advanceOptions.map(option => (
+                <button
+                  key={option}
+                  onClick={() => handleAdvanceTeams(option)}
+                  style={{
+                    padding: '12px',
+                    borderRadius: '10px',
+                    background: 'rgba(200,162,0,0.08)',
+                    border: '1px solid rgba(200,162,0,0.2)',
+                    color: 'white',
+                    cursor: 'pointer',
+                    fontSize: '16px',
+                    transition: 'all 0.3s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'rgba(200,162,0,0.15)'
+                    e.currentTarget.style.borderColor = 'rgba(200,162,0,0.4)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'rgba(200,162,0,0.08)'
+                    e.currentTarget.style.borderColor = 'rgba(200,162,0,0.2)'
+                  }}
+                >
+                  Top {option} from each group
+                </button>
+              ))}
+            </div>
+
+            <div style={{
+              padding: '8px 12px',
+              background: 'rgba(200,162,0,0.05)',
+              borderRadius: '6px',
+              fontSize: '12px',
+              color: '#6b7280'
+            }}>
+              💡 Teams will be randomly paired for knockout rounds, avoiding same-group matchups
+            </div>
+          </div>
+        </div>
+      )}
+
       {showScoreModal && selectedMatch && (
         <div style={{
           position: 'fixed',
@@ -518,10 +806,29 @@ export const TournamentDetail: React.FC = () => {
             width: '100%',
             padding: '32px'
           }}>
-            <h3 style={{ color: '#FFD700', marginBottom: '16px' }}>Match Result</h3>
+            <h3 style={{ color: '#FFD700', marginBottom: '16px' }}>
+              {selectedMatch.round_type === 'final' ? '🏆 Final Result' : 
+               selectedMatch.round_type === 'semifinal' ? '🏅 Semi-Final Result' : 
+               selectedMatch.round_type === 'knockout' ? '🏅 Knockout Result' :
+               'Match Result'}
+            </h3>
             <p style={{ color: '#6b7280', marginBottom: '16px' }}>
-              {selectedMatch.team1?.name} vs {selectedMatch.team2?.name}
+              {selectedMatch.team1?.name || 'Team 1'} vs {selectedMatch.team2?.name || 'Team 2'}
             </p>
+            
+            {selectedMatch.round_type !== 'group' && (
+              <div style={{
+                padding: '8px 12px',
+                background: 'rgba(239,68,68,0.1)',
+                borderRadius: '6px',
+                color: '#f87171',
+                fontSize: '12px',
+                marginBottom: '12px',
+                border: '1px solid rgba(239,68,68,0.2)'
+              }}>
+                ⚠️ Knockout matches must have a winner (no draws allowed!)
+              </div>
+            )}
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
               <button
@@ -537,7 +844,7 @@ export const TournamentDetail: React.FC = () => {
                   fontWeight: selectedResult === 'team1_win' ? 'bold' : 'normal'
                 }}
               >
-                🏆 {selectedMatch.team1?.name} Wins
+                🏆 {selectedMatch.team1?.name || 'Team 1'} Wins
               </button>
               
               <button
@@ -553,24 +860,26 @@ export const TournamentDetail: React.FC = () => {
                   fontWeight: selectedResult === 'team2_win' ? 'bold' : 'normal'
                 }}
               >
-                🏆 {selectedMatch.team2?.name} Wins
+                🏆 {selectedMatch.team2?.name || 'Team 2'} Wins
               </button>
               
-              <button
-                onClick={() => setSelectedResult('draw')}
-                style={{
-                  padding: '12px',
-                  borderRadius: '10px',
-                  background: selectedResult === 'draw' ? 'rgba(234,179,8,0.15)' : 'rgba(255,255,255,0.03)',
-                  border: `1px solid ${selectedResult === 'draw' ? 'rgba(234,179,8,0.4)' : 'rgba(255,255,255,0.05)'}`,
-                  color: selectedResult === 'draw' ? '#eab308' : 'white',
-                  cursor: 'pointer',
-                  fontSize: '16px',
-                  fontWeight: selectedResult === 'draw' ? 'bold' : 'normal'
-                }}
-              >
-                🤝 Draw
-              </button>
+              {selectedMatch.round_type === 'group' && (
+                <button
+                  onClick={() => setSelectedResult('draw')}
+                  style={{
+                    padding: '12px',
+                    borderRadius: '10px',
+                    background: selectedResult === 'draw' ? 'rgba(234,179,8,0.15)' : 'rgba(255,255,255,0.03)',
+                    border: `1px solid ${selectedResult === 'draw' ? 'rgba(234,179,8,0.4)' : 'rgba(255,255,255,0.05)'}`,
+                    color: selectedResult === 'draw' ? '#eab308' : 'white',
+                    cursor: 'pointer',
+                    fontSize: '16px',
+                    fontWeight: selectedResult === 'draw' ? 'bold' : 'normal'
+                  }}
+                >
+                  🤝 Draw (1 point each)
+                </button>
+              )}
             </div>
 
             <div style={{
@@ -581,8 +890,8 @@ export const TournamentDetail: React.FC = () => {
               color: '#6b7280',
               marginBottom: '16px'
             }}>
-              {selectedResult === 'team1_win' && `✅ ${selectedMatch.team1?.name} gets 2 points`}
-              {selectedResult === 'team2_win' && `✅ ${selectedMatch.team2?.name} gets 2 points`}
+              {selectedResult === 'team1_win' && `✅ ${selectedMatch.team1?.name || 'Team 1'} advances`}
+              {selectedResult === 'team2_win' && `✅ ${selectedMatch.team2?.name || 'Team 2'} advances`}
               {selectedResult === 'draw' && `🤝 Both teams get 1 point each`}
             </div>
 
@@ -631,7 +940,6 @@ export const TournamentDetail: React.FC = () => {
   )
 }
 
-// ─── Standings Table Component ──────────────────────────────────────────────
 const StandingsTable: React.FC<{ standings: any[] }> = ({ standings }) => {
   if (standings.length === 0) {
     return <div style={{ textAlign: 'center', color: '#4b5563', padding: '10px' }}>No teams in this group</div>
@@ -671,12 +979,11 @@ const StandingsTable: React.FC<{ standings: any[] }> = ({ standings }) => {
             alignItems: 'center',
             gap: '6px',
             fontSize: '13px',
-            color: '#ddd',
-            background: index < 2 ? 'rgba(200,162,0,0.05)' : 'transparent'
+            color: '#ddd'
           }}
         >
           <span style={{ color: index < 2 ? '#FFD700' : '#4b5563' }}>{index + 1}</span>
-          <span style={{ fontWeight: index < 2 ? 'bold' : 'normal' }}>{team.name}</span>
+          <span>{team.name}</span>
           <span>{team.matches_played}</span>
           <span style={{ color: '#4ade80' }}>{team.wins}</span>
           <span style={{ color: '#eab308' }}>{team.draws}</span>
@@ -684,6 +991,96 @@ const StandingsTable: React.FC<{ standings: any[] }> = ({ standings }) => {
           <span style={{ color: '#FFD700', fontWeight: 'bold' }}>{team.points}</span>
         </div>
       ))}
+    </>
+  )
+}
+
+interface MatchListProps {
+  matches: Match[]
+  isCreator: boolean
+  isCompleted: boolean
+  onMatchClick: (match: Match) => void
+  getMatchResult: (match: Match) => React.ReactNode
+  getRoundLabel: (roundType: string) => string
+}
+
+const MatchList: React.FC<MatchListProps> = ({ 
+  matches, 
+  isCreator, 
+  isCompleted, 
+  onMatchClick, 
+  getMatchResult,
+  getRoundLabel
+}) => {
+  return (
+    <>
+      {matches.map((match) => {
+        const team1Name = match.team1?.name || 'Team 1'
+        const team2Name = match.team2?.name || 'Team 2'
+        
+        return (
+          <div
+            key={match.id}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              padding: '10px 12px',
+              borderBottom: '1px solid rgba(255,255,255,0.03)',
+              cursor: match.status !== 'completed' && isCreator && !isCompleted ? 'pointer' : 'default',
+              opacity: match.status === 'completed' ? 0.8 : 1,
+              background: match.round_type === 'final' ? 'rgba(200,162,0,0.05)' : 'transparent'
+            }}
+            onClick={() => {
+              if (match.status !== 'completed' && isCreator && !isCompleted) {
+                onMatchClick(match)
+              }
+            }}
+          >
+            <span style={{ color: '#4b5563', minWidth: '40px', fontSize: '13px' }}>
+              #{match.match_number}
+            </span>
+            <span style={{
+              padding: '2px 8px',
+              borderRadius: '4px',
+              background: match.round_type === 'final' ? 'rgba(200,162,0,0.2)' : 
+                         match.round_type === 'semifinal' ? 'rgba(200,162,0,0.1)' : 
+                         match.round_type === 'knockout' ? 'rgba(96,165,250,0.1)' :
+                         'rgba(255,255,255,0.03)',
+              color: match.round_type === 'final' ? '#FFD700' : 
+                     match.round_type === 'semifinal' ? '#c8a200' :
+                     match.round_type === 'knockout' ? '#60a5fa' :
+                     '#4b5563',
+              fontSize: '10px',
+              minWidth: '70px',
+              textAlign: 'center',
+              fontWeight: match.round_type === 'final' ? 'bold' : 'normal'
+            }}>
+              {match.round_type === 'final' ? '🏆 FINAL' : 
+               match.round_type === 'semifinal' ? '🏅 SEMI' : 
+               match.round_type === 'knockout' ? '🏅 KO' :
+               '📋 GROUP'}
+            </span>
+            <span style={{ flex: 1, fontSize: '14px' }}>
+              {team1Name} vs {team2Name}
+            </span>
+            {match.status === 'completed' ? (
+              getMatchResult(match)
+            ) : (
+              <span style={{
+                padding: '4px 12px',
+                borderRadius: '6px',
+                background: isCreator && !isCompleted ? 'rgba(200,162,0,0.1)' : 'rgba(255,255,255,0.03)',
+                color: isCreator && !isCompleted ? '#c8a200' : '#4b5563',
+                fontSize: '12px',
+                cursor: isCreator && !isCompleted ? 'pointer' : 'default'
+              }}>
+                {isCreator && !isCompleted ? '✏️ Add Result' : '⏳ Pending'}
+              </span>
+            )}
+          </div>
+        )
+      })}
     </>
   )
 }
