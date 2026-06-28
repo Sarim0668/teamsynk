@@ -13,7 +13,6 @@ import { FindPlayers } from './components/social/FindPlayers'
 import { SessionDetail } from './components/sessions/SessionDetail'
 import { Profile } from './components/profile/Profile'
 import { Messages } from './components/messages/Messages'
-import { BackgroundMusic } from './components/common/BackgroundMusic'
 import { AdminPanel } from './components/admin/AdminPanel'
 import { Competitions } from './components/competitions/Competitions'
 import { CompetitionDetail } from './components/competitions/CompetitionDetail'
@@ -317,7 +316,6 @@ function AppInner({ user }: { user: any }) {
       <div className="ts-bg-blobs" />
       <div className="ts-bg-spotlight" />
       {user && <Navbar />}
-      <BackgroundMusic />
       <Toaster
         position="top-right"
         toastOptions={{
