@@ -250,38 +250,6 @@ function CompetitionCard({ competition, index }: { competition: any; index: numb
   )
 }
 
-// ─── Create Competition Button ──────────────────────────────────────────────
-function CreateCompetitionButton() {
-  const [hovered, setHovered] = useState(false)
-  return (
-    <Link
-      to="/create-competition"
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '7px',
-        padding: '10px 22px',
-        borderRadius: '12px',
-        textDecoration: 'none',
-        background: hovered ? 'linear-gradient(135deg, #c8a200, #FFD700)' : 'linear-gradient(135deg, #b89200, #d4a500)',
-        color: '#0a0a0a',
-        fontSize: '13px',
-        fontWeight: '800',
-        letterSpacing: '0.03em',
-        fontFamily: "'Inter', sans-serif",
-        transform: hovered ? 'scale(1.04) translateY(-1px)' : 'scale(1)',
-        boxShadow: hovered ? '0 0 28px rgba(200,162,0,0.5)' : '0 0 12px rgba(200,162,0,0.2)',
-        transition: 'all 0.28s cubic-bezier(0.4,0,0.2,1)',
-        whiteSpace: 'nowrap',
-      }}
-    >
-      🏆 Create Competition
-    </Link>
-  )
-}
-
 // ─── Main Dashboard ──────────────────────────────────────────────────────────
 export const Dashboard: React.FC = () => {
   const [profile, setProfile] = useState<any>(null)
@@ -550,7 +518,7 @@ export const Dashboard: React.FC = () => {
           </div>
         </section>
 
-        {/* ─── SESSIONS - MOVED UP (BEFORE COMPETITIONS) ─── */}
+        {/* ─── SESSIONS ─── */}
         <section style={{ marginBottom: '40px' }}>
           <div style={{
             display: 'flex',
@@ -642,7 +610,7 @@ export const Dashboard: React.FC = () => {
           )}
         </section>
 
-        {/* ─── COMPETITIONS - MOVED DOWN (AFTER SESSIONS) ─── */}
+        {/* ─── COMPETITIONS (NO CREATE BUTTON) ─── */}
         <section style={{ marginBottom: '40px' }}>
           <div style={{
             display: 'flex',
@@ -673,7 +641,7 @@ export const Dashboard: React.FC = () => {
                 Live & Upcoming
               </h2>
             </div>
-            <CreateCompetitionButton />
+            {/* ─── CREATE COMPETITION BUTTON REMOVED ─── */}
           </div>
 
           {competitions.length === 0 ? (
@@ -690,7 +658,7 @@ export const Dashboard: React.FC = () => {
                 No active competitions
               </h3>
               <p style={{ color: '#4b5563', fontSize: '14px' }}>
-                Be the first to create a competition and bring the heat!
+                Competitions will be announced here soon!
               </p>
             </div>
           ) : (
