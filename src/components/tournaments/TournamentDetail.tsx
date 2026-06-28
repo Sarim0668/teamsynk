@@ -40,6 +40,8 @@ export const TournamentDetail: React.FC = () => {
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null)
   const [score1, setScore1] = useState('')
   const [score2, setScore2] = useState('')
+  const [user, setUser] = useState<any>(null)
+  const [isCreator, setIsCreator] = useState(false)
 
   useEffect(() => {
     loadData()
@@ -48,6 +50,10 @@ export const TournamentDetail: React.FC = () => {
   const loadData = async () => {
     if (!id) return
 
+    // Get current user
+    const { data: { user: currentUser } } = await supabase.auth.getUser()
+    setUser(currentUser)
+
     // Load tournament
     const { data: tournData } = await supabase
       .from('tournaments')
@@ -55,6 +61,7 @@ export const TournamentDetail: React.FC = () => {
       .eq('id', id)
       .single()
     setTournament(tournData)
+    setIsCreator(tournData?.created_by === currentUser?.id)
 
     // Load teams
     const { data: teamData } = await supabase
@@ -63,7 +70,7 @@ export const TournamentDetail: React.FC = () => {
       .eq('tournament_id', id)
     setTeams(teamData || [])
 
-    // Load matches
+    // Load matches with team names
     const { data: matchData } = await supabase
       .from('tournament_matches')
       .select('*, team1:team1_id(name), team2:team2_id(name)')
@@ -132,7 +139,7 @@ export const TournamentDetail: React.FC = () => {
     const s1 = parseInt(score1)
     const s2 = parseInt(score2)
 
-    await supabase
+    const { error } = await supabase
       .from('tournament_matches')
       .update({
         team1_score: s1,
@@ -142,11 +149,15 @@ export const TournamentDetail: React.FC = () => {
       })
       .eq('id', selectedMatch.id)
 
-    setShowScoreModal(false)
-    setSelectedMatch(null)
-    setScore1('')
-    setScore2('')
-    loadData()
+    if (error) {
+      alert('Failed to update score: ' + error.message)
+    } else {
+      setShowScoreModal(false)
+      setSelectedMatch(null)
+      setScore1('')
+      setScore2('')
+      loadData()
+    }
   }
 
   const openScoreModal = (match: Match) => {
@@ -180,6 +191,38 @@ export const TournamentDetail: React.FC = () => {
     )
   }
 
+  if (!tournament) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: '#0D0D0F',
+        color: 'white',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexDirection: 'column',
+        gap: '16px'
+      }}>
+        <div style={{ fontSize: '48px' }}>🔍</div>
+        <h2 style={{ color: '#888' }}>Tournament not found</h2>
+        <button
+          onClick={() => navigate('/tournaments')}
+          style={{
+            padding: '10px 24px',
+            background: 'linear-gradient(135deg, #c8a200, #FFD700)',
+            border: 'none',
+            borderRadius: '8px',
+            color: '#0a0a0a',
+            fontWeight: 'bold',
+            cursor: 'pointer'
+          }}
+        >
+          ← Back to Tournaments
+        </button>
+      </div>
+    )
+  }
+
   return (
     <div style={{
       minHeight: '100vh',
@@ -195,8 +238,9 @@ export const TournamentDetail: React.FC = () => {
       }} />
 
       <div style={{ maxWidth: '1000px', margin: '0 auto', position: 'relative', zIndex: 1 }}>
+        {/* ─── Back Button ─── */}
         <button
-          onClick={() => navigate('/competitions')}
+          onClick={() => navigate('/tournaments')}
           style={{
             background: 'transparent',
             border: 'none',
@@ -209,14 +253,32 @@ export const TournamentDetail: React.FC = () => {
             gap: '8px'
           }}
         >
-          ← Back
+          ← Back to Tournaments
         </button>
 
+        {/* ─── Header ─── */}
         <div style={{ marginBottom: '24px' }}>
-          <h1 style={{ color: '#FFD700', fontSize: '32px' }}>{tournament?.name}</h1>
-          <p style={{ color: '#6b7280' }}>
-            {tournament?.sport_type} • {tournament?.venue} • {tournament?.start_date} to {tournament?.end_date}
-          </p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+            <div>
+              <h1 style={{ color: '#FFD700', fontSize: '32px' }}>{tournament.name}</h1>
+              <p style={{ color: '#6b7280' }}>
+                {tournament.sport_type} • {tournament.venue || 'TBD'} • {tournament.start_date} to {tournament.end_date}
+              </p>
+            </div>
+            {isCreator && (
+              <span style={{
+                padding: '6px 16px',
+                borderRadius: '99px',
+                background: 'rgba(200,162,0,0.1)',
+                border: '1px solid rgba(200,162,0,0.2)',
+                color: '#c8a200',
+                fontSize: '12px',
+                fontWeight: 'bold'
+              }}>
+                👑 Tournament Creator
+              </span>
+            )}
+          </div>
         </div>
 
         {/* ─── Standings ─── */}
@@ -229,51 +291,59 @@ export const TournamentDetail: React.FC = () => {
         }}>
           <h3 style={{ color: '#FFD700', marginBottom: '16px' }}>📊 Standings</h3>
           
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: '40px 1fr 60px 50px 50px 50px 50px',
-            padding: '10px 12px',
-            background: 'rgba(200,162,0,0.05)',
-            borderRadius: '8px',
-            fontSize: '12px',
-            color: '#6b7280',
-            fontWeight: 'bold',
-            gap: '8px',
-            marginBottom: '8px'
-          }}>
-            <span>#</span>
-            <span>Team</span>
-            <span>P</span>
-            <span>W</span>
-            <span>D</span>
-            <span>L</span>
-            <span style={{ color: '#FFD700' }}>Pts</span>
-          </div>
-
-          {standings.map((team, index) => (
-            <div
-              key={team.id}
-              style={{
-                display: 'grid',
-                gridTemplateColumns: '40px 1fr 60px 50px 50px 50px 50px',
-                padding: '8px 12px',
-                borderBottom: '1px solid rgba(255,255,255,0.03)',
-                alignItems: 'center',
-                gap: '8px',
-                fontSize: '14px',
-                color: '#ddd',
-                background: index < 2 ? 'rgba(200,162,0,0.05)' : 'transparent'
-              }}
-            >
-              <span style={{ color: index < 2 ? '#FFD700' : '#4b5563' }}>{index + 1}</span>
-              <span style={{ fontWeight: index < 2 ? 'bold' : 'normal' }}>{team.name}</span>
-              <span>{team.matches_played}</span>
-              <span style={{ color: '#4ade80' }}>{team.wins}</span>
-              <span style={{ color: '#eab308' }}>{team.draws}</span>
-              <span style={{ color: '#f87171' }}>{team.losses}</span>
-              <span style={{ color: '#FFD700', fontWeight: 'bold' }}>{team.points}</span>
+          {standings.length === 0 ? (
+            <div style={{ textAlign: 'center', color: '#4b5563', padding: '20px' }}>
+              No teams added yet
             </div>
-          ))}
+          ) : (
+            <>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '40px 1fr 50px 50px 50px 50px 60px',
+                padding: '10px 12px',
+                background: 'rgba(200,162,0,0.05)',
+                borderRadius: '8px',
+                fontSize: '12px',
+                color: '#6b7280',
+                fontWeight: 'bold',
+                gap: '8px',
+                marginBottom: '8px'
+              }}>
+                <span>#</span>
+                <span>Team</span>
+                <span>P</span>
+                <span>W</span>
+                <span>D</span>
+                <span>L</span>
+                <span style={{ color: '#FFD700' }}>Pts</span>
+              </div>
+
+              {standings.map((team, index) => (
+                <div
+                  key={team.id}
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '40px 1fr 50px 50px 50px 50px 60px',
+                    padding: '8px 12px',
+                    borderBottom: '1px solid rgba(255,255,255,0.03)',
+                    alignItems: 'center',
+                    gap: '8px',
+                    fontSize: '14px',
+                    color: '#ddd',
+                    background: index < 2 ? 'rgba(200,162,0,0.05)' : 'transparent'
+                  }}
+                >
+                  <span style={{ color: index < 2 ? '#FFD700' : '#4b5563' }}>{index + 1}</span>
+                  <span style={{ fontWeight: index < 2 ? 'bold' : 'normal' }}>{team.name}</span>
+                  <span>{team.matches_played}</span>
+                  <span style={{ color: '#4ade80' }}>{team.wins}</span>
+                  <span style={{ color: '#eab308' }}>{team.draws}</span>
+                  <span style={{ color: '#f87171' }}>{team.losses}</span>
+                  <span style={{ color: '#FFD700', fontWeight: 'bold' }}>{team.points}</span>
+                </div>
+              ))}
+            </>
+          )}
 
           <div style={{
             marginTop: '12px',
@@ -283,7 +353,7 @@ export const TournamentDetail: React.FC = () => {
             fontSize: '11px',
             color: '#6b7280'
           }}>
-            ⭐ Top 2 teams qualify for semifinals • Points: Win=2, Draw=1, Loss=0
+            ⭐ Top teams qualify for semifinals • Points: Win=2, Draw=1, Loss=0
           </div>
         </div>
 
@@ -296,52 +366,72 @@ export const TournamentDetail: React.FC = () => {
         }}>
           <h3 style={{ color: '#FFD700', marginBottom: '16px' }}>📋 Matches</h3>
           
-          {matches.map((match) => (
-            <div
-              key={match.id}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                padding: '10px 12px',
-                borderBottom: '1px solid rgba(255,255,255,0.03)',
-                cursor: match.status !== 'completed' ? 'pointer' : 'default'
-              }}
-              onClick={() => match.status !== 'completed' && openScoreModal(match)}
-            >
-              <span style={{ color: '#4b5563', minWidth: '40px' }}>#{match.match_number}</span>
-              {match.group_name && (
-                <span style={{
-                  padding: '2px 8px',
-                  borderRadius: '4px',
-                  background: 'rgba(200,162,0,0.1)',
-                  color: '#c8a200',
-                  fontSize: '11px',
-                  minWidth: '70px'
-                }}>
-                  {match.group_name}
-                </span>
-              )}
-              <span style={{ flex: 1 }}>
-                {match.team1?.name} vs {match.team2?.name}
-              </span>
-              {match.status === 'completed' ? (
-                <span style={{ color: '#FFD700' }}>
-                  {match.team1_score} - {match.team2_score}
-                </span>
-              ) : (
-                <span style={{
-                  padding: '4px 12px',
-                  borderRadius: '4px',
-                  background: 'rgba(200,162,0,0.1)',
-                  color: '#c8a200',
-                  fontSize: '12px'
-                }}>
-                  Add Score ➜
-                </span>
-              )}
+          {matches.length === 0 ? (
+            <div style={{ textAlign: 'center', color: '#4b5563', padding: '20px' }}>
+              No matches scheduled yet
             </div>
-          ))}
+          ) : (
+            matches.map((match) => (
+              <div
+                key={match.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  padding: '10px 12px',
+                  borderBottom: '1px solid rgba(255,255,255,0.03)',
+                  cursor: match.status !== 'completed' && isCreator ? 'pointer' : 'default'
+                }}
+                onClick={() => {
+                  if (match.status !== 'completed' && isCreator) {
+                    openScoreModal(match)
+                  }
+                }}
+              >
+                <span style={{ color: '#4b5563', minWidth: '40px', fontSize: '13px' }}>
+                  #{match.match_number}
+                </span>
+                {match.group_name && (
+                  <span style={{
+                    padding: '2px 8px',
+                    borderRadius: '4px',
+                    background: 'rgba(200,162,0,0.1)',
+                    color: '#c8a200',
+                    fontSize: '11px',
+                    minWidth: '70px',
+                    textAlign: 'center'
+                  }}>
+                    {match.group_name}
+                  </span>
+                )}
+                <span style={{ flex: 1, fontSize: '14px' }}>
+                  {match.team1?.name} vs {match.team2?.name}
+                </span>
+                {match.status === 'completed' ? (
+                  <span style={{ 
+                    color: '#FFD700', 
+                    fontWeight: 'bold',
+                    padding: '4px 12px',
+                    background: 'rgba(200,162,0,0.1)',
+                    borderRadius: '6px'
+                  }}>
+                    {match.team1_score} - {match.team2_score}
+                  </span>
+                ) : (
+                  <span style={{
+                    padding: '4px 12px',
+                    borderRadius: '6px',
+                    background: isCreator ? 'rgba(200,162,0,0.1)' : 'rgba(255,255,255,0.03)',
+                    color: isCreator ? '#c8a200' : '#4b5563',
+                    fontSize: '12px',
+                    cursor: isCreator ? 'pointer' : 'default'
+                  }}>
+                    {isCreator ? '✏️ Add Score' : '⏳ Pending'}
+                  </span>
+                )}
+              </div>
+            ))
+          )}
         </div>
       </div>
 

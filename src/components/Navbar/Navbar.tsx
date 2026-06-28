@@ -277,18 +277,17 @@ export const Navbar: React.FC = () => {
   }, [])
 
   // ─── Navigation Items ─────────────────────────────────────────────────────
-  const navItems: NavItem[] = [
-    { path: '/', label: 'Home', icon: <IconHome /> },
-    { path: '/find-players', label: 'Players', icon: <IconUsers /> },
-    { path: '/browse-sessions', label: 'Sessions', icon: <IconCalendar /> },
-    { path: '/marketplace', label: 'Market', icon: <IconShop /> },
-    { path: '/messages', label: 'Chat', icon: <IconMessages unreadCount={unreadCount} /> },
-    { path: '/ai-assistant', label: 'AI Voice', icon: <span>🎙️</span> },
-    { path: '/music', label: 'Music', icon: <IconMusic /> },
-    { path: '/community', label: 'Community', icon: <IconCommunity /> },
-     { path: '/create-tournament', label: 'Tournament', icon: <IconTournament /> },
-    { path: '/competitions', label: 'Compete', icon: <IconTrophy /> },
-  ]
+ const navItems: NavItem[] = [
+  { path: '/', label: 'Home', icon: <IconHome /> },
+  { path: '/find-players', label: 'Players', icon: <IconUsers /> },
+  { path: '/browse-sessions', label: 'Sessions', icon: <IconCalendar /> },
+  { path: '/marketplace', label: 'Market', icon: <IconShop /> },
+  { path: '/messages', label: 'Chat', icon: <IconMessages unreadCount={unreadCount} /> },
+  { path: '/ai-assistant', label: 'AI Voice', icon: <span>🎙️</span> },
+  { path: '/music', label: 'Music', icon: <IconMusic /> },
+  { path: '/community', label: 'Community', icon: <IconCommunity /> },
+  { path: '/tournaments', label: 'Tournament', icon: <IconTournament /> }, // ← Only this one
+]
 
   if (userRole === 'Admin') {
     navItems.push({ path: '/admin', label: 'Admin', icon: <IconAdmin /> })

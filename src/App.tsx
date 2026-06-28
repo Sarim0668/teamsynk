@@ -26,6 +26,7 @@ import { CommunityChat } from './components/community/CommunityChat'
 import { CreateTournament } from './components/tournaments/CreateTournament'
 import { TournamentDetail } from './components/tournaments/TournamentDetail'
 import { TournamentsList } from './components/tournaments/TournamentsList'
+
 import './premiumMotion.css'
 
 // ─── Placeholder page ─────────────────────────────────────────────────────────
@@ -359,13 +360,14 @@ function AppInner({ user }: { user: any }) {
           <Route path="/session/:id" element={user ? <SessionDetail /> : <Navigate to="/login" />} />
           
           {/* ─── Tournaments & Competitions (Unified) ─── */}
-          <Route path="/tournaments" element={user ? <TournamentsList /> : <Navigate to="/login" />} />
-          <Route path="/create-tournament" element={user ? <CreateTournament /> : <Navigate to="/login" />} />
-          <Route path="/tournament/:id" element={user ? <TournamentDetail /> : <Navigate to="/login" />} />
           <Route path="/competition/:id" element={user ? <CompetitionDetail /> : <Navigate to="/login" />} />
           <Route path="/create-competition" element={user ? <CreateCompetition /> : <Navigate to="/login" />} />
           <Route path="/leaderboard" element={user ? <Leaderboard /> : <Navigate to="/login" />} />
           
+          {/* ─── Tournaments ─── */}
+<Route path="/tournaments" element={user ? <TournamentsList /> : <Navigate to="/login" />} />
+<Route path="/create-tournament" element={user ? <CreateTournament /> : <Navigate to="/login" />} />
+<Route path="/tournament/:id" element={user ? <TournamentDetail /> : <Navigate to="/login" />} />
           {/* ─── Other ─── */}
           <Route path="/find-players" element={user ? <FindPlayers /> : <Navigate to="/login" />} />
           <Route path="/marketplace" element={user ? <Marketplace /> : <Navigate to="/login" />} />
