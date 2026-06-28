@@ -153,6 +153,7 @@ export const TournamentDetail: React.FC = () => {
     setGroupStandings(grouped)
   }
 
+  // ─── UPDATED: Check and advance round ──────────────────────────────────────
   const checkAndAdvanceRound = async (matchesList: Match[], teamsList: Team[]) => {
     if (!id) return
 
@@ -165,6 +166,7 @@ export const TournamentDetail: React.FC = () => {
 
     if (groupMatches.length === 0) return
 
+    // ─── STEP 1: Group stage complete - ask how many advance ────────────────
     if (allGroupCompleted && knockoutMatches.length === 0 && semifinalMatches.length === 0 && finalMatches.length === 0) {
       let maxTeams = 0
       Object.keys(groupStandings).forEach(group => {
@@ -183,26 +185,115 @@ export const TournamentDetail: React.FC = () => {
       return
     }
 
+    // ─── STEP 2: Check knockout rounds ──────────────────────────────────────
     if (knockoutMatches.length > 0) {
       const allKnockoutComplete = knockoutMatches.every(m => m.status === 'completed')
       if (allKnockoutComplete && semifinalMatches.length === 0) {
-        await generateNextRound(knockoutMatches, 'semifinal')
+        const winners = knockoutMatches
+          .filter(m => m.status === 'completed' && m.winner_id)
+          .map(m => teams.find(t => t.id === m.winner_id))
+          .filter((t): t is Team => t !== undefined)
+        
+        if (winners.length === 4) {
+          await generateSemiFinals(winners)
+        } else if (winners.length === 2) {
+          await generateFinal(winners)
+        } else if (winners.length > 4) {
+          await generateKnockoutRoundsFromWinners(winners)
+        }
       }
     }
 
+    // ─── STEP 3: Check semi-finals ──────────────────────────────────────────
     if (semifinalMatches.length > 0) {
       const allSemisComplete = semifinalMatches.every(m => m.status === 'completed')
       if (allSemisComplete && finalMatches.length === 0) {
-        await generateNextRound(semifinalMatches, 'final')
+        const winners = semifinalMatches
+          .filter(m => m.status === 'completed' && m.winner_id)
+          .map(m => teams.find(t => t.id === m.winner_id))
+          .filter((t): t is Team => t !== undefined)
+        
+        if (winners.length >= 2) {
+          await generateFinal(winners)
+        }
       }
     }
   }
 
-  const handleAdvanceTeams = async () => {
-    setShowAdvanceModal(false)
-    await generateKnockoutRounds(selectedAdvanceCount)
+  // ─── Generate Semi-Finals directly ────────────────────────────────────────
+  const generateSemiFinals = async (qualifiedTeams: any[]) => {
+    if (!id) return
+
+    if (qualifiedTeams.length < 4) {
+      alert('Not enough teams for semi-finals!')
+      return
+    }
+
+    const shuffled = [...qualifiedTeams].sort(() => Math.random() - 0.5)
+    const matchesToCreate: any[] = []
+    let matchNumber = matches.length + 1
+
+    matchesToCreate.push({
+      team1: shuffled[0],
+      team2: shuffled[3],
+      round_type: 'semifinal',
+      match_number: matchNumber++,
+      group_name: 'Semi-Final 1'
+    })
+
+    matchesToCreate.push({
+      team1: shuffled[1],
+      team2: shuffled[2],
+      round_type: 'semifinal',
+      match_number: matchNumber++,
+      group_name: 'Semi-Final 2'
+    })
+
+    for (const match of matchesToCreate) {
+      await supabase
+        .from('tournament_matches')
+        .insert({
+          tournament_id: id,
+          team1_id: match.team1.id,
+          team2_id: match.team2.id,
+          group_name: match.group_name,
+          match_number: match.match_number,
+          round_type: match.round_type,
+          status: 'scheduled'
+        })
+    }
+
+    await loadData()
   }
 
+  // ─── Generate Final directly ──────────────────────────────────────────────
+  const generateFinal = async (qualifiedTeams: any[]) => {
+    if (!id) return
+
+    if (qualifiedTeams.length < 2) {
+      alert('Not enough teams for final!')
+      return
+    }
+
+    const shuffled = [...qualifiedTeams].sort(() => Math.random() - 0.5)
+    const matchNumber = matches.length + 1
+
+    await supabase
+      .from('tournament_matches')
+      .insert({
+        tournament_id: id,
+        team1_id: shuffled[0].id,
+        team2_id: shuffled[1].id,
+        group_name: 'Final',
+        match_number: matchNumber,
+        round_type: 'final',
+        status: 'scheduled'
+      })
+
+    await loadData()
+  }
+
+  // ─── Generate Knockout Rounds ─────────────────────────────────────────────
   const generateKnockoutRounds = async (advanceCount: number) => {
     if (!id) return
 
@@ -211,6 +302,16 @@ export const TournamentDetail: React.FC = () => {
       const topTeams = groupStandings[group].slice(0, advanceCount)
       qualifiedTeams.push(...topTeams)
     })
+
+    if (qualifiedTeams.length === 4) {
+      await generateSemiFinals(qualifiedTeams)
+      return
+    }
+
+    if (qualifiedTeams.length === 2) {
+      await generateFinal(qualifiedTeams)
+      return
+    }
 
     if (qualifiedTeams.length < 2) {
       alert('Not enough teams to continue!')
@@ -269,16 +370,17 @@ export const TournamentDetail: React.FC = () => {
     await loadData()
   }
 
-  const generateNextRound = async (currentMatches: Match[], nextRoundType: string) => {
+  // ─── Generate Knockout from winners ──────────────────────────────────────
+  const generateKnockoutRoundsFromWinners = async (winners: any[]) => {
     if (!id) return
 
-    const winners = currentMatches
-      .filter(m => m.status === 'completed' && m.winner_id)
-      .map(m => teams.find(t => t.id === m.winner_id))
-      .filter((t): t is Team => t !== undefined)
+    if (winners.length === 4) {
+      await generateSemiFinals(winners)
+      return
+    }
 
-    if (winners.length < 2) {
-      alert('Not enough winners to continue!')
+    if (winners.length === 2) {
+      await generateFinal(winners)
       return
     }
 
@@ -308,9 +410,8 @@ export const TournamentDetail: React.FC = () => {
         matchesToCreate.push({
           team1: team1,
           team2: team2,
-          round_type: nextRoundType,
-          match_number: matchNumber++,
-          group_name: nextRoundType === 'final' ? 'Final' : 'Semi-Final'
+          round_type: 'knockout',
+          match_number: matchNumber++
         })
         remainingTeams = remainingTeams.filter(t => t.id !== team1.id && t.id !== team2.id)
       } else {
@@ -325,7 +426,7 @@ export const TournamentDetail: React.FC = () => {
           tournament_id: id,
           team1_id: match.team1.id,
           team2_id: match.team2.id,
-          group_name: match.group_name,
+          group_name: `Knockout Round`,
           match_number: match.match_number,
           round_type: match.round_type,
           status: 'scheduled'
@@ -335,18 +436,36 @@ export const TournamentDetail: React.FC = () => {
     await loadData()
   }
 
+  // ─── handleAdvanceTeams ──────────────────────────────────────────────────
+  const handleAdvanceTeams = async () => {
+    setShowAdvanceModal(false)
+    
+    const qualifiedTeams: any[] = []
+    Object.keys(groupStandings).forEach(group => {
+      const topTeams = groupStandings[group].slice(0, selectedAdvanceCount)
+      qualifiedTeams.push(...topTeams)
+    })
+
+    if (qualifiedTeams.length === 4) {
+      await generateSemiFinals(qualifiedTeams)
+    } else if (qualifiedTeams.length === 2) {
+      await generateFinal(qualifiedTeams)
+    } else if (qualifiedTeams.length > 4) {
+      await generateKnockoutRounds(selectedAdvanceCount)
+    } else {
+      alert('Not enough teams to continue!')
+    }
+  }
+
   const findChampion = (matchesList: Match[]) => {
-    // Find the final match
     const finalMatch = matchesList.find(m => m.round_type === 'final' && m.status === 'completed')
     
     if (finalMatch && finalMatch.winner_id) {
-      // Get the winner team name
       const winner = matchesList.find(m => m.id === finalMatch.id)?.winner
       if (winner?.name) {
         setChampion(winner.name)
         setShowChampionCelebration(true)
         
-        // Update tournament status if not already
         if (!isCompleted && id) {
           setIsCompleted(true)
           supabase
@@ -361,7 +480,6 @@ export const TournamentDetail: React.FC = () => {
       }
     }
     
-    // Check if there's a final match but it's not completed yet
     const hasFinalMatch = matchesList.some(m => m.round_type === 'final')
     if (hasFinalMatch) {
       const finalMatchExists = matchesList.find(m => m.round_type === 'final')
@@ -426,7 +544,6 @@ export const TournamentDetail: React.FC = () => {
     const allCompleted = allMatches.every((m: any) => m.status === 'completed')
 
     if (allCompleted && hasFinal && finalMatch) {
-      // Get winner details
       const { data: matchWithWinner } = await supabase
         .from('tournament_matches')
         .select('*, winner:winner_id(name)')
@@ -438,7 +555,6 @@ export const TournamentDetail: React.FC = () => {
         setShowChampionCelebration(true)
         setIsCompleted(true)
         
-        // Update tournament status
         await supabase
           .from('tournaments')
           .update({ status: 'completed' })
@@ -1153,8 +1269,7 @@ const MatchList: React.FC<MatchListProps> = ({
               borderBottom: '1px solid rgba(255,255,255,0.03)',
               cursor: match.status !== 'completed' && isCreator && !isCompleted ? 'pointer' : 'default',
               opacity: match.status === 'completed' ? 0.8 : 1,
-              background: match.round_type === 'final' ? 'rgba(200,162,0,0.05)' : 'transparent',
-              borderRadius: match.round_type === 'final' ? '4px' : '0'
+              background: match.round_type === 'final' ? 'rgba(200,162,0,0.05)' : 'transparent'
             }}
             onClick={() => {
               if (match.status !== 'completed' && isCreator && !isCompleted) {
