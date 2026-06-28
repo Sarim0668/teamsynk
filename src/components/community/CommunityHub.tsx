@@ -12,6 +12,7 @@ interface Community {
   member_limit: number
   member_count: number
   created_at: string
+  is_private: boolean
 }
 
 const CATEGORIES = [
@@ -56,22 +57,30 @@ export const CommunityHub: React.FC = () => {
   const loadCommunities = async () => {
     setLoading(true)
     
-    // Get communities with member count
-    const { data, error } = await supabase
-      .from('communities')
-      .select(`
-        *,
-        community_members(count)
-      `)
-      .eq('status', 'active')
-      .order('created_at', { ascending: false })
+    try {
+      // Get communities with member count
+      const { data, error } = await supabase
+        .from('communities')
+        .select(`
+          *,
+          community_members(count)
+        `)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
 
-    if (!error && data) {
-      const communitiesWithCount = data.map((c: any) => ({
-        ...c,
-        member_count: c.community_members?.[0]?.count || 0
-      }))
-      setCommunities(communitiesWithCount)
+      if (!error && data) {
+        const communitiesWithCount = data.map((c: any) => ({
+          ...c,
+          member_count: c.community_members?.[0]?.count || 0
+        }))
+        setCommunities(communitiesWithCount)
+      } else {
+        // If table doesn't exist yet, show empty state
+        setCommunities([])
+      }
+    } catch (error) {
+      console.error('Error loading communities:', error)
+      setCommunities([])
     }
     setLoading(false)
   }
@@ -83,25 +92,55 @@ export const CommunityHub: React.FC = () => {
       return
     }
 
-    const { error } = await supabase
-      .from('communities')
-      .insert({
-        name: formData.name,
-        description: formData.description,
-        category: formData.category,
-        created_by: user.id,
-        member_limit: formData.member_limit,
-        is_private: formData.is_private,
-        status: 'active'
-      })
+    try {
+      const { error } = await supabase
+        .from('communities')
+        .insert({
+          name: formData.name,
+          description: formData.description,
+          category: formData.category,
+          created_by: user.id,
+          member_limit: formData.member_limit,
+          is_private: formData.is_private,
+          status: 'active'
+        })
 
-    if (error) {
-      alert('Failed to create community: ' + error.message)
-    } else {
-      alert('✅ Community created successfully!')
-      setShowCreateModal(false)
-      setFormData({ name: '', description: '', category: 'sports', member_limit: 20, is_private: false })
-      loadCommunities()
+      if (error) {
+        alert('Failed to create community: ' + error.message)
+      } else {
+        alert('✅ Community created successfully!')
+        setShowCreateModal(false)
+        setFormData({ name: '', description: '', category: 'sports', member_limit: 20, is_private: false })
+        loadCommunities()
+      }
+    } catch (error: any) {
+      alert('Error: ' + error.message)
+    }
+  }
+
+  const handleJoinCommunity = async (communityId: string) => {
+    if (!user) {
+      alert('Please login first')
+      return
+    }
+
+    try {
+      const { error } = await supabase
+        .from('community_members')
+        .insert({
+          community_id: communityId,
+          user_id: user.id,
+          role: 'member'
+        })
+
+      if (error) {
+        alert('Failed to join: ' + error.message)
+      } else {
+        alert('✅ You joined the community!')
+        loadCommunities()
+      }
+    } catch (error: any) {
+      alert('Error: ' + error.message)
     }
   }
 
@@ -114,6 +153,10 @@ export const CommunityHub: React.FC = () => {
 
   const getCategoryIcon = (category: string) => {
     return CATEGORIES.find(c => c.value === category)?.icon || '📌'
+  }
+
+  const getCategoryLabel = (category: string) => {
+    return CATEGORIES.find(c => c.value === category)?.label || 'Other'
   }
 
   if (loading) {
@@ -236,6 +279,21 @@ export const CommunityHub: React.FC = () => {
             <div style={{ fontSize: '48px', marginBottom: '12px' }}>🏠</div>
             <h3 style={{ color: '#6b7280' }}>No communities found</h3>
             <p style={{ color: '#4b5563' }}>Be the first to create a community!</p>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              style={{
+                marginTop: '16px',
+                padding: '10px 24px',
+                background: 'linear-gradient(135deg, #c8a200, #FFD700)',
+                border: 'none',
+                borderRadius: '12px',
+                color: '#0a0a0a',
+                fontWeight: 'bold',
+                cursor: 'pointer'
+              }}
+            >
+              ➕ Create Community
+            </button>
           </div>
         ) : (
           <div style={{
@@ -243,75 +301,117 @@ export const CommunityHub: React.FC = () => {
             gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
             gap: '16px'
           }}>
-            {filteredCommunities.map(community => (
-              <div
-                key={community.id}
-                onClick={() => navigate(`/community/${community.id}`)}
-                style={{
-                  background: 'rgba(16,16,22,0.9)',
-                  backdropFilter: 'blur(24px)',
-                  borderRadius: '16px',
-                  border: '1px solid rgba(255,255,255,0.05)',
-                  padding: '20px',
-                  cursor: 'pointer',
-                  transition: 'all 0.3s ease'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'translateY(-4px)'
-                  e.currentTarget.style.borderColor = 'rgba(200,162,0,0.3)'
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'translateY(0)'
-                  e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)'
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+            {filteredCommunities.map(community => {
+              const isMember = false // You'll need to check if user is member
+              const isFull = community.member_count >= community.member_limit
+              
+              return (
+                <div
+                  key={community.id}
+                  style={{
+                    background: 'rgba(16,16,22,0.9)',
+                    backdropFilter: 'blur(24px)',
+                    borderRadius: '16px',
+                    border: '1px solid rgba(255,255,255,0.05)',
+                    padding: '20px',
+                    transition: 'all 0.3s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-4px)'
+                    e.currentTarget.style.borderColor = 'rgba(200,162,0,0.3)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)'
+                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                    <div style={{
+                      width: '40px',
+                      height: '40px',
+                      borderRadius: '10px',
+                      background: 'rgba(200,162,0,0.1)',
+                      border: '1px solid rgba(200,162,0,0.2)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '20px'
+                    }}>
+                      {getCategoryIcon(community.category)}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <h3 style={{ color: 'white', fontSize: '16px', margin: 0 }}>{community.name}</h3>
+                      <p style={{ color: '#6b7280', fontSize: '12px', margin: 0 }}>
+                        {community.member_count || 0} members
+                      </p>
+                    </div>
+                    {community.is_private && (
+                      <span style={{
+                        fontSize: '11px',
+                        color: '#c8a200',
+                        background: 'rgba(200,162,0,0.1)',
+                        padding: '2px 8px',
+                        borderRadius: '99px'
+                      }}>
+                        🔒
+                      </span>
+                    )}
+                  </div>
+                  <p style={{ color: '#9ca3af', fontSize: '13px', marginBottom: '12px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                    {community.description || 'No description yet'}
+                  </p>
                   <div style={{
-                    width: '40px',
-                    height: '40px',
-                    borderRadius: '10px',
-                    background: 'rgba(200,162,0,0.1)',
-                    border: '1px solid rgba(200,162,0,0.2)',
                     display: 'flex',
+                    justifyContent: 'space-between',
                     alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '20px'
+                    paddingTop: '12px',
+                    borderTop: '1px solid rgba(255,255,255,0.05)'
                   }}>
-                    {getCategoryIcon(community.category)}
-                  </div>
-                  <div>
-                    <h3 style={{ color: 'white', fontSize: '16px', margin: 0 }}>{community.name}</h3>
-                    <p style={{ color: '#6b7280', fontSize: '12px', margin: 0 }}>
-                      {community.member_count || 0} members
-                    </p>
+                    <span style={{
+                      fontSize: '11px',
+                      color: '#c8a200',
+                      background: 'rgba(200,162,0,0.1)',
+                      padding: '2px 10px',
+                      borderRadius: '99px',
+                      border: '1px solid rgba(200,162,0,0.2)'
+                    }}>
+                      {getCategoryLabel(community.category)}
+                    </span>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <span style={{ color: '#4b5563', fontSize: '11px' }}>
+                        {community.member_count || 0}/{community.member_limit || 20}
+                      </span>
+                      {!isMember && !isFull && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleJoinCommunity(community.id)
+                          }}
+                          style={{
+                            padding: '4px 12px',
+                            borderRadius: '6px',
+                            border: 'none',
+                            background: 'linear-gradient(135deg, #c8a200, #FFD700)',
+                            color: '#0a0a0a',
+                            fontSize: '11px',
+                            fontWeight: 'bold',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Join
+                        </button>
+                      )}
+                      {isFull && (
+                        <span style={{ color: '#f87171', fontSize: '11px' }}>Full</span>
+                      )}
+                      {isMember && (
+                        <span style={{ color: '#4ade80', fontSize: '11px' }}>✅ Joined</span>
+                      )}
+                    </div>
                   </div>
                 </div>
-                <p style={{ color: '#9ca3af', fontSize: '13px', marginBottom: '12px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                  {community.description || 'No description yet'}
-                </p>
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  paddingTop: '12px',
-                  borderTop: '1px solid rgba(255,255,255,0.05)'
-                }}>
-                  <span style={{
-                    fontSize: '11px',
-                    color: '#c8a200',
-                    background: 'rgba(200,162,0,0.1)',
-                    padding: '2px 10px',
-                    borderRadius: '99px',
-                    border: '1px solid rgba(200,162,0,0.2)'
-                  }}>
-                    {CATEGORIES.find(c => c.value === community.category)?.label || 'Other'}
-                  </span>
-                  <span style={{ color: '#4b5563', fontSize: '11px' }}>
-                    {community.member_count || 0}/{community.member_limit || 20}
-                  </span>
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
 
