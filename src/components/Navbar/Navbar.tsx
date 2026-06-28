@@ -287,6 +287,7 @@ export const Navbar: React.FC = () => {
     { path: '/music', label: 'Music', icon: <IconMusic /> },
     { path: '/community', label: 'Community', icon: <IconCommunity /> },
      { path: '/create-tournament', label: 'Tournament', icon: <IconTournament /> },
+    { path: '/competitions', label: 'Compete', icon: <IconTrophy /> },
   ]
 
   if (userRole === 'Admin') {
