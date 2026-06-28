@@ -14,6 +14,8 @@ export const CreateTournament: React.FC = () => {
   const [error, setError] = useState('')
   const [user, setUser] = useState<any>(null)
   const [step, setStep] = useState(1)
+  const [previewMatches, setPreviewMatches] = useState<any[]>([])
+  const [previewGroups, setPreviewGroups] = useState<string[][]>([])
 
   const [basicInfo, setBasicInfo] = useState({
     name: '',
@@ -62,6 +64,51 @@ export const CreateTournament: React.FC = () => {
     setTeams(teams.map(t => t.id === id ? { ...t, name } : t))
   }
 
+  // ─── Preview Schedule ────────────────────────────────────────────────────
+  const generatePreview = () => {
+    const validTeams = teams.filter(t => t.name.trim())
+    if (validTeams.length < 2) {
+      setError('Please add at least 2 teams')
+      return
+    }
+
+    const teamNames = validTeams.map(t => t.name.trim())
+    const totalTeams = teamNames.length
+    const teamsPerGroup = Math.min(basicInfo.teams_per_group, Math.ceil(totalTeams / 2))
+    const numGroups = Math.ceil(totalTeams / teamsPerGroup)
+
+    const shuffled = [...teamNames].sort(() => Math.random() - 0.5)
+    
+    const groups: string[][] = []
+    for (let i = 0; i < numGroups; i++) {
+      const start = i * teamsPerGroup
+      const end = Math.min(start + teamsPerGroup, totalTeams)
+      groups.push(shuffled.slice(start, end))
+    }
+
+    const matches: any[] = []
+    let matchNumber = 1
+
+    groups.forEach((group, groupIndex) => {
+      const groupName = `Group ${String.fromCharCode(65 + groupIndex)}`
+      
+      for (let i = 0; i < group.length; i++) {
+        for (let j = i + 1; j < group.length; j++) {
+          matches.push({
+            match_number: matchNumber++,
+            group: groupName,
+            team1: group[i],
+            team2: group[j]
+          })
+        }
+      }
+    })
+
+    setPreviewGroups(groups)
+    setPreviewMatches(matches)
+    setStep(2)
+  }
+
   // ─── Save Tournament ────────────────────────────────────────────────────
   const saveTournament = async () => {
     if (!user) return
@@ -76,7 +123,7 @@ export const CreateTournament: React.FC = () => {
     setError('')
 
     try {
-      // Create tournament
+      // 1. Create tournament
       const { data: tournament, error: tError } = await supabase
         .from('tournaments')
         .insert({
@@ -96,16 +143,14 @@ export const CreateTournament: React.FC = () => {
 
       if (tError) throw tError
 
-      // ─── DISTRIBUTE TEAMS INTO GROUPS ──────────────────────────────────
+      // 2. Distribute teams into groups
       const teamNames = validTeams.map(t => t.name.trim())
       const totalTeams = teamNames.length
       const teamsPerGroup = Math.min(basicInfo.teams_per_group, Math.ceil(totalTeams / 2))
       const numGroups = Math.ceil(totalTeams / teamsPerGroup)
 
-      // Shuffle teams randomly
       const shuffled = [...teamNames].sort(() => Math.random() - 0.5)
       
-      // Distribute into groups
       const groups: string[][] = []
       for (let i = 0; i < numGroups; i++) {
         const start = i * teamsPerGroup
@@ -113,26 +158,24 @@ export const CreateTournament: React.FC = () => {
         groups.push(shuffled.slice(start, end))
       }
 
-      // Create teams with group assignments
+      // 3. Create teams with group assignments
       const teamData: any[] = []
       const teamIdMap: Record<string, string> = {}
 
       groups.forEach((group, groupIndex) => {
-        const groupName = String.fromCharCode(65 + groupIndex) // A, B, C...
+        const groupName = `Group ${String.fromCharCode(65 + groupIndex)}`
         
         group.forEach(teamName => {
-          const tempId = `temp-${Date.now()}-${Math.random()}`
           teamData.push({
             tournament_id: tournament.id,
             name: teamName,
-            group_name: `Group ${groupName}`,
+            group_name: groupName,
             points: 0,
             matches_played: 0,
             wins: 0,
             draws: 0,
             losses: 0
           })
-          teamIdMap[teamName] = tempId
         })
       })
 
@@ -143,14 +186,12 @@ export const CreateTournament: React.FC = () => {
 
       if (teamError) throw teamError
 
-      // ─── GENERATE GROUP STAGE MATCHES ──────────────────────────────────
+      // 4. Generate group stage matches
       const matchData: any[] = []
       let matchNumber = 1
 
       groups.forEach((group, groupIndex) => {
         const groupName = `Group ${String.fromCharCode(65 + groupIndex)}`
-        
-        // Get team IDs for this group
         const groupTeams = createdTeams?.filter(t => t.group_name === groupName) || []
         
         // Round robin: each team plays every other team in the group
@@ -163,12 +204,15 @@ export const CreateTournament: React.FC = () => {
               group_name: groupName,
               match_number: matchNumber++,
               round_type: 'group',
-              round_number: 1,
               status: 'scheduled'
             })
           }
         }
       })
+
+      if (matchData.length === 0) {
+        throw new Error('No matches could be generated. Please check team distribution.')
+      }
 
       const { error: matchError } = await supabase
         .from('tournament_matches')
@@ -176,12 +220,12 @@ export const CreateTournament: React.FC = () => {
 
       if (matchError) throw matchError
 
-      alert(`✅ Tournament created successfully with ${createdTeams?.length || 0} teams in ${groups.length} groups!`)
+      alert(`✅ Tournament created successfully!\n\n📊 ${createdTeams?.length || 0} teams in ${groups.length} groups\n📋 ${matchData.length} matches scheduled`)
       navigate(`/tournament/${tournament.id}`)
 
     } catch (err: any) {
       setError(err.message)
-      console.error(err)
+      console.error('Error details:', err)
     }
     setLoading(false)
   }
@@ -206,7 +250,7 @@ export const CreateTournament: React.FC = () => {
           <div>
             <h1 style={{ color: '#FFD700', fontSize: '28px', margin: 0 }}>Create Tournament</h1>
             <p style={{ color: '#6b7280', fontSize: '14px' }}>
-              Step {step} of 2: {step === 1 ? 'Basic Info & Teams' : 'Review & Create'}
+              Step {step} of 2: {step === 1 ? 'Basic Info & Teams' : 'Preview & Create'}
             </p>
           </div>
         </div>
@@ -473,27 +517,12 @@ export const CreateTournament: React.FC = () => {
                 fontSize: '12px',
                 color: '#6b7280'
               }}>
-                💡 Teams will be randomly distributed into groups based on "Teams per Group" setting
+                💡 Teams will be randomly distributed into groups. Each team plays every other team in their group.
               </div>
             </div>
 
             <button
-              onClick={() => {
-                const validTeams = teams.filter(t => t.name.trim())
-                if (validTeams.length < 2) {
-                  setError('Please add at least 2 teams')
-                  return
-                }
-                if (!basicInfo.name.trim()) {
-                  setError('Please enter a tournament name')
-                  return
-                }
-                if (!basicInfo.start_date || !basicInfo.end_date) {
-                  setError('Please select start and end dates')
-                  return
-                }
-                setStep(2)
-              }}
+              onClick={generatePreview}
               style={{
                 width: '100%',
                 padding: '12px',
@@ -507,12 +536,12 @@ export const CreateTournament: React.FC = () => {
                 cursor: 'pointer'
               }}
             >
-              Next: Review & Create →
+              Preview Schedule →
             </button>
           </div>
         )}
 
-        {/* ─── STEP 2: Review ─── */}
+        {/* ─── STEP 2: Preview & Create ─── */}
         {step === 2 && (
           <div style={{
             background: 'rgba(16,16,22,0.95)',
@@ -520,33 +549,52 @@ export const CreateTournament: React.FC = () => {
             border: '1px solid rgba(255,255,255,0.05)',
             padding: '24px'
           }}>
-            <h3 style={{ color: '#FFD700', marginBottom: '16px' }}>📋 Review Tournament</h3>
+            <h3 style={{ color: '#FFD700', marginBottom: '16px' }}>📋 Tournament Preview</h3>
             
-            <div style={{
-              padding: '12px',
-              background: 'rgba(255,255,255,0.02)',
-              borderRadius: '8px',
-              marginBottom: '16px'
-            }}>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                <span style={{ color: '#6b7280' }}>Name:</span>
-                <span style={{ color: 'white', fontWeight: 'bold' }}>{basicInfo.name}</span>
-              </div>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                <span style={{ color: '#6b7280' }}>Sport:</span>
-                <span style={{ color: 'white' }}>{basicInfo.sport_type}</span>
-              </div>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                <span style={{ color: '#6b7280' }}>Dates:</span>
-                <span style={{ color: 'white' }}>{basicInfo.start_date} → {basicInfo.end_date}</span>
-              </div>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                <span style={{ color: '#6b7280' }}>Teams:</span>
-                <span style={{ color: 'white' }}>{teams.filter(t => t.name.trim()).length} teams</span>
-              </div>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                <span style={{ color: '#6b7280' }}>Teams per Group:</span>
-                <span style={{ color: 'white' }}>{basicInfo.teams_per_group}</span>
+            {/* Groups */}
+            <div style={{ marginBottom: '16px' }}>
+              <h4 style={{ color: '#c8a200', fontSize: '14px', marginBottom: '8px' }}>📊 Groups</h4>
+              {previewGroups.map((group, index) => (
+                <div key={index} style={{
+                  padding: '8px 12px',
+                  background: 'rgba(255,255,255,0.02)',
+                  borderRadius: '6px',
+                  marginBottom: '6px'
+                }}>
+                  <span style={{ color: '#FFD700', fontWeight: 'bold' }}>
+                    Group {String.fromCharCode(65 + index)}:
+                  </span>
+                  <span style={{ color: '#aaa', marginLeft: '8px' }}>
+                    {group.join(' | ')}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* Matches */}
+            <div style={{ marginBottom: '16px' }}>
+              <h4 style={{ color: '#c8a200', fontSize: '14px', marginBottom: '8px' }}>📋 Matches ({previewMatches.length})</h4>
+              <div style={{
+                maxHeight: '250px',
+                overflowY: 'auto',
+                background: 'rgba(0,0,0,0.2)',
+                borderRadius: '8px',
+                padding: '8px'
+              }}>
+                {previewMatches.map((match, index) => (
+                  <div key={index} style={{
+                    display: 'flex',
+                    gap: '12px',
+                    padding: '4px 8px',
+                    borderBottom: '1px solid rgba(255,255,255,0.03)',
+                    fontSize: '13px',
+                    color: '#aaa'
+                  }}>
+                    <span style={{ color: '#4b5563', minWidth: '40px' }}>#{match.match_number}</span>
+                    <span style={{ color: '#c8a200', minWidth: '80px' }}>{match.group}</span>
+                    <span>{match.team1} vs {match.team2}</span>
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -558,9 +606,11 @@ export const CreateTournament: React.FC = () => {
               marginBottom: '16px'
             }}>
               <p style={{ color: '#6b7280', fontSize: '13px', margin: 0 }}>
-                📊 Teams will be randomly distributed into groups. Each team plays every other team in their group.
+                📊 {teams.filter(t => t.name.trim()).length} teams in {previewGroups.length} groups
                 <br />
-                🏅 Top teams from each group will advance to knockout rounds.
+                📋 {previewMatches.length} matches will be scheduled
+                <br />
+                🏅 Top teams from each group will advance to knockout rounds
               </p>
             </div>
 
@@ -615,7 +665,7 @@ export const CreateTournament: React.FC = () => {
         }
         ::-webkit-scrollbar-thumb {
           background: rgba(200,162,0,0.3);
-          border-radius: 3px;
+          borderRadius: 3px;
         }
       `}</style>
     </div>
