@@ -21,6 +21,7 @@ interface Community {
   category: string
   member_count: number
   created_by: string
+  is_private: boolean
 }
 
 export const CommunityChat: React.FC = () => {
@@ -33,25 +34,109 @@ export const CommunityChat: React.FC = () => {
   const [sending, setSending] = useState(false)
   const [user, setUser] = useState<any>(null)
   const [isMember, setIsMember] = useState(false)
+  const [checkingMembership, setCheckingMembership] = useState(true)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    checkUser()
-    if (id) {
-      loadCommunity()
-      loadMessages()
-      checkMembership()
-    }
+    checkUserAndLoad()
   }, [id])
 
-  // ─── Auto-scroll to bottom ──────────────────────────────────────────────
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  const checkUserAndLoad = async () => {
+    const { data: { user: currentUser } } = await supabase.auth.getUser()
+    setUser(currentUser)
 
-  // ─── Real-time subscription ──────────────────────────────────────────────
-  useEffect(() => {
+    if (!currentUser) {
+      navigate('/login')
+      return
+    }
+
+    if (id) {
+      await Promise.all([
+        loadCommunity(),
+        checkMembership(currentUser.id),
+        loadMessages()
+      ])
+    }
+    setLoading(false)
+  }
+
+  const checkMembership = async (userId: string) => {
     if (!id) return
+    
+    setCheckingMembership(true)
+    
+    // Check if user is a member
+    const { data, error } = await supabase
+      .from('community_members')
+      .select('*')
+      .eq('community_id', id)
+      .eq('user_id', userId)
+      .maybeSingle()
+
+    // Also check if it's a demo community
+    const isDemo = id?.startsWith('demo-')
+    
+    setIsMember(!!data || isDemo)
+    setCheckingMembership(false)
+  }
+
+  const loadCommunity = async () => {
+    if (!id) return
+
+    // Check if it's a demo community
+    if (id.startsWith('demo-')) {
+      // Use demo data
+      const demoCommunities = [
+        { id: 'demo-1', name: '🏏 Cricket Club', description: 'For all cricket enthusiasts!', category: 'sports', member_count: 5, created_by: 'admin', is_private: false },
+        { id: 'demo-2', name: '📚 Study Group', description: 'Study together, ace exams together!', category: 'study', member_count: 8, created_by: 'admin', is_private: false },
+        { id: 'demo-3', name: '🎮 Gaming Squad', description: 'CS:GO, Valorant, PUBG, and more!', category: 'gaming', member_count: 12, created_by: 'admin', is_private: false },
+        { id: 'demo-4', name: '💪 Fitness Club', description: 'Workout together, stay fit!', category: 'fitness', member_count: 3, created_by: 'admin', is_private: false },
+        { id: 'demo-5', name: '🎵 Music Lovers', description: 'Share songs, discover new artists!', category: 'music', member_count: 6, created_by: 'admin', is_private: false }
+      ]
+      const found = demoCommunities.find(c => c.id === id)
+      if (found) {
+        setCommunity(found as Community)
+      }
+      return
+    }
+
+    const { data, error } = await supabase
+      .from('communities')
+      .select('*')
+      .eq('id', id)
+      .single()
+
+    if (!error && data) {
+      setCommunity(data)
+    }
+  }
+
+  const loadMessages = async () => {
+    if (!id) return
+
+    // For demo communities, use empty messages
+    if (id.startsWith('demo-')) {
+      setMessages([])
+      return
+    }
+
+    const { data, error } = await supabase
+      .from('community_messages')
+      .select(`
+        *,
+        sender:users!sender_id(full_name)
+      `)
+      .eq('community_id', id)
+      .order('created_at', { ascending: true })
+      .limit(50)
+
+    if (!error && data) {
+      setMessages(data)
+    }
+  }
+
+  useEffect(() => {
+    if (!id || id.startsWith('demo-')) return
 
     const subscription = supabase
       .channel(`community-${id}`)
@@ -65,7 +150,6 @@ export const CommunityChat: React.FC = () => {
         },
         (payload) => {
           const newMsg = payload.new as Message
-          // Fetch sender name
           supabase
             .from('users')
             .select('full_name')
@@ -83,55 +167,19 @@ export const CommunityChat: React.FC = () => {
     }
   }, [id])
 
-  const checkUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    setUser(user)
-  }
-
-  const checkMembership = async () => {
-    if (!user || !id) return
-
-    const { data, error } = await supabase
-      .from('community_members')
-      .select('*')
-      .eq('community_id', id)
-      .eq('user_id', user.id)
-      .single()
-
-    setIsMember(!!data && !error)
-  }
-
-  const loadCommunity = async () => {
-    const { data, error } = await supabase
-      .from('communities')
-      .select('*')
-      .eq('id', id)
-      .single()
-
-    if (!error && data) {
-      setCommunity(data)
-    }
-    setLoading(false)
-  }
-
-  const loadMessages = async () => {
-    const { data, error } = await supabase
-      .from('community_messages')
-      .select(`
-        *,
-        sender:users!sender_id(full_name)
-      `)
-      .eq('community_id', id)
-      .order('created_at', { ascending: true })
-      .limit(50)
-
-    if (!error && data) {
-      setMessages(data)
-    }
-  }
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
 
   const sendMessage = async () => {
     if (!newMessage.trim() || sending || !user || !isMember) return
+
+    // For demo communities, show a message
+    if (id?.startsWith('demo-')) {
+      alert('💬 This is a demo community! Join real communities to chat.')
+      setNewMessage('')
+      return
+    }
 
     setSending(true)
 
@@ -162,7 +210,7 @@ export const CommunityChat: React.FC = () => {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   }
 
-  if (loading) {
+  if (loading || checkingMembership) {
     return (
       <div style={{
         minHeight: '100vh',
@@ -298,6 +346,18 @@ export const CommunityChat: React.FC = () => {
           <p style={{ color: '#6b7280', fontSize: '12px', margin: 0 }}>
             {community?.member_count || 0} members • {community?.category}
           </p>
+        </div>
+        <div style={{
+          marginLeft: 'auto',
+          padding: '4px 12px',
+          borderRadius: '99px',
+          background: 'rgba(34,197,94,0.12)',
+          border: '1px solid rgba(34,197,94,0.3)',
+          color: '#4ade80',
+          fontSize: '10px',
+          fontWeight: '600'
+        }}>
+          ✅ Member
         </div>
       </div>
 

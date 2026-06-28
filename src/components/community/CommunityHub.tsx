@@ -257,37 +257,38 @@ export const CommunityHub: React.FC = () => {
     }
   }
 
-  const handleJoinCommunity = async (communityId: string) => {
-    if (!user) {
-      alert('Please login first')
-      return
-    }
-
-    if (communityId.startsWith('demo-')) {
-      alert('🔥 Demo community! Join real communities by creating the table.')
-      return
-    }
-
-    try {
-      const { error } = await supabase
-        .from('community_members')
-        .insert({
-          community_id: communityId,
-          user_id: user.id,
-          role: 'member'
-        })
-
-      if (error) {
-        alert('Failed to join: ' + error.message)
-      } else {
-        alert('✅ You joined the community!')
-        setJoinedCommunities(prev => new Set(prev).add(communityId))
-        checkTableAndLoad()
-      }
-    } catch (error: any) {
-      alert('Error: ' + error.message)
-    }
+const handleJoinCommunity = async (communityId: string) => {
+  if (!user) {
+    alert('Please login first')
+    return
   }
+
+  if (communityId.startsWith('demo-')) {
+    alert('🔥 Demo community! Join real communities by creating the table.')
+    return
+  }
+
+  try {
+    const { error } = await supabase
+      .from('community_members')
+      .insert({
+        community_id: communityId,
+        user_id: user.id,
+        role: 'member'
+      })
+
+    if (error) {
+      alert('Failed to join: ' + error.message)
+    } else {
+      alert('✅ You joined the community!')
+      // Add to joined set
+      setJoinedCommunities(prev => new Set(prev).add(communityId))
+      checkTableAndLoad()
+    }
+  } catch (error: any) {
+    alert('Error: ' + error.message)
+  }
+}
 
   const handleOpenChat = (communityId: string) => {
     navigate(`/community/${communityId}`)
