@@ -2,6 +2,8 @@
 import React from 'react'
 
 export const CommunityHub: React.FC = () => {
+  console.log('✅ CommunityHub component rendered!')
+  
   return (
     <div style={{
       minHeight: '100vh',
