@@ -36,8 +36,8 @@ const COOLDOWN_SONGS = [
   },
   {
     id: 'cooldown-3',
-    title: 'Senorita',
-    artist: 'Shawn Mendes & Camila Cabello',
+    title: 'Latthay Di Chaadar',
+    artist: 'Farhan Saeed',
     category: '😌 Cool Down',
     youtube_url: 'https://www.youtube.com/embed/m1wKgdQ8bCw',
     votes: 10,
@@ -45,8 +45,8 @@ const COOLDOWN_SONGS = [
   },
   {
     id: 'cooldown-4',
-    title: 'Someone You Loved',
-    artist: 'Lewis Capaldi',
+    title: 'Tu Na Samjhe',
+    artist: 'Hellow Raja & MaxxTurnn',
     category: '😌 Cool Down',
     youtube_url: 'https://www.youtube.com/embed/VNPlb2d3LFE',
     votes: 9,
@@ -54,8 +54,8 @@ const COOLDOWN_SONGS = [
   },
   {
     id: 'cooldown-5',
-    title: 'Save Your Tears',
-    artist: 'The Weeknd',
+    title: 'High School',
+    artist: 'Sammy Rash',
     category: '😌 Cool Down',
     youtube_url: 'https://www.youtube.com/embed/S8Rq5H-PLXY',
     votes: 8,
@@ -67,8 +67,8 @@ const COOLDOWN_SONGS = [
 const PARTY_SONGS = [
   {
     id: 'party-1',
-    title: 'Dance Monkey',
-    artist: 'Tones and I',
+    title: 'Sapphire',
+    artist: 'Ed Sheeran',
     category: '🎉 Party',
     youtube_url: 'https://www.youtube.com/embed/PZZRr04Q7zM',
     votes: 25,
@@ -76,8 +76,8 @@ const PARTY_SONGS = [
   },
   {
     id: 'party-2',
-    title: 'Can\'t Stop The Feeling',
-    artist: 'Justin Timberlake',
+    title: 'For A Reason',
+    artist: 'Karan Aujla, Ikky',
     category: '🎉 Party',
     youtube_url: 'https://www.youtube.com/embed/wfVwF1E5WJk',
     votes: 22,
@@ -85,8 +85,8 @@ const PARTY_SONGS = [
   },
   {
     id: 'party-3',
-    title: 'Let Me Love You',
-    artist: 'DJ Snake ft. Justin Bieber',
+    title: 'Nach Punjaban',
+    artist: 'Abrar ul haq',
     category: '🎉 Party',
     youtube_url: 'https://www.youtube.com/embed/G2m37J03hg0',
     votes: 20,
@@ -98,8 +98,8 @@ const PARTY_SONGS = [
 const WORKOUT_SONGS = [
   {
     id: 'workout-1',
-    title: 'Till I Collapse',
-    artist: 'Eminem',
+    title: 'You Got This',
+    artist: 'Fotty Seven',
     category: '💪 Workout',
     youtube_url: 'https://www.youtube.com/embed/_PXCqGLJuVc',
     votes: 30,
@@ -107,8 +107,8 @@ const WORKOUT_SONGS = [
   },
   {
     id: 'workout-2',
-    title: 'My Songs Know What You Did In The Dark',
-    artist: 'Fall Out Boy',
+    title: 'Winning Speech',
+    artist: 'Karan Aujla',
     category: '💪 Workout',
     youtube_url: 'https://www.youtube.com/embed/iCGdF4YMvFY',
     votes: 28,
@@ -116,8 +116,8 @@ const WORKOUT_SONGS = [
   },
   {
     id: 'workout-3',
-    title: 'Numb',
-    artist: 'Linkin Park',
+    title: 'Born To Shin',
+    artist: 'Diljit Dosanjh',
     category: '💪 Workout',
     youtube_url: 'https://www.youtube.com/embed/iLHEGrNVf5Y',
     votes: 26,
@@ -125,8 +125,8 @@ const WORKOUT_SONGS = [
   },
   {
     id: 'workout-4',
-    title: 'In The End',
-    artist: 'Linkin Park',
+    title: 'Hall Of Fame',
+    artist: 'The Script',
     category: '💪 Workout',
     youtube_url: 'https://www.youtube.com/embed/3Kxf2dHlDpQ',
     votes: 24,
@@ -134,8 +134,8 @@ const WORKOUT_SONGS = [
   },
   {
     id: 'workout-5',
-    title: 'Centuries',
-    artist: 'Fall Out Boy',
+    title: 'Superstar',
+    artist: 'Parmish Verma & Paradox',
     category: '💪 Workout',
     youtube_url: 'https://www.youtube.com/embed/XKBol-3Eliw',
     votes: 23,
@@ -143,8 +143,8 @@ const WORKOUT_SONGS = [
   },
   {
     id: 'workout-6',
-    title: 'Fight Song',
-    artist: 'Rachel Platten',
+    title: 'Dhakk Champion',
+    artist: 'PARMISH VERMA',
     category: '💪 Workout',
     youtube_url: 'https://www.youtube.com/embed/oeyqrg-gL24',
     votes: 21,
@@ -156,8 +156,8 @@ const WORKOUT_SONGS = [
 const STUDY_SONGS = [
   {
     id: 'study-1',
-    title: 'Lofi Chill',
-    artist: 'Lofi Music',
+    title: 'GAME',
+    artist: 'Shooter Kahlon | Sidhu Moose Wala',
     category: '📚 Study Focus',
     youtube_url: 'https://www.youtube.com/embed/2L6gsn7rGqI',
     votes: 15,
@@ -165,8 +165,8 @@ const STUDY_SONGS = [
   },
   {
     id: 'study-2',
-    title: 'Lofi Hip Hop',
-    artist: 'Lofi Music',
+    title: 'Bandeya Rey Bandeya',
+    artist: 'Arijit Singh | Asees Kaur',
     category: '📚 Study Focus',
     youtube_url: 'https://www.youtube.com/embed/Wj8C_bpnkTY',
     votes: 14,
@@ -174,8 +174,8 @@ const STUDY_SONGS = [
   },
   {
     id: 'study-3',
-    title: 'Study Lofi',
-    artist: 'Lofi Music',
+    title: 'Train',
+    artist: 'Raghu Dixit & Karsh Kale',
     category: '📚 Study Focus',
     youtube_url: 'https://www.youtube.com/embed/nmK3dXXE_Vg',
     votes: 13,
@@ -183,8 +183,8 @@ const STUDY_SONGS = [
   },
   {
     id: 'study-4',
-    title: 'Peaceful Lofi',
-    artist: 'Lofi Music',
+    title: 'Meri Kahani',
+    artist: 'Atif Aslam',
     category: '📚 Study Focus',
     youtube_url: 'https://www.youtube.com/embed/Wamoy4hoMZI',
     votes: 12,
@@ -192,7 +192,7 @@ const STUDY_SONGS = [
   },
   {
     id: 'study-5',
-    title: 'Lofi Study Beats',
+    title: 'laree Choote',
     artist: 'Lofi Music',
     category: '📚 Study Focus',
     youtube_url: 'https://www.youtube.com/embed/OTYtQKm8O9E',
