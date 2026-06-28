@@ -8,13 +8,6 @@ interface Team {
   name: string
 }
 
-interface Match {
-  team1: string
-  team2: string
-  group?: string
-  matchNumber: number
-}
-
 export const CreateTournament: React.FC = () => {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
@@ -22,7 +15,6 @@ export const CreateTournament: React.FC = () => {
   const [user, setUser] = useState<any>(null)
   const [step, setStep] = useState(1)
 
-  // ─── Basic Info ──────────────────────────────────────────────────────────
   const [basicInfo, setBasicInfo] = useState({
     name: '',
     sport_type: 'Cricket',
@@ -34,15 +26,10 @@ export const CreateTournament: React.FC = () => {
     teams_per_group: 4,
   })
 
-  // ─── Teams ──────────────────────────────────────────────────────────────
   const [teams, setTeams] = useState<Team[]>([
     { id: '1', name: '' },
     { id: '2', name: '' }
   ])
-
-  // ─── Generated Schedule ────────────────────────────────────────────────
-  const [generatedSchedule, setGeneratedSchedule] = useState<Match[]>([])
-  const [showSchedule, setShowSchedule] = useState(false)
 
   const sportTypes = ['Football', 'Basketball', 'Cricket', 'Tennis', 'Badminton', 'Volleyball', 'Table Tennis']
 
@@ -75,54 +62,15 @@ export const CreateTournament: React.FC = () => {
     setTeams(teams.map(t => t.id === id ? { ...t, name } : t))
   }
 
-  // ─── Generate Group Schedule ────────────────────────────────────────────
-  const generateSchedule = () => {
-    setError('')
-    const teamNames = teams.filter(t => t.name.trim()).map(t => t.name.trim())
-    
-    if (teamNames.length < 2) {
-      setError('Please add at least 2 teams')
-      return
-    }
-
-    const schedule: Match[] = []
-    let matchNumber = 1
-
-    // ─── Calculate groups ──────────────────────────────────────────────────
-    const totalTeams = teamNames.length
-    const groupsCount = Math.ceil(totalTeams / basicInfo.teams_per_group)
-    const teamsPerGroup = Math.ceil(totalTeams / groupsCount)
-    
-    const groups: string[][] = []
-    for (let i = 0; i < groupsCount; i++) {
-      const start = i * teamsPerGroup
-      const end = Math.min(start + teamsPerGroup, totalTeams)
-      groups.push(teamNames.slice(start, end))
-    }
-
-    // ─── Generate group stage matches (Round Robin within each group) ────
-    groups.forEach((group, groupIndex) => {
-      const groupName = String.fromCharCode(65 + groupIndex) // A, B, C...
-      
-      for (let i = 0; i < group.length; i++) {
-        for (let j = i + 1; j < group.length; j++) {
-          schedule.push({
-            team1: group[i],
-            team2: group[j],
-            group: `Group ${groupName}`,
-            matchNumber: matchNumber++
-          })
-        }
-      }
-    })
-
-    setGeneratedSchedule(schedule)
-    setShowSchedule(true)
-  }
-
   // ─── Save Tournament ────────────────────────────────────────────────────
   const saveTournament = async () => {
     if (!user) return
+
+    const validTeams = teams.filter(t => t.name.trim())
+    if (validTeams.length < 2) {
+      setError('Please add at least 2 teams')
+      return
+    }
 
     setLoading(true)
     setError('')
@@ -148,13 +96,45 @@ export const CreateTournament: React.FC = () => {
 
       if (tError) throw tError
 
-      // Create teams
-      const teamData = teams
-        .filter(t => t.name.trim())
-        .map(t => ({
-          tournament_id: tournament.id,
-          name: t.name.trim()
-        }))
+      // ─── DISTRIBUTE TEAMS INTO GROUPS ──────────────────────────────────
+      const teamNames = validTeams.map(t => t.name.trim())
+      const totalTeams = teamNames.length
+      const teamsPerGroup = Math.min(basicInfo.teams_per_group, Math.ceil(totalTeams / 2))
+      const numGroups = Math.ceil(totalTeams / teamsPerGroup)
+
+      // Shuffle teams randomly
+      const shuffled = [...teamNames].sort(() => Math.random() - 0.5)
+      
+      // Distribute into groups
+      const groups: string[][] = []
+      for (let i = 0; i < numGroups; i++) {
+        const start = i * teamsPerGroup
+        const end = Math.min(start + teamsPerGroup, totalTeams)
+        groups.push(shuffled.slice(start, end))
+      }
+
+      // Create teams with group assignments
+      const teamData: any[] = []
+      const teamIdMap: Record<string, string> = {}
+
+      groups.forEach((group, groupIndex) => {
+        const groupName = String.fromCharCode(65 + groupIndex) // A, B, C...
+        
+        group.forEach(teamName => {
+          const tempId = `temp-${Date.now()}-${Math.random()}`
+          teamData.push({
+            tournament_id: tournament.id,
+            name: teamName,
+            group_name: `Group ${groupName}`,
+            points: 0,
+            matches_played: 0,
+            wins: 0,
+            draws: 0,
+            losses: 0
+          })
+          teamIdMap[teamName] = tempId
+        })
+      })
 
       const { data: createdTeams, error: teamError } = await supabase
         .from('tournament_teams')
@@ -163,18 +143,30 @@ export const CreateTournament: React.FC = () => {
 
       if (teamError) throw teamError
 
-      // Create matches
-      const matchData = generatedSchedule.map((match) => {
-        const team1 = createdTeams?.find(t => t.name === match.team1)
-        const team2 = createdTeams?.find(t => t.name === match.team2)
+      // ─── GENERATE GROUP STAGE MATCHES ──────────────────────────────────
+      const matchData: any[] = []
+      let matchNumber = 1
+
+      groups.forEach((group, groupIndex) => {
+        const groupName = `Group ${String.fromCharCode(65 + groupIndex)}`
         
-        return {
-          tournament_id: tournament.id,
-          team1_id: team1?.id,
-          team2_id: team2?.id,
-          group_name: match.group || null,
-          match_number: match.matchNumber,
-          status: 'scheduled'
+        // Get team IDs for this group
+        const groupTeams = createdTeams?.filter(t => t.group_name === groupName) || []
+        
+        // Round robin: each team plays every other team in the group
+        for (let i = 0; i < groupTeams.length; i++) {
+          for (let j = i + 1; j < groupTeams.length; j++) {
+            matchData.push({
+              tournament_id: tournament.id,
+              team1_id: groupTeams[i].id,
+              team2_id: groupTeams[j].id,
+              group_name: groupName,
+              match_number: matchNumber++,
+              round_type: 'group',
+              round_number: 1,
+              status: 'scheduled'
+            })
+          }
         }
       })
 
@@ -184,7 +176,7 @@ export const CreateTournament: React.FC = () => {
 
       if (matchError) throw matchError
 
-      alert('✅ Tournament created successfully!')
+      alert(`✅ Tournament created successfully with ${createdTeams?.length || 0} teams in ${groups.length} groups!`)
       navigate(`/tournament/${tournament.id}`)
 
     } catch (err: any) {
@@ -214,7 +206,7 @@ export const CreateTournament: React.FC = () => {
           <div>
             <h1 style={{ color: '#FFD700', fontSize: '28px', margin: 0 }}>Create Tournament</h1>
             <p style={{ color: '#6b7280', fontSize: '14px' }}>
-              Step {step} of 3: {step === 1 ? 'Basic Info' : step === 2 ? 'Add Teams' : 'Schedule'}
+              Step {step} of 2: {step === 1 ? 'Basic Info & Teams' : 'Review & Create'}
             </p>
           </div>
         </div>
@@ -232,7 +224,7 @@ export const CreateTournament: React.FC = () => {
           </div>
         )}
 
-        {/* ─── STEP 1: Basic Info ─── */}
+        {/* ─── STEP 1: Basic Info & Teams ─── */}
         {step === 1 && (
           <div style={{
             background: 'rgba(16,16,22,0.95)',
@@ -387,7 +379,7 @@ export const CreateTournament: React.FC = () => {
               <textarea
                 value={basicInfo.description}
                 onChange={(e) => setBasicInfo({ ...basicInfo, description: e.target.value })}
-                rows={3}
+                rows={2}
                 placeholder="Describe your tournament..."
                 style={{
                   width: '100%',
@@ -403,11 +395,109 @@ export const CreateTournament: React.FC = () => {
               />
             </div>
 
+            {/* ─── Teams ─── */}
+            <div style={{
+              borderTop: '1px solid rgba(255,255,255,0.05)',
+              paddingTop: '16px',
+              marginTop: '8px'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <h3 style={{ color: '#c8a200', fontSize: '16px' }}>👥 Teams</h3>
+                <span style={{ color: '#6b7280', fontSize: '12px' }}>
+                  {teams.filter(t => t.name.trim()).length} / {basicInfo.max_teams}
+                </span>
+              </div>
+
+              {teams.map((team, index) => (
+                <div key={team.id} style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
+                  <span style={{ color: '#4b5563', fontSize: '13px', minWidth: '30px' }}>#{index + 1}</span>
+                  <input
+                    type="text"
+                    value={team.name}
+                    onChange={(e) => updateTeamName(team.id, e.target.value)}
+                    placeholder={`Team ${index + 1} name...`}
+                    style={{
+                      flex: 1,
+                      padding: '10px 14px',
+                      background: 'rgba(255,255,255,0.04)',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      borderRadius: '8px',
+                      color: 'white',
+                      fontSize: '14px',
+                      outline: 'none'
+                    }}
+                  />
+                  {teams.length > 2 && (
+                    <button
+                      onClick={() => removeTeam(team.id)}
+                      style={{
+                        padding: '8px 12px',
+                        background: 'rgba(239,68,68,0.1)',
+                        border: '1px solid rgba(239,68,68,0.2)',
+                        borderRadius: '6px',
+                        color: '#f87171',
+                        cursor: 'pointer',
+                        fontSize: '14px'
+                      }}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              ))}
+
+              {teams.length < basicInfo.max_teams && (
+                <button
+                  onClick={addTeam}
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    marginTop: '8px',
+                    background: 'rgba(200,162,0,0.08)',
+                    border: '1px dashed rgba(200,162,0,0.3)',
+                    borderRadius: '8px',
+                    color: '#c8a200',
+                    cursor: 'pointer',
+                    fontSize: '14px'
+                  }}
+                >
+                  + Add Team
+                </button>
+              )}
+
+              <div style={{
+                marginTop: '12px',
+                padding: '8px 12px',
+                background: 'rgba(200,162,0,0.05)',
+                borderRadius: '6px',
+                fontSize: '12px',
+                color: '#6b7280'
+              }}>
+                💡 Teams will be randomly distributed into groups based on "Teams per Group" setting
+              </div>
+            </div>
+
             <button
-              onClick={() => setStep(2)}
+              onClick={() => {
+                const validTeams = teams.filter(t => t.name.trim())
+                if (validTeams.length < 2) {
+                  setError('Please add at least 2 teams')
+                  return
+                }
+                if (!basicInfo.name.trim()) {
+                  setError('Please enter a tournament name')
+                  return
+                }
+                if (!basicInfo.start_date || !basicInfo.end_date) {
+                  setError('Please select start and end dates')
+                  return
+                }
+                setStep(2)
+              }}
               style={{
                 width: '100%',
                 padding: '12px',
+                marginTop: '16px',
                 background: 'linear-gradient(135deg, #c8a200, #FFD700)',
                 border: 'none',
                 borderRadius: '8px',
@@ -417,12 +507,12 @@ export const CreateTournament: React.FC = () => {
                 cursor: 'pointer'
               }}
             >
-              Next: Add Teams →
+              Next: Review & Create →
             </button>
           </div>
         )}
 
-        {/* ─── STEP 2: Teams ─── */}
+        {/* ─── STEP 2: Review ─── */}
         {step === 2 && (
           <div style={{
             background: 'rgba(16,16,22,0.95)',
@@ -430,176 +520,53 @@ export const CreateTournament: React.FC = () => {
             border: '1px solid rgba(255,255,255,0.05)',
             padding: '24px'
           }}>
-            <p style={{ color: '#6b7280', marginBottom: '16px' }}>
-              Add {basicInfo.max_teams} teams for the tournament
-            </p>
-
-            {teams.map((team, index) => (
-              <div key={team.id} style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
-                <span style={{ color: '#4b5563', fontSize: '13px', minWidth: '30px' }}>#{index + 1}</span>
-                <input
-                  type="text"
-                  value={team.name}
-                  onChange={(e) => updateTeamName(team.id, e.target.value)}
-                  placeholder={`Team ${index + 1} name...`}
-                  style={{
-                    flex: 1,
-                    padding: '10px 14px',
-                    background: 'rgba(255,255,255,0.04)',
-                    border: '1px solid rgba(255,255,255,0.08)',
-                    borderRadius: '8px',
-                    color: 'white',
-                    fontSize: '14px',
-                    outline: 'none'
-                  }}
-                />
-                {teams.length > 2 && (
-                  <button
-                    onClick={() => removeTeam(team.id)}
-                    style={{
-                      padding: '8px 12px',
-                      background: 'rgba(239,68,68,0.1)',
-                      border: '1px solid rgba(239,68,68,0.2)',
-                      borderRadius: '6px',
-                      color: '#f87171',
-                      cursor: 'pointer',
-                      fontSize: '14px'
-                    }}
-                  >
-                    ✕
-                  </button>
-                )}
+            <h3 style={{ color: '#FFD700', marginBottom: '16px' }}>📋 Review Tournament</h3>
+            
+            <div style={{
+              padding: '12px',
+              background: 'rgba(255,255,255,0.02)',
+              borderRadius: '8px',
+              marginBottom: '16px'
+            }}>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <span style={{ color: '#6b7280' }}>Name:</span>
+                <span style={{ color: 'white', fontWeight: 'bold' }}>{basicInfo.name}</span>
               </div>
-            ))}
-
-            {teams.length < basicInfo.max_teams && (
-              <button
-                onClick={addTeam}
-                style={{
-                  width: '100%',
-                  padding: '10px',
-                  marginTop: '8px',
-                  background: 'rgba(200,162,0,0.08)',
-                  border: '1px dashed rgba(200,162,0,0.3)',
-                  borderRadius: '8px',
-                  color: '#c8a200',
-                  cursor: 'pointer',
-                  fontSize: '14px'
-                }}
-              >
-                + Add Team
-              </button>
-            )}
-
-            <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
-              <button
-                onClick={() => setStep(1)}
-                style={{
-                  flex: 1,
-                  padding: '12px',
-                  background: 'transparent',
-                  border: '1px solid #333',
-                  borderRadius: '8px',
-                  color: '#666',
-                  cursor: 'pointer',
-                  fontSize: '14px'
-                }}
-              >
-                ← Back
-              </button>
-              <button
-                onClick={() => {
-                  const validTeams = teams.filter(t => t.name.trim())
-                  if (validTeams.length < 2) {
-                    setError('Please add at least 2 teams')
-                    return
-                  }
-                  generateSchedule()
-                  setStep(3)
-                }}
-                style={{
-                  flex: 2,
-                  padding: '12px',
-                  background: 'linear-gradient(135deg, #c8a200, #FFD700)',
-                  border: 'none',
-                  borderRadius: '8px',
-                  color: '#0a0a0a',
-                  fontWeight: 'bold',
-                  fontSize: '16px',
-                  cursor: 'pointer'
-                }}
-              >
-                Generate Schedule →
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* ─── STEP 3: Schedule ─── */}
-        {step === 3 && (
-          <div style={{
-            background: 'rgba(16,16,22,0.95)',
-            borderRadius: '16px',
-            border: '1px solid rgba(255,255,255,0.05)',
-            padding: '24px'
-          }}>
-            <h3 style={{ color: '#FFD700', marginBottom: '8px' }}>📋 Group Stage Schedule</h3>
-            <p style={{ color: '#6b7280', fontSize: '13px', marginBottom: '16px' }}>
-              {generatedSchedule.length} matches generated • All teams play within their groups
-            </p>
-
-            <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-              {generatedSchedule.map((match, index) => (
-                <div
-                  key={index}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px',
-                    padding: '8px 12px',
-                    borderBottom: '1px solid rgba(255,255,255,0.03)',
-                    fontSize: '14px'
-                  }}
-                >
-                  <span style={{ color: '#4b5563', minWidth: '50px' }}>
-                    #{match.matchNumber}
-                  </span>
-                  {match.group && (
-                    <span style={{
-                      padding: '2px 8px',
-                      borderRadius: '4px',
-                      background: 'rgba(200,162,0,0.1)',
-                      color: '#c8a200',
-                      fontSize: '11px',
-                      minWidth: '70px'
-                    }}>
-                      {match.group}
-                    </span>
-                  )}
-                  <span style={{ color: 'white', flex: 1 }}>
-                    {match.team1} vs {match.team2}
-                  </span>
-                </div>
-              ))}
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <span style={{ color: '#6b7280' }}>Sport:</span>
+                <span style={{ color: 'white' }}>{basicInfo.sport_type}</span>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <span style={{ color: '#6b7280' }}>Dates:</span>
+                <span style={{ color: 'white' }}>{basicInfo.start_date} → {basicInfo.end_date}</span>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <span style={{ color: '#6b7280' }}>Teams:</span>
+                <span style={{ color: 'white' }}>{teams.filter(t => t.name.trim()).length} teams</span>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <span style={{ color: '#6b7280' }}>Teams per Group:</span>
+                <span style={{ color: 'white' }}>{basicInfo.teams_per_group}</span>
+              </div>
             </div>
 
             <div style={{
-              marginTop: '16px',
               padding: '12px',
               background: 'rgba(200,162,0,0.05)',
               borderRadius: '8px',
-              border: '1px solid rgba(200,162,0,0.1)'
+              border: '1px solid rgba(200,162,0,0.1)',
+              marginBottom: '16px'
             }}>
-              <p style={{ color: '#6b7280', fontSize: '12px', margin: 0 }}>
-                📊 After all group matches, top teams will qualify for semifinals based on points.
+              <p style={{ color: '#6b7280', fontSize: '13px', margin: 0 }}>
+                📊 Teams will be randomly distributed into groups. Each team plays every other team in their group.
                 <br />
-                <span style={{ color: '#4b5563' }}>Points: Win = 2, Draw = 1, Loss = 0</span>
+                🏅 Top teams from each group will advance to knockout rounds.
               </p>
             </div>
 
-            <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
+            <div style={{ display: 'flex', gap: '12px' }}>
               <button
-                onClick={() => setStep(2)}
+                onClick={() => setStep(1)}
                 style={{
                   flex: 1,
                   padding: '12px',
