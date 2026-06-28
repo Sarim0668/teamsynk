@@ -23,6 +23,7 @@ import { Music } from './components/music/Music'
 import { CommunityHub } from './components/community/CommunityHub'
 import { CommunityChat } from './components/community/CommunityChat'
 import { CreateTournament } from './components/tournaments/CreateTournament'
+import { TournamentDetail } from './components/tournaments/TournamentDetail'
 import './premiumMotion.css'
 
 // ─── Placeholder page ─────────────────────────────────────────────────────────
@@ -366,7 +367,7 @@ function AppInner({ user }: { user: any }) {
           <Route path="/community" element={user ? <CommunityHub /> : <Navigate to="/login" />} />
           <Route path="/community/:id" element={user ? <CommunityChat /> : <Navigate to="/login" />} />
           <Route path="/create-tournament" element={user ? <CreateTournament /> : <Navigate to="/login" />} />
-
+          <Route path="/tournament/:id" element={user ? <TournamentDetail /> : <Navigate to="/login" />} />
         </Routes>
       </main>
     </>

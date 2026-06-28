@@ -6,15 +6,12 @@ import { supabase } from '../../lib/supabaseClient'
 interface Team {
   id: string
   name: string
-  captain?: string
-  players?: string[]
 }
 
 interface Match {
   team1: string
   team2: string
   group?: string
-  round?: string
   matchNumber: number
 }
 
@@ -23,7 +20,7 @@ export const CreateTournament: React.FC = () => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [user, setUser] = useState<any>(null)
-  const [step, setStep] = useState(1) // 1: Basic Info, 2: Teams, 3: Schedule
+  const [step, setStep] = useState(1)
 
   // ─── Basic Info ──────────────────────────────────────────────────────────
   const [basicInfo, setBasicInfo] = useState({
@@ -35,11 +32,6 @@ export const CreateTournament: React.FC = () => {
     venue: '',
     max_teams: 8,
     teams_per_group: 4,
-    total_groups: 2,
-    group_stage: true,
-    qualifier_rounds: 0,
-    semifinals: true,
-    finals: true
   })
 
   // ─── Teams ──────────────────────────────────────────────────────────────
@@ -67,9 +59,10 @@ export const CreateTournament: React.FC = () => {
     setUser(user)
   }
 
-  // ─── Add/Remove Teams ──────────────────────────────────────────────────
   const addTeam = () => {
-    setTeams([...teams, { id: Date.now().toString(), name: '' }])
+    if (teams.length < basicInfo.max_teams) {
+      setTeams([...teams, { id: Date.now().toString(), name: '' }])
+    }
   }
 
   const removeTeam = (id: string) => {
@@ -82,7 +75,7 @@ export const CreateTournament: React.FC = () => {
     setTeams(teams.map(t => t.id === id ? { ...t, name } : t))
   }
 
-  // ─── AI Schedule Generator ──────────────────────────────────────────────
+  // ─── Generate Group Schedule ────────────────────────────────────────────
   const generateSchedule = () => {
     setError('')
     const teamNames = teams.filter(t => t.name.trim()).map(t => t.name.trim())
@@ -92,143 +85,36 @@ export const CreateTournament: React.FC = () => {
       return
     }
 
-    if (teamNames.length < basicInfo.max_teams) {
-      setError(`Need ${basicInfo.max_teams} teams but only ${teamNames.length} added`)
-      return
-    }
-
-    // ─── Generate Schedule using Round Robin algorithm ────────────────────
     const schedule: Match[] = []
-    const n = teamNames.length
-    const isEven = n % 2 === 0
-    const teamsList = [...teamNames]
-    
-    if (!isEven) {
-      teamsList.push('BYE')
-    }
-
-    const totalTeams = teamsList.length
-    const rounds = totalTeams - 1
-    const matchesPerRound = totalTeams / 2
-
-    // ─── Round Robin Algorithm ────────────────────────────────────────────
-    const fixtures: { team1: string; team2: string }[][] = []
-    const teamsCopy = [...teamsList]
-    
-    for (let round = 0; round < rounds; round++) {
-      const roundMatches: { team1: string; team2: string }[] = []
-      
-      for (let match = 0; match < matchesPerRound; match++) {
-        const home = teamsCopy[match]
-        const away = teamsCopy[totalTeams - 1 - match]
-        
-        if (home !== 'BYE' && away !== 'BYE') {
-          roundMatches.push({ team1: home, team2: away })
-        }
-      }
-      
-      fixtures.push(roundMatches)
-      
-      // Rotate teams (keeping first team fixed)
-      const last = teamsCopy.pop()!
-      teamsCopy.splice(1, 0, last)
-    }
-
-    // ─── Assign match numbers ─────────────────────────────────────────────
     let matchNumber = 1
+
+    // ─── Calculate groups ──────────────────────────────────────────────────
+    const totalTeams = teamNames.length
+    const groupsCount = Math.ceil(totalTeams / basicInfo.teams_per_group)
+    const teamsPerGroup = Math.ceil(totalTeams / groupsCount)
     
-    // Group Stage
-    if (basicInfo.group_stage && basicInfo.total_groups > 1) {
-      const teamsPerGroup = Math.ceil(teamNames.length / basicInfo.total_groups)
-      const groups: string[][] = []
-      
-      for (let i = 0; i < basicInfo.total_groups; i++) {
-        const start = i * teamsPerGroup
-        const end = Math.min(start + teamsPerGroup, teamNames.length)
-        groups.push(teamNames.slice(start, end))
-      }
-      
-      groups.forEach((group, groupIndex) => {
-        const groupName = String.fromCharCode(65 + groupIndex) // A, B, C...
-        for (let i = 0; i < group.length; i++) {
-          for (let j = i + 1; j < group.length; j++) {
-            schedule.push({
-              team1: group[i],
-              team2: group[j],
-              group: `Group ${groupName}`,
-              round: 'Group',
-              matchNumber: matchNumber++
-            })
-          }
-        }
-      })
+    const groups: string[][] = []
+    for (let i = 0; i < groupsCount; i++) {
+      const start = i * teamsPerGroup
+      const end = Math.min(start + teamsPerGroup, totalTeams)
+      groups.push(teamNames.slice(start, end))
     }
 
-    // ─── Knockout Stage ────────────────────────────────────────────────────
-    const allTeams = teamNames.slice()
-    let remainingTeams = [...allTeams]
-    
-    // Qualifiers
-    if (basicInfo.qualifier_rounds > 0) {
-      const qualifierMatches = Math.floor(remainingTeams.length / 2)
-      for (let i = 0; i < qualifierMatches && i < basicInfo.qualifier_rounds; i++) {
-        if (remainingTeams.length >= 2) {
+    // ─── Generate group stage matches (Round Robin within each group) ────
+    groups.forEach((group, groupIndex) => {
+      const groupName = String.fromCharCode(65 + groupIndex) // A, B, C...
+      
+      for (let i = 0; i < group.length; i++) {
+        for (let j = i + 1; j < group.length; j++) {
           schedule.push({
-            team1: remainingTeams[i],
-            team2: remainingTeams[remainingTeams.length - 1 - i],
-            round: 'Qualifier',
+            team1: group[i],
+            team2: group[j],
+            group: `Group ${groupName}`,
             matchNumber: matchNumber++
           })
         }
       }
-      // Winners advance (simplified - take first half)
-      remainingTeams = remainingTeams.slice(0, Math.ceil(remainingTeams.length / 2))
-    }
-
-    // Semifinals
-    if (basicInfo.semifinals && remainingTeams.length >= 4) {
-      const semiPairs = [
-        [remainingTeams[0], remainingTeams[remainingTeams.length - 1]],
-        [remainingTeams[1], remainingTeams[remainingTeams.length - 2]]
-      ]
-      semiPairs.forEach(pair => {
-        if (pair[0] && pair[1]) {
-          schedule.push({
-            team1: pair[0],
-            team2: pair[1],
-            round: 'Semifinal',
-            matchNumber: matchNumber++
-          })
-        }
-      })
-    }
-
-    // Final
-    if (basicInfo.finals && remainingTeams.length >= 2) {
-      const finalists = remainingTeams.slice(0, 2)
-      schedule.push({
-        team1: finalists[0],
-        team2: finalists[1],
-        round: 'Final',
-        matchNumber: matchNumber++
-      })
-    }
-
-    // ─── If no matches generated, fallback to simple round robin ────────
-    if (schedule.length === 0) {
-      for (const fixture of fixtures) {
-        for (const match of fixture) {
-          if (match.team1 !== 'BYE' && match.team2 !== 'BYE') {
-            schedule.push({
-              team1: match.team1,
-              team2: match.team2,
-              round: 'League',
-              matchNumber: matchNumber++
-            })
-          }
-        }
-      }
-    }
+    })
 
     setGeneratedSchedule(schedule)
     setShowSchedule(true)
@@ -255,13 +141,7 @@ export const CreateTournament: React.FC = () => {
           venue: basicInfo.venue,
           max_teams: basicInfo.max_teams,
           teams_per_group: basicInfo.teams_per_group,
-          total_groups: basicInfo.total_groups,
-          group_stage: basicInfo.group_stage,
-          qualifier_rounds: basicInfo.qualifier_rounds,
-          semifinals: basicInfo.semifinals,
-          finals: basicInfo.finals,
-          status: 'active',
-          schedule: generatedSchedule
+          status: 'active'
         })
         .select()
         .single()
@@ -284,7 +164,7 @@ export const CreateTournament: React.FC = () => {
       if (teamError) throw teamError
 
       // Create matches
-      const matchData = generatedSchedule.map((match, index) => {
+      const matchData = generatedSchedule.map((match) => {
         const team1 = createdTeams?.find(t => t.name === match.team1)
         const team2 = createdTeams?.find(t => t.name === match.team2)
         
@@ -293,7 +173,6 @@ export const CreateTournament: React.FC = () => {
           team1_id: team1?.id,
           team2_id: team2?.id,
           group_name: match.group || null,
-          round_type: match.round || 'Group',
           match_number: match.matchNumber,
           status: 'scheduled'
         }
@@ -310,6 +189,7 @@ export const CreateTournament: React.FC = () => {
 
     } catch (err: any) {
       setError(err.message)
+      console.error(err)
     }
     setLoading(false)
   }
@@ -502,76 +382,6 @@ export const CreateTournament: React.FC = () => {
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
-              <div>
-                <label style={{ color: '#aaa', fontSize: '14px', display: 'block', marginBottom: '6px' }}>Total Groups</label>
-                <input
-                  type="number"
-                  value={basicInfo.total_groups}
-                  onChange={(e) => setBasicInfo({ ...basicInfo, total_groups: parseInt(e.target.value) || 2 })}
-                  min="1"
-                  max="8"
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    background: 'rgba(255,255,255,0.04)',
-                    border: '1px solid rgba(255,255,255,0.08)',
-                    borderRadius: '8px',
-                    color: 'white',
-                    fontSize: '14px',
-                    outline: 'none'
-                  }}
-                />
-              </div>
-              <div>
-                <label style={{ color: '#aaa', fontSize: '14px', display: 'block', marginBottom: '6px' }}>Qualifier Rounds</label>
-                <input
-                  type="number"
-                  value={basicInfo.qualifier_rounds}
-                  onChange={(e) => setBasicInfo({ ...basicInfo, qualifier_rounds: parseInt(e.target.value) || 0 })}
-                  min="0"
-                  max="4"
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    background: 'rgba(255,255,255,0.04)',
-                    border: '1px solid rgba(255,255,255,0.08)',
-                    borderRadius: '8px',
-                    color: 'white',
-                    fontSize: '14px',
-                    outline: 'none'
-                  }}
-                />
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', gap: '16px', marginBottom: '16px', flexWrap: 'wrap' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#aaa', fontSize: '14px', cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={basicInfo.group_stage}
-                  onChange={(e) => setBasicInfo({ ...basicInfo, group_stage: e.target.checked })}
-                />
-                Group Stage
-              </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#aaa', fontSize: '14px', cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={basicInfo.semifinals}
-                  onChange={(e) => setBasicInfo({ ...basicInfo, semifinals: e.target.checked })}
-                />
-                Semifinals
-              </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#aaa', fontSize: '14px', cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={basicInfo.finals}
-                  onChange={(e) => setBasicInfo({ ...basicInfo, finals: e.target.checked })}
-                />
-                Finals
-              </label>
-            </div>
-
             <div style={{ marginBottom: '16px' }}>
               <label style={{ color: '#aaa', fontSize: '14px', display: 'block', marginBottom: '6px' }}>Description</label>
               <textarea
@@ -733,9 +543,9 @@ export const CreateTournament: React.FC = () => {
             border: '1px solid rgba(255,255,255,0.05)',
             padding: '24px'
           }}>
-            <h3 style={{ color: '#FFD700', marginBottom: '8px' }}>📋 Generated Schedule</h3>
+            <h3 style={{ color: '#FFD700', marginBottom: '8px' }}>📋 Group Stage Schedule</h3>
             <p style={{ color: '#6b7280', fontSize: '13px', marginBottom: '16px' }}>
-              {generatedSchedule.length} matches generated using AI scheduling algorithm
+              {generatedSchedule.length} matches generated • All teams play within their groups
             </p>
 
             <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
@@ -751,7 +561,7 @@ export const CreateTournament: React.FC = () => {
                     fontSize: '14px'
                   }}
                 >
-                  <span style={{ color: '#4b5563', minWidth: '70px' }}>
+                  <span style={{ color: '#4b5563', minWidth: '50px' }}>
                     #{match.matchNumber}
                   </span>
                   {match.group && (
@@ -769,19 +579,22 @@ export const CreateTournament: React.FC = () => {
                   <span style={{ color: 'white', flex: 1 }}>
                     {match.team1} vs {match.team2}
                   </span>
-                  {match.round && (
-                    <span style={{
-                      padding: '2px 8px',
-                      borderRadius: '4px',
-                      background: 'rgba(255,255,255,0.05)',
-                      color: '#6b7280',
-                      fontSize: '11px'
-                    }}>
-                      {match.round}
-                    </span>
-                  )}
                 </div>
               ))}
+            </div>
+
+            <div style={{
+              marginTop: '16px',
+              padding: '12px',
+              background: 'rgba(200,162,0,0.05)',
+              borderRadius: '8px',
+              border: '1px solid rgba(200,162,0,0.1)'
+            }}>
+              <p style={{ color: '#6b7280', fontSize: '12px', margin: 0 }}>
+                📊 After all group matches, top teams will qualify for semifinals based on points.
+                <br />
+                <span style={{ color: '#4b5563' }}>Points: Win = 2, Draw = 1, Loss = 0</span>
+              </p>
             </div>
 
             <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>

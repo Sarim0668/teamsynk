@@ -283,7 +283,6 @@ export const Navbar: React.FC = () => {
     { path: '/browse-sessions', label: 'Sessions', icon: <IconCalendar /> },
     { path: '/marketplace', label: 'Market', icon: <IconShop /> },
     { path: '/messages', label: 'Chat', icon: <IconMessages unreadCount={unreadCount} /> },
-    { path: '/competitions', label: 'Compete', icon: <IconTrophy /> },
     { path: '/ai-assistant', label: 'AI Voice', icon: <span>🎙️</span> },
     { path: '/music', label: 'Music', icon: <IconMusic /> },
     { path: '/community', label: 'Community', icon: <IconCommunity /> },
