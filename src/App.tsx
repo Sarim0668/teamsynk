@@ -1,3 +1,5 @@
+// src/App.tsx - Updated Navbar section
+
 import React, { useState, useEffect, useRef } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
@@ -23,6 +25,7 @@ import { CommunityHub } from './components/community/CommunityHub'
 import { CommunityChat } from './components/community/CommunityChat'
 import { CreateTournament } from './components/tournaments/CreateTournament'
 import { TournamentDetail } from './components/tournaments/TournamentDetail'
+import { TournamentsList } from './components/tournaments/TournamentsList'
 import './premiumMotion.css'
 
 // ─── Placeholder page ─────────────────────────────────────────────────────────
@@ -349,23 +352,30 @@ function AppInner({ user }: { user: any }) {
           <Route path="/login" element={!user ? <Login /> : <Navigate to="/" />} />
           <Route path="/register" element={!user ? <Register /> : <Navigate to="/" />} />
           <Route path="/" element={user ? <Dashboard /> : <Navigate to="/login" />} />
+          
+          {/* ─── Sessions ─── */}
           <Route path="/create-session" element={user ? <CreateSession /> : <Navigate to="/login" />} />
           <Route path="/browse-sessions" element={user ? <BrowseSessions /> : <Navigate to="/login" />} />
-          <Route path="/find-players" element={user ? <FindPlayers /> : <Navigate to="/login" />} />
-          <Route path="/marketplace" element={user ? <Marketplace /> : <Navigate to="/login" />} />
-          <Route path="/profile" element={user ? <Profile /> : <Navigate to="/login" />} />
           <Route path="/session/:id" element={user ? <SessionDetail /> : <Navigate to="/login" />} />
-          <Route path="/messages" element={user ? <Messages /> : <Navigate to="/login" />} />
-          <Route path="/admin" element={user ? <AdminPanel /> : <Navigate to="/login" />} />
+          
+          {/* ─── Tournaments & Competitions (Unified) ─── */}
+          <Route path="/tournaments" element={user ? <TournamentsList /> : <Navigate to="/login" />} />
+          <Route path="/create-tournament" element={user ? <CreateTournament /> : <Navigate to="/login" />} />
+          <Route path="/tournament/:id" element={user ? <TournamentDetail /> : <Navigate to="/login" />} />
           <Route path="/competition/:id" element={user ? <CompetitionDetail /> : <Navigate to="/login" />} />
           <Route path="/create-competition" element={user ? <CreateCompetition /> : <Navigate to="/login" />} />
           <Route path="/leaderboard" element={user ? <Leaderboard /> : <Navigate to="/login" />} />
+          
+          {/* ─── Other ─── */}
+          <Route path="/find-players" element={user ? <FindPlayers /> : <Navigate to="/login" />} />
+          <Route path="/marketplace" element={user ? <Marketplace /> : <Navigate to="/login" />} />
+          <Route path="/profile" element={user ? <Profile /> : <Navigate to="/login" />} />
+          <Route path="/messages" element={user ? <Messages /> : <Navigate to="/login" />} />
+          <Route path="/admin" element={user ? <AdminPanel /> : <Navigate to="/login" />} />
           <Route path="/ai-assistant" element={user ? <AIVoice /> : <Navigate to="/login" />} />
           <Route path="/music" element={user ? <Music /> : <Navigate to="/login" />} />  
           <Route path="/community" element={user ? <CommunityHub /> : <Navigate to="/login" />} />
           <Route path="/community/:id" element={user ? <CommunityChat /> : <Navigate to="/login" />} />
-          <Route path="/create-tournament" element={user ? <CreateTournament /> : <Navigate to="/login" />} />
-          <Route path="/tournament/:id" element={user ? <TournamentDetail /> : <Navigate to="/login" />} />
         </Routes>
       </main>
     </>
