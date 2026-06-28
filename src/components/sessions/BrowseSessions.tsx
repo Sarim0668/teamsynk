@@ -14,6 +14,8 @@ const SPORT_CONFIG: Record<string, { icon: string; color: string; glow: string }
   Running:     { icon: '🏃', color: '#f43f5e',  glow: 'rgba(244,63,94,0.2)' },
   Cycling:     { icon: '🚴', color: '#10b981',  glow: 'rgba(16,185,129,0.2)' },
   Hockey:      { icon: '🏑', color: '#8b5cf6',  glow: 'rgba(139,92,246,0.2)' },
+ 'Table Tennis': { icon: '🏓', color: '#06b6d4', glow: 'rgba(6,182,212,0.2)' },  // ← ADDED
+  'Study Group':  { icon: '📚', color: '#8b5cf6', glow: 'rgba(139,92,246,0.2)' },  // ← ADDED
 }
 
 const getSport = (type: string) =>

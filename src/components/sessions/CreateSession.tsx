@@ -21,6 +21,23 @@ export const CreateSession: React.FC = () => {
     whatsapp_link: ''
   })
 
+  // ─── SPORT TYPES WITH ICONS ──────────────────────────────────────────────
+  const sportTypes = [
+    { value: 'Football', icon: '⚽' },
+    { value: 'Basketball', icon: '🏀' },
+    { value: 'Cricket', icon: '🏏' },
+    { value: 'Tennis', icon: '🎾' },
+    { value: 'Badminton', icon: '🏸' },
+    { value: 'Volleyball', icon: '🏐' },
+    { value: 'Swimming', icon: '🏊' },
+    { value: 'Running', icon: '🏃' },
+    { value: 'Cycling', icon: '🚴' },
+    { value: 'Hockey', icon: '🏑' },
+    { value: 'Table Tennis', icon: '🏓' },  // ← ADDED
+    { value: 'Study Group', icon: '📚' },    // ← ADDED
+    { value: 'Other', icon: '🎯' },
+  ]
+
   useEffect(() => {
     getCurrentUser()
   }, [])
@@ -184,7 +201,7 @@ export const CreateSession: React.FC = () => {
       }}>
         <h1 style={{ color: '#FFD700', fontSize: '28px', marginBottom: '8px' }}>🏃 Create Session</h1>
         <p style={{ color: '#666', marginBottom: '24px' }}>
-          Organise a sports session for others to join 
+          Organise a sports session or study group for others to join 
           <span style={{ color: '#52c07a', display: 'block', fontSize: '13px', marginTop: '4px' }}>
             👑 You will automatically be added as the first participant
           </span>
@@ -210,7 +227,7 @@ export const CreateSession: React.FC = () => {
         }}>
           <div style={{ marginBottom: '16px' }}>
             <label style={{ color: '#aaa', fontSize: '14px', display: 'block', marginBottom: '6px' }}>
-              Sport Type *
+              Sport / Activity *
             </label>
             <select
               value={formData.sport_type}
@@ -226,9 +243,11 @@ export const CreateSession: React.FC = () => {
               }}
               required
             >
-              <option value="">Select a sport</option>
-              {['Football', 'Basketball', 'Cricket', 'Tennis', 'Badminton', 'Volleyball', 'Swimming', 'Running', 'Cycling', 'Hockey', 'Other'].map(sport => (
-                <option key={sport} value={sport}>{sport}</option>
+              <option value="">Select a sport or activity</option>
+              {sportTypes.map((sport) => (
+                <option key={sport.value} value={sport.value}>
+                  {sport.icon} {sport.value}
+                </option>
               ))}
             </select>
           </div>
