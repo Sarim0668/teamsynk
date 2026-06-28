@@ -27,14 +27,75 @@ const CATEGORIES = [
   { value: 'other', icon: '✨', label: 'Other' },
 ]
 
+// ─── DEMO COMMUNITIES (for testing) ──────────────────────────────────────────
+const DEMO_COMMUNITIES: Community[] = [
+  {
+    id: 'demo-1',
+    name: '🏏 Cricket Club',
+    description: 'For all cricket enthusiasts! We play every weekend at University Ground.',
+    category: 'sports',
+    created_by: 'admin',
+    member_limit: 20,
+    member_count: 5,
+    created_at: new Date().toISOString(),
+    is_private: false
+  },
+  {
+    id: 'demo-2',
+    name: '📚 Study Group',
+    description: 'Study together, ace exams together! Join for group study sessions.',
+    category: 'study',
+    created_by: 'admin',
+    member_limit: 15,
+    member_count: 8,
+    created_at: new Date().toISOString(),
+    is_private: false
+  },
+  {
+    id: 'demo-3',
+    name: '🎮 Gaming Squad',
+    description: 'CS:GO, Valorant, PUBG, and more! Join for gaming sessions.',
+    category: 'gaming',
+    created_by: 'admin',
+    member_limit: 20,
+    member_count: 12,
+    created_at: new Date().toISOString(),
+    is_private: false
+  },
+  {
+    id: 'demo-4',
+    name: '💪 Fitness Club',
+    description: 'Workout together, stay fit! Morning and evening sessions.',
+    category: 'fitness',
+    created_by: 'admin',
+    member_limit: 15,
+    member_count: 3,
+    created_at: new Date().toISOString(),
+    is_private: false
+  },
+  {
+    id: 'demo-5',
+    name: '🎵 Music Lovers',
+    description: 'Share songs, discover new artists, and jam together!',
+    category: 'music',
+    created_by: 'admin',
+    member_limit: 20,
+    member_count: 6,
+    created_at: new Date().toISOString(),
+    is_private: false
+  }
+]
+
 export const CommunityHub: React.FC = () => {
   const navigate = useNavigate()
-  const [communities, setCommunities] = useState<Community[]>([])
-  const [loading, setLoading] = useState(true)
+  const [communities, setCommunities] = useState<Community[]>(DEMO_COMMUNITIES)
+  const [filteredSongs, setFilteredSongs] = useState<Community[]>(DEMO_COMMUNITIES)
+  const [loading, setLoading] = useState(false)
   const [user, setUser] = useState<any>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('all')
+  const [tableExists, setTableExists] = useState(false)
 
   const [formData, setFormData] = useState({
     name: '',
@@ -46,7 +107,7 @@ export const CommunityHub: React.FC = () => {
 
   useEffect(() => {
     checkUser()
-    loadCommunities()
+    checkTableAndLoad()
   }, [])
 
   const checkUser = async () => {
@@ -54,11 +115,28 @@ export const CommunityHub: React.FC = () => {
     setUser(user)
   }
 
-  const loadCommunities = async () => {
+  const checkTableAndLoad = async () => {
     setLoading(true)
     
     try {
-      // Get communities with member count
+      // Check if communities table exists
+      const { error: checkError } = await supabase
+        .from('communities')
+        .select('id')
+        .limit(1)
+
+      if (checkError) {
+        console.log('⚠️ Communities table not found, using demo data')
+        setTableExists(false)
+        setCommunities(DEMO_COMMUNITIES)
+        setFilteredSongs(DEMO_COMMUNITIES)
+        setLoading(false)
+        return
+      }
+
+      setTableExists(true)
+
+      // Load real data
       const { data, error } = await supabase
         .from('communities')
         .select(`
@@ -68,27 +146,60 @@ export const CommunityHub: React.FC = () => {
         .eq('status', 'active')
         .order('created_at', { ascending: false })
 
-      if (!error && data) {
+      if (!error && data && data.length > 0) {
         const communitiesWithCount = data.map((c: any) => ({
           ...c,
           member_count: c.community_members?.[0]?.count || 0
         }))
         setCommunities(communitiesWithCount)
+        setFilteredSongs(communitiesWithCount)
       } else {
-        // If table doesn't exist yet, show empty state
-        setCommunities([])
+        // Use demo data if no real data
+        setCommunities(DEMO_COMMUNITIES)
+        setFilteredSongs(DEMO_COMMUNITIES)
       }
     } catch (error) {
       console.error('Error loading communities:', error)
-      setCommunities([])
+      setCommunities(DEMO_COMMUNITIES)
+      setFilteredSongs(DEMO_COMMUNITIES)
     }
     setLoading(false)
+  }
+
+  const filterCommunities = (category: string, search: string) => {
+    let filtered = communities
+    if (category !== 'all') {
+      filtered = filtered.filter(c => c.category === category)
+    }
+    if (search) {
+      filtered = filtered.filter(c => 
+        c.name.toLowerCase().includes(search.toLowerCase()) ||
+        c.description?.toLowerCase().includes(search.toLowerCase())
+      )
+    }
+    setFilteredSongs(filtered)
+  }
+
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    setSearchTerm(value)
+    filterCommunities(selectedCategory, value)
+  }
+
+  const handleCategoryChange = (category: string) => {
+    setSelectedCategory(category)
+    filterCommunities(category, searchTerm)
   }
 
   const handleCreateCommunity = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!user) {
       alert('Please login first')
+      return
+    }
+
+    if (!tableExists) {
+      alert('⚠️ Communities table not found in database. Please run the SQL script to create it.')
       return
     }
 
@@ -111,7 +222,7 @@ export const CommunityHub: React.FC = () => {
         alert('✅ Community created successfully!')
         setShowCreateModal(false)
         setFormData({ name: '', description: '', category: 'sports', member_limit: 20, is_private: false })
-        loadCommunities()
+        checkTableAndLoad()
       }
     } catch (error: any) {
       alert('Error: ' + error.message)
@@ -121,6 +232,12 @@ export const CommunityHub: React.FC = () => {
   const handleJoinCommunity = async (communityId: string) => {
     if (!user) {
       alert('Please login first')
+      return
+    }
+
+    // Check if it's a demo community
+    if (communityId.startsWith('demo-')) {
+      alert('🔥 This is a demo community! Create real communities by adding the table.')
       return
     }
 
@@ -137,19 +254,12 @@ export const CommunityHub: React.FC = () => {
         alert('Failed to join: ' + error.message)
       } else {
         alert('✅ You joined the community!')
-        loadCommunities()
+        checkTableAndLoad()
       }
     } catch (error: any) {
       alert('Error: ' + error.message)
     }
   }
-
-  const filteredCommunities = communities.filter(c => {
-    const matchesSearch = c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          c.description?.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesCategory = selectedCategory === 'all' || c.category === selectedCategory
-    return matchesSearch && matchesCategory
-  })
 
   const getCategoryIcon = (category: string) => {
     return CATEGORIES.find(c => c.value === category)?.icon || '📌'
@@ -222,6 +332,25 @@ export const CommunityHub: React.FC = () => {
           </button>
         </div>
 
+        {/* ─── Database Status ─── */}
+        {!tableExists && (
+          <div style={{
+            padding: '12px 20px',
+            marginBottom: '16px',
+            background: 'rgba(234,179,8,0.1)',
+            border: '1px solid rgba(234,179,8,0.3)',
+            borderRadius: '10px',
+            color: '#eab308',
+            fontSize: '13px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px'
+          }}>
+            <span>⚠️</span>
+            <span>Showing demo communities. Run the SQL script to create the communities table in Supabase.</span>
+          </div>
+        )}
+
         {/* ─── Search & Filter ─── */}
         <div style={{
           display: 'flex',
@@ -232,7 +361,7 @@ export const CommunityHub: React.FC = () => {
           <input
             type="text"
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={handleSearch}
             placeholder="Search communities..."
             style={{
               flex: 1,
@@ -248,7 +377,7 @@ export const CommunityHub: React.FC = () => {
           />
           <select
             value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
+            onChange={(e) => handleCategoryChange(e.target.value)}
             style={{
               padding: '10px 16px',
               background: 'rgba(255,255,255,0.04)',
@@ -268,7 +397,7 @@ export const CommunityHub: React.FC = () => {
         </div>
 
         {/* ─── Communities Grid ─── */}
-        {filteredCommunities.length === 0 ? (
+        {filteredSongs.length === 0 ? (
           <div style={{
             textAlign: 'center',
             padding: '60px 20px',
@@ -301,8 +430,8 @@ export const CommunityHub: React.FC = () => {
             gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
             gap: '16px'
           }}>
-            {filteredCommunities.map(community => {
-              const isMember = false // You'll need to check if user is member
+            {filteredSongs.map(community => {
+              const isMember = false
               const isFull = community.member_count >= community.member_limit
               
               return (
