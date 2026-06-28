@@ -106,7 +106,6 @@ export const TournamentDetail: React.FC = () => {
       }
     })
 
-    // Only count group stage matches
     const groupMatches = matchesList.filter(m => m.round_type === 'group')
 
     groupMatches.forEach(match => {
@@ -127,7 +126,6 @@ export const TournamentDetail: React.FC = () => {
             team2.points += 2
             team1.losses++
           } else {
-            // Draw - both get 1 point
             team1.draws++
             team1.points += 1
             team2.draws++
@@ -137,7 +135,6 @@ export const TournamentDetail: React.FC = () => {
       }
     })
 
-    // Group standings by group
     const grouped: Record<string, any[]> = {}
     Object.values(standingsMap).forEach(team => {
       const group = team.group_name || 'Group A'
@@ -145,7 +142,6 @@ export const TournamentDetail: React.FC = () => {
       grouped[group].push(team)
     })
 
-    // Sort each group by points, then wins
     Object.keys(grouped).forEach(group => {
       grouped[group].sort((a, b) => {
         if (a.points !== b.points) return b.points - a.points
@@ -166,12 +162,9 @@ export const TournamentDetail: React.FC = () => {
     const semifinalMatches = matchesList.filter(m => m.round_type === 'semifinal')
     const finalMatches = matchesList.filter(m => m.round_type === 'final')
 
-    // If no group matches, return
     if (groupMatches.length === 0) return
 
-    // Check if we need to show advance modal
     if (allGroupCompleted && knockoutMatches.length === 0 && semifinalMatches.length === 0 && finalMatches.length === 0) {
-      // Calculate max teams per group
       let maxTeams = 0
       Object.keys(groupStandings).forEach(group => {
         if (groupStandings[group].length > maxTeams) {
@@ -189,7 +182,6 @@ export const TournamentDetail: React.FC = () => {
       return
     }
 
-    // Check knockout rounds
     if (knockoutMatches.length > 0) {
       const allKnockoutComplete = knockoutMatches.every(m => m.status === 'completed')
       if (allKnockoutComplete && semifinalMatches.length === 0) {
@@ -213,7 +205,6 @@ export const TournamentDetail: React.FC = () => {
   const generateKnockoutRounds = async (advanceCount: number) => {
     if (!id) return
 
-    // Get top teams from each group
     const qualifiedTeams: any[] = []
     Object.keys(groupStandings).forEach(group => {
       const topTeams = groupStandings[group].slice(0, advanceCount)
@@ -225,7 +216,6 @@ export const TournamentDetail: React.FC = () => {
       return
     }
 
-    // Shuffle qualified teams
     const shuffled = [...qualifiedTeams].sort(() => Math.random() - 0.5)
     const matchesToCreate: any[] = []
     let matchNumber = matches.length + 1
@@ -236,7 +226,6 @@ export const TournamentDetail: React.FC = () => {
       let team2 = null
       let found = false
 
-      // Try to find a team from a different group
       for (let i = 1; i < remainingTeams.length; i++) {
         if (remainingTeams[i].group_name !== team1.group_name) {
           team2 = remainingTeams[i]
@@ -245,7 +234,6 @@ export const TournamentDetail: React.FC = () => {
         }
       }
 
-      // If no team from different group, take the next one
       if (!found && remainingTeams.length >= 2) {
         team2 = remainingTeams[1]
       }
@@ -263,9 +251,8 @@ export const TournamentDetail: React.FC = () => {
       }
     }
 
-    // Create matches
     for (const match of matchesToCreate) {
-      const { error } = await supabase
+      await supabase
         .from('tournament_matches')
         .insert({
           tournament_id: id,
@@ -276,10 +263,6 @@ export const TournamentDetail: React.FC = () => {
           round_type: match.round_type,
           status: 'scheduled'
         })
-
-      if (error) {
-        console.error('Error creating match:', error)
-      }
     }
 
     await loadData()
@@ -288,7 +271,6 @@ export const TournamentDetail: React.FC = () => {
   const generateNextRound = async (currentMatches: Match[], nextRoundType: string) => {
     if (!id) return
 
-    // Get winners
     const winners = currentMatches
       .filter(m => m.status === 'completed' && m.winner_id)
       .map(m => teams.find(t => t.id === m.winner_id))
@@ -299,7 +281,6 @@ export const TournamentDetail: React.FC = () => {
       return
     }
 
-    // Shuffle winners
     const shuffled = [...winners].sort(() => Math.random() - 0.5)
     const matchesToCreate: any[] = []
     let matchNumber = matches.length + 1
@@ -371,7 +352,6 @@ export const TournamentDetail: React.FC = () => {
     } else if (selectedResult === 'team2_win') {
       winnerId = selectedMatch.team2_id
     } else {
-      // Draw - only allowed in group stage
       if (selectedMatch.round_type !== 'group') {
         alert('⚠️ Knockout matches cannot end in a draw! Please select a winner.')
         return
@@ -605,7 +585,6 @@ export const TournamentDetail: React.FC = () => {
           </div>
         </div>
 
-        {/* Champion Banner */}
         {champion && isCompleted && (
           <div style={{
             background: 'linear-gradient(135deg, rgba(200,162,0,0.15), rgba(255,215,0,0.05))',
@@ -621,7 +600,6 @@ export const TournamentDetail: React.FC = () => {
           </div>
         )}
 
-        {/* Group Standings */}
         <div style={{
           background: 'rgba(16,16,22,0.95)',
           borderRadius: '16px',
@@ -658,7 +636,6 @@ export const TournamentDetail: React.FC = () => {
           </div>
         </div>
 
-        {/* Matches */}
         <div style={{
           background: 'rgba(16,16,22,0.95)',
           borderRadius: '16px',
