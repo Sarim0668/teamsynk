@@ -50,6 +50,7 @@ export const TournamentDetail: React.FC = () => {
   const [advanceOptions, setAdvanceOptions] = useState<number[]>([1, 2, 3, 4])
   const [showAdvanceModal, setShowAdvanceModal] = useState(false)
   const [selectedAdvanceCount, setSelectedAdvanceCount] = useState<number>(2)
+  const [showChampionCelebration, setShowChampionCelebration] = useState(false)
 
   useEffect(() => {
     if (id) {
@@ -335,10 +336,40 @@ export const TournamentDetail: React.FC = () => {
   }
 
   const findChampion = (matchesList: Match[]) => {
+    // Find the final match
     const finalMatch = matchesList.find(m => m.round_type === 'final' && m.status === 'completed')
+    
     if (finalMatch && finalMatch.winner_id) {
+      // Get the winner team name
       const winner = matchesList.find(m => m.id === finalMatch.id)?.winner
-      setChampion(winner?.name || null)
+      if (winner?.name) {
+        setChampion(winner.name)
+        setShowChampionCelebration(true)
+        
+        // Update tournament status if not already
+        if (!isCompleted && id) {
+          setIsCompleted(true)
+          supabase
+            .from('tournaments')
+            .update({ status: 'completed' })
+            .eq('id', id)
+            .then(() => {
+              console.log('🏆 Tournament marked as completed!')
+            })
+        }
+        return
+      }
+    }
+    
+    // Check if there's a final match but it's not completed yet
+    const hasFinalMatch = matchesList.some(m => m.round_type === 'final')
+    if (hasFinalMatch) {
+      const finalMatchExists = matchesList.find(m => m.round_type === 'final')
+      if (finalMatchExists && finalMatchExists.status !== 'completed') {
+        setShowChampionCelebration(false)
+      }
+    } else {
+      setShowChampionCelebration(false)
     }
   }
 
@@ -391,31 +422,29 @@ export const TournamentDetail: React.FC = () => {
     if (!allMatches) return
 
     const hasFinal = allMatches.some((m: any) => m.round_type === 'final')
+    const finalMatch = allMatches.find((m: any) => m.round_type === 'final')
     const allCompleted = allMatches.every((m: any) => m.status === 'completed')
 
-    if (allCompleted && hasFinal) {
-      const { error } = await supabase
-        .from('tournaments')
-        .update({ status: 'completed' })
-        .eq('id', id)
-
-      if (!error) {
+    if (allCompleted && hasFinal && finalMatch) {
+      // Get winner details
+      const { data: matchWithWinner } = await supabase
+        .from('tournament_matches')
+        .select('*, winner:winner_id(name)')
+        .eq('id', finalMatch.id)
+        .single()
+      
+      if (matchWithWinner?.winner) {
+        setChampion(matchWithWinner.winner.name)
+        setShowChampionCelebration(true)
         setIsCompleted(true)
         
-        const finalMatch = allMatches.find((m: any) => m.round_type === 'final')
-        if (finalMatch) {
-          const { data: matchWithWinner } = await supabase
-            .from('tournament_matches')
-            .select('*, winner:winner_id(name)')
-            .eq('id', finalMatch.id)
-            .single()
-          
-          if (matchWithWinner?.winner) {
-            setChampion(matchWithWinner.winner.name)
-            alert(`🏆🏆🏆 Tournament Complete! Champion: ${matchWithWinner.winner.name} 🏆🏆🏆`)
-          }
-        }
+        // Update tournament status
+        await supabase
+          .from('tournaments')
+          .update({ status: 'completed' })
+          .eq('id', id)
         
+        alert(`🏆🏆🏆 Tournament Complete! Champion: ${matchWithWinner.winner.name} 🏆🏆🏆`)
         scheduleTournamentCleanup(id)
       }
     }
@@ -585,21 +614,63 @@ export const TournamentDetail: React.FC = () => {
           </div>
         </div>
 
-        {champion && isCompleted && (
+        {/* ─── Champion Celebration Banner ─── */}
+        {showChampionCelebration && champion && (
           <div style={{
-            background: 'linear-gradient(135deg, rgba(200,162,0,0.15), rgba(255,215,0,0.05))',
-            border: '2px solid rgba(200,162,0,0.3)',
+            background: 'linear-gradient(135deg, rgba(200,162,0,0.2), rgba(255,215,0,0.1))',
+            border: '2px solid #FFD700',
             borderRadius: '16px',
-            padding: '20px',
+            padding: '24px',
             textAlign: 'center',
-            marginBottom: '24px'
+            marginBottom: '24px',
+            animation: 'championGlow 2s ease-in-out infinite',
+            position: 'relative',
+            overflow: 'hidden'
           }}>
-            <div style={{ fontSize: '48px' }}>🏆</div>
-            <h2 style={{ color: '#FFD700', fontSize: '24px' }}>Champion: {champion}</h2>
-            <p style={{ color: '#6b7280' }}>Congratulations to the tournament winner!</p>
+            <div style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'radial-gradient(circle at 30% 30%, rgba(255,215,0,0.1), transparent 50%)',
+              pointerEvents: 'none'
+            }} />
+            
+            <div style={{ fontSize: '64px', marginBottom: '8px', position: 'relative' }}>🏆</div>
+            <h2 style={{ 
+              color: '#FFD700', 
+              fontSize: '32px', 
+              fontWeight: 'bold',
+              position: 'relative',
+              textShadow: '0 0 30px rgba(255,215,0,0.3)'
+            }}>
+              🎉 Champion: {champion} 🎉
+            </h2>
+            <p style={{ 
+              color: '#6b7280', 
+              fontSize: '14px',
+              position: 'relative'
+            }}>
+              Congratulations to the tournament winner! 👏
+            </p>
+            <div style={{
+              marginTop: '8px',
+              display: 'flex',
+              justifyContent: 'center',
+              gap: '8px',
+              position: 'relative'
+            }}>
+              {['⭐', '✨', '🌟', '✨', '⭐'].map((emoji, i) => (
+                <span key={i} style={{ fontSize: '20px', animation: `sparkle ${1.5 + i * 0.3}s ease-in-out infinite` }}>
+                  {emoji}
+                </span>
+              ))}
+            </div>
           </div>
         )}
 
+        {/* ─── Group Standings ─── */}
         <div style={{
           background: 'rgba(16,16,22,0.95)',
           borderRadius: '16px',
@@ -636,6 +707,7 @@ export const TournamentDetail: React.FC = () => {
           </div>
         </div>
 
+        {/* ─── Matches ─── */}
         <div style={{
           background: 'rgba(16,16,22,0.95)',
           borderRadius: '16px',
@@ -704,7 +776,7 @@ export const TournamentDetail: React.FC = () => {
         </div>
       </div>
 
-      {/* Advance Modal */}
+      {/* ─── Advance Modal ─── */}
       {showAdvanceModal && (
         <div style={{
           position: 'fixed',
@@ -797,7 +869,7 @@ export const TournamentDetail: React.FC = () => {
         </div>
       )}
 
-      {/* Score Modal */}
+      {/* ─── Score Modal ─── */}
       {showScoreModal && selectedMatch && (
         <div style={{
           position: 'fixed',
@@ -947,6 +1019,20 @@ export const TournamentDetail: React.FC = () => {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
         }
+        
+        @keyframes championGlow {
+          0%, 100% { 
+            box-shadow: 0 0 30px rgba(255,215,0,0.1), inset 0 0 30px rgba(255,215,0,0.05);
+          }
+          50% { 
+            box-shadow: 0 0 60px rgba(255,215,0,0.2), inset 0 0 60px rgba(255,215,0,0.1);
+          }
+        }
+        
+        @keyframes sparkle {
+          0%, 100% { transform: scale(1) rotate(0deg); opacity: 1; }
+          50% { transform: scale(1.3) rotate(20deg); opacity: 0.7; }
+        }
       `}</style>
     </div>
   )
@@ -1067,7 +1153,8 @@ const MatchList: React.FC<MatchListProps> = ({
               borderBottom: '1px solid rgba(255,255,255,0.03)',
               cursor: match.status !== 'completed' && isCreator && !isCompleted ? 'pointer' : 'default',
               opacity: match.status === 'completed' ? 0.8 : 1,
-              background: match.round_type === 'final' ? 'rgba(200,162,0,0.05)' : 'transparent'
+              background: match.round_type === 'final' ? 'rgba(200,162,0,0.05)' : 'transparent',
+              borderRadius: match.round_type === 'final' ? '4px' : '0'
             }}
             onClick={() => {
               if (match.status !== 'completed' && isCreator && !isCompleted) {
