@@ -24,7 +24,6 @@ interface Match {
   match_number: number
   status: string
   round_type: string
-  round_number: number
   team1?: { name: string }
   team2?: { name: string }
   winner_id?: string
@@ -256,7 +255,6 @@ export const TournamentDetail: React.FC = () => {
           team1: team1,
           team2: team2,
           round_type: 'knockout',
-          round_number: 1,
           match_number: matchNumber++
         })
         remainingTeams = remainingTeams.filter(t => t.id !== team1.id && t.id !== team2.id)
@@ -276,7 +274,6 @@ export const TournamentDetail: React.FC = () => {
           group_name: `Knockout Round`,
           match_number: match.match_number,
           round_type: match.round_type,
-          round_number: match.round_number,
           status: 'scheduled'
         })
 
@@ -349,7 +346,6 @@ export const TournamentDetail: React.FC = () => {
           group_name: match.group_name,
           match_number: match.match_number,
           round_type: match.round_type,
-          round_number: 1,
           status: 'scheduled'
         })
     }
