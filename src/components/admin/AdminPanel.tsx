@@ -69,6 +69,20 @@ interface Tournament {
   matches_count?: number
 }
 
+interface Community {
+  id: string
+  name: string
+  description: string
+  category: string
+  created_by: string
+  member_limit: number
+  is_private: boolean
+  status: string
+  created_at: string
+  creator?: { full_name: string }
+  member_count?: number
+}
+
 export const AdminPanel: React.FC = () => {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
@@ -77,7 +91,8 @@ export const AdminPanel: React.FC = () => {
   const [songs, setSongs] = useState<Song[]>([])
   const [sessions, setSessions] = useState<Session[]>([])
   const [tournaments, setTournaments] = useState<Tournament[]>([])
-  const [activeTab, setActiveTab] = useState<'users' | 'listings' | 'songs' | 'sessions' | 'tournaments'>('users')
+  const [communities, setCommunities] = useState<Community[]>([])
+  const [activeTab, setActiveTab] = useState<'users' | 'listings' | 'songs' | 'sessions' | 'tournaments' | 'communities'>('users')
   const [searchQuery, setSearchQuery] = useState('')
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' | 'info' } | null>(null)
   const [currentUser, setCurrentUser] = useState<any>(null)
@@ -120,7 +135,8 @@ export const AdminPanel: React.FC = () => {
       loadListings(),
       loadSongs(),
       loadSessions(),
-      loadTournaments()
+      loadTournaments(),
+      loadCommunities()
     ])
   }
 
@@ -215,6 +231,33 @@ export const AdminPanel: React.FC = () => {
         })
       )
       setTournaments(tournamentsWithCounts)
+    }
+  }
+
+  const loadCommunities = async () => {
+    const { data, error } = await supabase
+      .from('communities')
+      .select(`
+        *,
+        creator:users!created_by(full_name)
+      `)
+      .order('created_at', { ascending: false })
+
+    if (!error && data) {
+      const communitiesWithCounts = await Promise.all(
+        data.map(async (community: any) => {
+          const { count } = await supabase
+            .from('community_members')
+            .select('*', { count: 'exact', head: true })
+            .eq('community_id', community.id)
+          
+          return {
+            ...community,
+            member_count: count || 0
+          }
+        })
+      )
+      setCommunities(communitiesWithCounts)
     }
   }
 
@@ -349,7 +392,7 @@ export const AdminPanel: React.FC = () => {
     }
   }
 
-  // ─── FIXED: Session Delete ────────────────────────────────────────────────
+  // ─── Session Actions ──────────────────────────────────────────────────────
   const handleDeleteSession = async (sessionId: string) => {
     if (!window.confirm(`⚠️ Are you sure you want to DELETE this session? This will remove all participants too!`)) return
     
@@ -357,7 +400,6 @@ export const AdminPanel: React.FC = () => {
     try {
       console.log('🗑️ Deleting session:', sessionId)
       
-      // First delete all participants
       const { error: participantsError } = await supabase
         .from('session_participants')
         .delete()
@@ -365,10 +407,8 @@ export const AdminPanel: React.FC = () => {
 
       if (participantsError) {
         console.error('Error deleting participants:', participantsError)
-        // Continue anyway
       }
 
-      // Then delete the session
       const { error: sessionError } = await supabase
         .from('sports_sessions')
         .delete()
@@ -381,12 +421,8 @@ export const AdminPanel: React.FC = () => {
       console.log('✅ Session deleted successfully!')
       setMessage({ text: '✅ Session deleted successfully!', type: 'success' })
       
-      // Remove from local state
       setSessions(prev => prev.filter(s => s.id !== sessionId))
-      
-      // Reload from database to confirm
       await loadSessions()
-      
       setShowDeleteModal(null)
       
       setTimeout(() => setMessage(null), 4000)
@@ -399,7 +435,7 @@ export const AdminPanel: React.FC = () => {
     }
   }
 
-  // ─── FIXED: Tournament Delete ─────────────────────────────────────────────
+  // ─── Tournament Actions ──────────────────────────────────────────────────
   const handleDeleteTournament = async (tournamentId: string) => {
     if (!window.confirm(`⚠️ Are you sure you want to DELETE this tournament? This will remove all teams, matches, and participants!`)) return
     
@@ -407,7 +443,6 @@ export const AdminPanel: React.FC = () => {
     try {
       console.log('🗑️ Deleting tournament:', tournamentId)
       
-      // Delete all matches
       const { error: matchesError } = await supabase
         .from('tournament_matches')
         .delete()
@@ -417,7 +452,6 @@ export const AdminPanel: React.FC = () => {
         console.error('Error deleting matches:', matchesError)
       }
 
-      // Delete all teams
       const { error: teamsError } = await supabase
         .from('tournament_teams')
         .delete()
@@ -427,7 +461,6 @@ export const AdminPanel: React.FC = () => {
         console.error('Error deleting teams:', teamsError)
       }
 
-      // Delete all participants
       const { error: participantsError } = await supabase
         .from('tournament_participants')
         .delete()
@@ -437,7 +470,6 @@ export const AdminPanel: React.FC = () => {
         console.error('Error deleting participants:', participantsError)
       }
 
-      // Finally delete the tournament
       const { error: tournamentError } = await supabase
         .from('tournaments')
         .delete()
@@ -450,12 +482,83 @@ export const AdminPanel: React.FC = () => {
       console.log('✅ Tournament deleted successfully!')
       setMessage({ text: '✅ Tournament deleted successfully!', type: 'success' })
       
-      // Remove from local state
       setTournaments(prev => prev.filter(t => t.id !== tournamentId))
-      
-      // Reload from database to confirm
       await loadTournaments()
+      setShowDeleteModal(null)
       
+      setTimeout(() => setMessage(null), 4000)
+      
+    } catch (error: any) {
+      console.error('Delete error:', error)
+      setMessage({ text: '❌ ' + error.message, type: 'error' })
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  // ─── NEW: Community Actions ──────────────────────────────────────────────
+  const handleDeleteCommunity = async (communityId: string) => {
+    if (!window.confirm(`⚠️ Are you sure you want to DELETE this community? This will remove all members and messages!`)) return
+    
+    setIsDeleting(true)
+    try {
+      console.log('🗑️ Deleting community:', communityId)
+      
+      // Delete all community messages
+      const { error: messagesError } = await supabase
+        .from('community_messages')
+        .delete()
+        .eq('community_id', communityId)
+
+      if (messagesError) {
+        console.error('Error deleting messages:', messagesError)
+      }
+
+      // Delete all community members
+      const { error: membersError } = await supabase
+        .from('community_members')
+        .delete()
+        .eq('community_id', communityId)
+
+      if (membersError) {
+        console.error('Error deleting members:', membersError)
+      }
+
+      // Delete all community invites
+      const { error: invitesError } = await supabase
+        .from('community_invites')
+        .delete()
+        .eq('community_id', communityId)
+
+      if (invitesError) {
+        console.error('Error deleting invites:', invitesError)
+      }
+
+      // Delete all community events
+      const { error: eventsError } = await supabase
+        .from('community_events')
+        .delete()
+        .eq('community_id', communityId)
+
+      if (eventsError) {
+        console.error('Error deleting events:', eventsError)
+      }
+
+      // Finally delete the community
+      const { error: communityError } = await supabase
+        .from('communities')
+        .delete()
+        .eq('id', communityId)
+
+      if (communityError) {
+        throw new Error('Delete failed: ' + communityError.message)
+      }
+
+      console.log('✅ Community deleted successfully!')
+      setMessage({ text: '✅ Community deleted successfully!', type: 'success' })
+      
+      setCommunities(prev => prev.filter(c => c.id !== communityId))
+      await loadCommunities()
       setShowDeleteModal(null)
       
       setTimeout(() => setMessage(null), 4000)
@@ -486,6 +589,11 @@ export const AdminPanel: React.FC = () => {
   const filteredTournaments = tournaments.filter(t =>
     t.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     t.sport_type?.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+
+  const filteredCommunities = communities.filter(c =>
+    c.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    c.category?.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   if (loading) {
@@ -524,6 +632,7 @@ export const AdminPanel: React.FC = () => {
     { key: 'songs', label: '🎵 Songs', count: songs.length },
     { key: 'sessions', label: '🏟️ Sessions', count: sessions.length },
     { key: 'tournaments', label: '🏆 Tournaments', count: tournaments.length },
+    { key: 'communities', label: '🏠 Communities', count: communities.length },
   ]
 
   return (
@@ -559,7 +668,7 @@ export const AdminPanel: React.FC = () => {
             Manage Your Platform
           </h1>
           <p style={{ color: '#888', fontSize: '14px' }}>
-            Users: {users.length} • Listings: {listings.length} • Pending Songs: {songs.length} • Sessions: {sessions.length} • Tournaments: {tournaments.length}
+            Users: {users.length} • Listings: {listings.length} • Pending Songs: {songs.length} • Sessions: {sessions.length} • Tournaments: {tournaments.length} • Communities: {communities.length}
           </p>
         </div>
 
@@ -623,7 +732,8 @@ export const AdminPanel: React.FC = () => {
                          activeTab === 'listings' ? 'listings...' : 
                          activeTab === 'songs' ? 'songs...' :
                          activeTab === 'sessions' ? 'sessions...' :
-                         'tournaments...'}`}
+                         activeTab === 'tournaments' ? 'tournaments...' :
+                         'communities...'}`}
             style={{
               width: '100%',
               maxWidth: '400px',
@@ -1212,9 +1322,118 @@ export const AdminPanel: React.FC = () => {
           </div>
         )}
 
+        {/* Communities Tab - NEW */}
+        {activeTab === 'communities' && (
+          <div style={{
+            background: 'rgba(13,13,13,0.95)',
+            backdropFilter: 'blur(20px)',
+            border: '1px solid #c8a20020',
+            borderRadius: '12px',
+            overflow: 'hidden'
+          }}>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '50px 1fr 120px 100px 80px 80px 100px 140px',
+              padding: '12px 16px',
+              background: 'rgba(200,162,0,0.05)',
+              borderBottom: '1px solid rgba(255,255,255,0.05)',
+              fontSize: '12px',
+              color: '#666',
+              fontWeight: 'bold',
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              gap: '8px'
+            }}>
+              <span>ID</span>
+              <span>Name</span>
+              <span>Category</span>
+              <span>Members</span>
+              <span>Limit</span>
+              <span>Status</span>
+              <span>Creator</span>
+              <span>Actions</span>
+            </div>
+
+            {filteredCommunities.length === 0 ? (
+              <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
+                No communities found
+              </div>
+            ) : (
+              filteredCommunities.map((community) => (
+                <div
+                  key={community.id}
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '50px 1fr 120px 100px 80px 80px 100px 140px',
+                    padding: '10px 16px',
+                    borderBottom: '1px solid rgba(255,255,255,0.03)',
+                    alignItems: 'center',
+                    gap: '8px',
+                    fontSize: '13px',
+                    color: '#ddd'
+                  }}
+                >
+                  <span style={{ color: '#666' }}>#{community.id.slice(0, 4)}</span>
+                  <span style={{ fontWeight: 'bold' }}>{community.name}</span>
+                  <span style={{ 
+                    color: '#c8a200', 
+                    fontSize: '11px',
+                    background: 'rgba(200,162,0,0.1)',
+                    padding: '2px 8px',
+                    borderRadius: '4px',
+                    display: 'inline-block',
+                    width: 'fit-content'
+                  }}>
+                    {community.category}
+                  </span>
+                  <span style={{ color: '#FFD700' }}>{community.member_count || 0}</span>
+                  <span style={{ color: '#888' }}>{community.member_limit || 20}</span>
+                  <span>
+                    <span style={{
+                      padding: '2px 8px',
+                      borderRadius: '4px',
+                      background: community.status === 'active' ? 'rgba(82,192,122,0.15)' : 'rgba(255,68,68,0.15)',
+                      color: community.status === 'active' ? '#52c07a' : '#ff4444',
+                      fontSize: '11px'
+                    }}>
+                      {community.status || 'active'}
+                    </span>
+                  </span>
+                  <span style={{ color: '#888', fontSize: '12px' }}>
+                    {community.creator?.full_name || 'Unknown'}
+                  </span>
+                  <div style={{ display: 'flex', gap: '4px' }}>
+                    <button
+                      onClick={() => {
+                        setShowDeleteModal({
+                          type: 'community',
+                          id: community.id,
+                          name: community.name
+                        })
+                      }}
+                      style={{
+                        padding: '4px 10px',
+                        background: 'rgba(239,68,68,0.1)',
+                        border: '1px solid rgba(239,68,68,0.2)',
+                        borderRadius: '6px',
+                        color: '#ef4444',
+                        fontSize: '10px',
+                        cursor: 'pointer',
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      🗑️ Delete
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
         <div style={{ marginTop: '40px', textAlign: 'center' }}>
           <span style={{ color: '#374151', fontSize: '11px', letterSpacing: '0.06em' }}>
-            ⚡ Admin Panel v2.0 • Users • Listings • Songs • Sessions • Tournaments
+            ⚡ Admin Panel v2.0 • Users • Listings • Songs • Sessions • Tournaments • Communities
           </span>
         </div>
       </div>
@@ -1251,6 +1470,7 @@ export const AdminPanel: React.FC = () => {
               <span style={{ color: '#6b7280', fontSize: '13px' }}>
                 {showDeleteModal.type === 'session' && 'This will remove the session and all participants.'}
                 {showDeleteModal.type === 'tournament' && 'This will remove the tournament, all teams, and all matches.'}
+                {showDeleteModal.type === 'community' && 'This will remove the community, all members, and all messages.'}
               </span>
               <br />
               <span style={{ color: '#ef4444', fontSize: '13px' }}>
@@ -1280,6 +1500,8 @@ export const AdminPanel: React.FC = () => {
                     await handleDeleteSession(showDeleteModal.id)
                   } else if (showDeleteModal.type === 'tournament') {
                     await handleDeleteTournament(showDeleteModal.id)
+                  } else if (showDeleteModal.type === 'community') {
+                    await handleDeleteCommunity(showDeleteModal.id)
                   }
                 }}
                 disabled={isDeleting}
