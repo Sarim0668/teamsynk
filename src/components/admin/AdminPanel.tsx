@@ -1,3 +1,4 @@
+// src/components/admin/AdminPanel.tsx
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
@@ -38,17 +39,50 @@ interface Song {
   suggested_by_user?: { full_name: string }
 }
 
+interface Session {
+  id: string
+  sport_type: string
+  session_date: string
+  session_time: string
+  location: string
+  max_participants: number
+  created_by: string
+  status: string
+  created_at: string
+  creator?: { full_name: string }
+  participant_count?: number
+}
+
+interface Tournament {
+  id: string
+  name: string
+  sport_type: string
+  description: string
+  start_date: string
+  end_date: string
+  venue: string
+  status: string
+  created_by: string
+  created_at: string
+  creator?: { full_name: string }
+  teams_count?: number
+  matches_count?: number
+}
+
 export const AdminPanel: React.FC = () => {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [users, setUsers] = useState<User[]>([])
   const [listings, setListings] = useState<Listing[]>([])
   const [songs, setSongs] = useState<Song[]>([])
-  const [activeTab, setActiveTab] = useState<'users' | 'listings' | 'songs'>('users')
+  const [sessions, setSessions] = useState<Session[]>([])
+  const [tournaments, setTournaments] = useState<Tournament[]>([])
+  const [activeTab, setActiveTab] = useState<'users' | 'listings' | 'songs' | 'sessions' | 'tournaments'>('users')
   const [searchQuery, setSearchQuery] = useState('')
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' | 'info' } | null>(null)
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState<{ type: string; id: string; name: string } | null>(null)
 
   useEffect(() => {
     checkAdminAndLoadData()
@@ -83,7 +117,9 @@ export const AdminPanel: React.FC = () => {
     await Promise.all([
       loadUsers(),
       loadListings(),
-      loadSongs()
+      loadSongs(),
+      loadSessions(),
+      loadTournaments()
     ])
   }
 
@@ -118,6 +154,68 @@ export const AdminPanel: React.FC = () => {
 
     if (!error && data) {
       setSongs(data)
+    }
+  }
+
+  const loadSessions = async () => {
+    const { data, error } = await supabase
+      .from('sports_sessions')
+      .select(`
+        *,
+        creator:users!created_by(full_name)
+      `)
+      .order('created_at', { ascending: false })
+
+    if (!error && data) {
+      // Get participant counts for each session
+      const sessionsWithCounts = await Promise.all(
+        data.map(async (session: any) => {
+          const { count } = await supabase
+            .from('session_participants')
+            .select('*', { count: 'exact', head: true })
+            .eq('session_id', session.id)
+          
+          return {
+            ...session,
+            participant_count: count || 0
+          }
+        })
+      )
+      setSessions(sessionsWithCounts)
+    }
+  }
+
+  const loadTournaments = async () => {
+    const { data, error } = await supabase
+      .from('tournaments')
+      .select(`
+        *,
+        creator:users!created_by(full_name)
+      `)
+      .order('created_at', { ascending: false })
+
+    if (!error && data) {
+      // Get team and match counts for each tournament
+      const tournamentsWithCounts = await Promise.all(
+        data.map(async (tournament: any) => {
+          const { count: teamsCount } = await supabase
+            .from('tournament_teams')
+            .select('*', { count: 'exact', head: true })
+            .eq('tournament_id', tournament.id)
+          
+          const { count: matchesCount } = await supabase
+            .from('tournament_matches')
+            .select('*', { count: 'exact', head: true })
+            .eq('tournament_id', tournament.id)
+          
+          return {
+            ...tournament,
+            teams_count: teamsCount || 0,
+            matches_count: matchesCount || 0
+          }
+        })
+      )
+      setTournaments(tournamentsWithCounts)
     }
   }
 
@@ -252,6 +350,62 @@ export const AdminPanel: React.FC = () => {
     }
   }
 
+  // ─── Session Actions ──────────────────────────────────────────────────────
+  const handleDeleteSession = async (sessionId: string) => {
+    if (!window.confirm('⚠️ Are you sure you want to DELETE this session? This will also remove all participants!')) return
+
+    // First delete participants (cascade should handle this, but we do it explicitly)
+    await supabase
+      .from('session_participants')
+      .delete()
+      .eq('session_id', sessionId)
+
+    const { error } = await supabase
+      .from('sports_sessions')
+      .delete()
+      .eq('id', sessionId)
+
+    if (error) {
+      setMessage({ text: 'Failed to delete session: ' + error.message, type: 'error' })
+    } else {
+      setMessage({ text: '✅ Session deleted successfully', type: 'success' })
+      await loadSessions()
+    }
+  }
+
+  // ─── Tournament Actions ──────────────────────────────────────────────────
+  const handleDeleteTournament = async (tournamentId: string) => {
+    if (!window.confirm('⚠️ Are you sure you want to DELETE this tournament? This will delete all teams, matches, and related data!')) return
+
+    // Delete all related data (cascade will handle it, but we do it explicitly for safety)
+    await supabase
+      .from('tournament_matches')
+      .delete()
+      .eq('tournament_id', tournamentId)
+    
+    await supabase
+      .from('tournament_teams')
+      .delete()
+      .eq('tournament_id', tournamentId)
+    
+    await supabase
+      .from('tournament_participants')
+      .delete()
+      .eq('tournament_id', tournamentId)
+
+    const { error } = await supabase
+      .from('tournaments')
+      .delete()
+      .eq('id', tournamentId)
+
+    if (error) {
+      setMessage({ text: 'Failed to delete tournament: ' + error.message, type: 'error' })
+    } else {
+      setMessage({ text: '✅ Tournament deleted successfully', type: 'success' })
+      await loadTournaments()
+    }
+  }
+
   const filteredUsers = users.filter(u =>
     u.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     u.email?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -260,6 +414,16 @@ export const AdminPanel: React.FC = () => {
   const filteredSongs = songs.filter(s =>
     s.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     s.artist?.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+
+  const filteredSessions = sessions.filter(s =>
+    s.sport_type?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    s.location?.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+
+  const filteredTournaments = tournaments.filter(t =>
+    t.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    t.sport_type?.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   if (loading) {
@@ -291,6 +455,14 @@ export const AdminPanel: React.FC = () => {
   if (!isAdmin) {
     return null
   }
+
+  const tabs = [
+    { key: 'users', label: '👥 Users', count: users.length },
+    { key: 'listings', label: '📦 Listings', count: listings.length },
+    { key: 'songs', label: '🎵 Songs', count: songs.length },
+    { key: 'sessions', label: '🏟️ Sessions', count: sessions.length },
+    { key: 'tournaments', label: '🏆 Tournaments', count: tournaments.length },
+  ]
 
   return (
     <div style={{
@@ -326,7 +498,7 @@ export const AdminPanel: React.FC = () => {
             Manage Your Platform
           </h1>
           <p style={{ color: '#888', fontSize: '14px' }}>
-            Users: {users.length} • Listings: {listings.length} • Pending Songs: {songs.length}
+            Users: {users.length} • Listings: {listings.length} • Pending Songs: {songs.length} • Sessions: {sessions.length} • Tournaments: {tournaments.length}
           </p>
         </div>
 
@@ -358,57 +530,29 @@ export const AdminPanel: React.FC = () => {
           gap: '0',
           marginBottom: '24px',
           borderBottom: '1px solid rgba(255,255,255,0.05)',
-          position: 'relative',
-          flexWrap: 'wrap'
+          flexWrap: 'wrap',
+          overflowX: 'auto'
         }}>
-          <button
-            onClick={() => setActiveTab('users')}
-            style={{
-              padding: '12px 24px',
-              background: activeTab === 'users' ? 'rgba(200,162,0,0.1)' : 'transparent',
-              border: 'none',
-              color: activeTab === 'users' ? '#FFD700' : '#666',
-              fontWeight: activeTab === 'users' ? 'bold' : 'normal',
-              cursor: 'pointer',
-              borderBottom: activeTab === 'users' ? '2px solid #c8a200' : '2px solid transparent',
-              transition: 'all 0.3s',
-              fontSize: '14px'
-            }}
-          >
-            👥 Users
-          </button>
-          <button
-            onClick={() => setActiveTab('listings')}
-            style={{
-              padding: '12px 24px',
-              background: activeTab === 'listings' ? 'rgba(200,162,0,0.1)' : 'transparent',
-              border: 'none',
-              color: activeTab === 'listings' ? '#FFD700' : '#666',
-              fontWeight: activeTab === 'listings' ? 'bold' : 'normal',
-              cursor: 'pointer',
-              borderBottom: activeTab === 'listings' ? '2px solid #c8a200' : '2px solid transparent',
-              transition: 'all 0.3s',
-              fontSize: '14px'
-            }}
-          >
-            📦 Listings
-          </button>
-          <button
-            onClick={() => setActiveTab('songs')}
-            style={{
-              padding: '12px 24px',
-              background: activeTab === 'songs' ? 'rgba(200,162,0,0.1)' : 'transparent',
-              border: 'none',
-              color: activeTab === 'songs' ? '#FFD700' : '#666',
-              fontWeight: activeTab === 'songs' ? 'bold' : 'normal',
-              cursor: 'pointer',
-              borderBottom: activeTab === 'songs' ? '2px solid #c8a200' : '2px solid transparent',
-              transition: 'all 0.3s',
-              fontSize: '14px'
-            }}
-          >
-            🎵 Songs
-          </button>
+          {tabs.map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key as any)}
+              style={{
+                padding: '12px 20px',
+                background: activeTab === tab.key ? 'rgba(200,162,0,0.1)' : 'transparent',
+                border: 'none',
+                color: activeTab === tab.key ? '#FFD700' : '#666',
+                fontWeight: activeTab === tab.key ? 'bold' : 'normal',
+                cursor: 'pointer',
+                borderBottom: activeTab === tab.key ? '2px solid #c8a200' : '2px solid transparent',
+                transition: 'all 0.3s',
+                fontSize: '13px',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              {tab.label} ({tab.count})
+            </button>
+          ))}
         </div>
 
         {/* Search */}
@@ -417,7 +561,11 @@ export const AdminPanel: React.FC = () => {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={`Search ${activeTab === 'users' ? 'users...' : activeTab === 'listings' ? 'listings...' : 'songs...'}`}
+            placeholder={`Search ${activeTab === 'users' ? 'users...' : 
+                         activeTab === 'listings' ? 'listings...' : 
+                         activeTab === 'songs' ? 'songs...' :
+                         activeTab === 'sessions' ? 'sessions...' :
+                         'tournaments...'}`}
             style={{
               width: '100%',
               maxWidth: '400px',
@@ -826,13 +974,274 @@ export const AdminPanel: React.FC = () => {
           </div>
         )}
 
+        {/* Sessions Tab */}
+        {activeTab === 'sessions' && (
+          <div style={{
+            background: 'rgba(13,13,13,0.95)',
+            backdropFilter: 'blur(20px)',
+            border: '1px solid #c8a20020',
+            borderRadius: '12px',
+            overflow: 'hidden'
+          }}>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '50px 1fr 120px 100px 100px 80px 100px 140px',
+              padding: '12px 16px',
+              background: 'rgba(200,162,0,0.05)',
+              borderBottom: '1px solid rgba(255,255,255,0.05)',
+              fontSize: '12px',
+              color: '#666',
+              fontWeight: 'bold',
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              gap: '8px'
+            }}>
+              <span>ID</span>
+              <span>Sport</span>
+              <span>Date</span>
+              <span>Time</span>
+              <span>Location</span>
+              <span>Players</span>
+              <span>Creator</span>
+              <span>Actions</span>
+            </div>
+
+            {filteredSessions.length === 0 ? (
+              <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
+                No sessions found
+              </div>
+            ) : (
+              filteredSessions.map((session) => (
+                <div
+                  key={session.id}
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '50px 1fr 120px 100px 100px 80px 100px 140px',
+                    padding: '10px 16px',
+                    borderBottom: '1px solid rgba(255,255,255,0.03)',
+                    alignItems: 'center',
+                    gap: '8px',
+                    fontSize: '13px',
+                    color: '#ddd'
+                  }}
+                >
+                  <span style={{ color: '#666' }}>#{session.id.slice(0, 4)}</span>
+                  <span style={{ fontWeight: 'bold' }}>{session.sport_type}</span>
+                  <span style={{ color: '#888' }}>{session.session_date}</span>
+                  <span style={{ color: '#888' }}>{session.session_time.slice(0, 5)}</span>
+                  <span style={{ color: '#888' }}>{session.location}</span>
+                  <span style={{ color: '#FFD700' }}>{session.participant_count || 0}/{session.max_participants}</span>
+                  <span style={{ color: '#888', fontSize: '12px' }}>
+                    {session.creator?.full_name || 'Unknown'}
+                  </span>
+                  <div style={{ display: 'flex', gap: '4px' }}>
+                    <button
+                      onClick={() => {
+                        setShowDeleteModal({
+                          type: 'session',
+                          id: session.id,
+                          name: `${session.sport_type} - ${session.location}`
+                        })
+                      }}
+                      style={{
+                        padding: '4px 10px',
+                        background: 'rgba(239,68,68,0.1)',
+                        border: '1px solid rgba(239,68,68,0.2)',
+                        borderRadius: '6px',
+                        color: '#ef4444',
+                        fontSize: '10px',
+                        cursor: 'pointer',
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      🗑️ Delete
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
+        {/* Tournaments Tab */}
+        {activeTab === 'tournaments' && (
+          <div style={{
+            background: 'rgba(13,13,13,0.95)',
+            backdropFilter: 'blur(20px)',
+            border: '1px solid #c8a20020',
+            borderRadius: '12px',
+            overflow: 'hidden'
+          }}>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '50px 1fr 120px 100px 80px 80px 120px 140px',
+              padding: '12px 16px',
+              background: 'rgba(200,162,0,0.05)',
+              borderBottom: '1px solid rgba(255,255,255,0.05)',
+              fontSize: '12px',
+              color: '#666',
+              fontWeight: 'bold',
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              gap: '8px'
+            }}>
+              <span>ID</span>
+              <span>Name</span>
+              <span>Sport</span>
+              <span>Dates</span>
+              <span>Teams</span>
+              <span>Matches</span>
+              <span>Creator</span>
+              <span>Actions</span>
+            </div>
+
+            {filteredTournaments.length === 0 ? (
+              <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
+                No tournaments found
+              </div>
+            ) : (
+              filteredTournaments.map((tournament) => (
+                <div
+                  key={tournament.id}
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '50px 1fr 120px 100px 80px 80px 120px 140px',
+                    padding: '10px 16px',
+                    borderBottom: '1px solid rgba(255,255,255,0.03)',
+                    alignItems: 'center',
+                    gap: '8px',
+                    fontSize: '13px',
+                    color: '#ddd'
+                  }}
+                >
+                  <span style={{ color: '#666' }}>#{tournament.id.slice(0, 4)}</span>
+                  <span style={{ fontWeight: 'bold' }}>{tournament.name}</span>
+                  <span style={{ color: '#888' }}>{tournament.sport_type}</span>
+                  <span style={{ color: '#888', fontSize: '11px' }}>
+                    {tournament.start_date} → {tournament.end_date}
+                  </span>
+                  <span style={{ color: '#FFD700' }}>{tournament.teams_count || 0}</span>
+                  <span style={{ color: '#60a5fa' }}>{tournament.matches_count || 0}</span>
+                  <span style={{ color: '#888', fontSize: '12px' }}>
+                    {tournament.creator?.full_name || 'Unknown'}
+                  </span>
+                  <div style={{ display: 'flex', gap: '4px' }}>
+                    <button
+                      onClick={() => {
+                        setShowDeleteModal({
+                          type: 'tournament',
+                          id: tournament.id,
+                          name: tournament.name
+                        })
+                      }}
+                      style={{
+                        padding: '4px 10px',
+                        background: 'rgba(239,68,68,0.1)',
+                        border: '1px solid rgba(239,68,68,0.2)',
+                        borderRadius: '6px',
+                        color: '#ef4444',
+                        fontSize: '10px',
+                        cursor: 'pointer',
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      🗑️ Delete
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
         {/* Footer */}
         <div style={{ marginTop: '40px', textAlign: 'center' }}>
           <span style={{ color: '#374151', fontSize: '11px', letterSpacing: '0.06em' }}>
-            ⚡ Admin Panel v2.0 • Users • Listings • Songs
+            ⚡ Admin Panel v2.0 • Users • Listings • Songs • Sessions • Tournaments
           </span>
         </div>
       </div>
+
+      {/* ─── Delete Confirmation Modal ─── */}
+      {showDeleteModal && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 9999,
+          background: 'rgba(0,0,0,0.85)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px'
+        }}>
+          <div style={{
+            background: 'rgba(10,10,16,0.98)',
+            borderRadius: '24px',
+            border: '1px solid rgba(239,68,68,0.3)',
+            maxWidth: '450px',
+            width: '100%',
+            padding: '32px'
+          }}>
+            <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+              <div style={{ fontSize: '48px' }}>⚠️</div>
+              <h3 style={{ color: '#FFD700', marginTop: '8px' }}>Confirm Delete</h3>
+            </div>
+            
+            <p style={{ color: '#aaa', textAlign: 'center', marginBottom: '16px' }}>
+              Are you sure you want to delete <strong style={{ color: '#FFD700' }}>{showDeleteModal.name}</strong>?
+              <br />
+              <span style={{ color: '#6b7280', fontSize: '13px' }}>
+                {showDeleteModal.type === 'session' && 'This will remove the session and all participants.'}
+                {showDeleteModal.type === 'tournament' && 'This will remove the tournament, all teams, and all matches.'}
+              </span>
+              <br />
+              <span style={{ color: '#ef4444', fontSize: '13px' }}>
+                This action cannot be undone!
+              </span>
+            </p>
+
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button
+                onClick={() => setShowDeleteModal(null)}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  borderRadius: '8px',
+                  background: 'transparent',
+                  border: '1px solid #333',
+                  color: '#666',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if (showDeleteModal.type === 'session') {
+                    await handleDeleteSession(showDeleteModal.id)
+                  } else if (showDeleteModal.type === 'tournament') {
+                    await handleDeleteTournament(showDeleteModal.id)
+                  }
+                  setShowDeleteModal(null)
+                }}
+                style={{
+                  flex: 2,
+                  padding: '12px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: '#ef4444',
+                  color: 'white',
+                  fontWeight: 'bold',
+                  cursor: 'pointer'
+                }}
+              >
+                🗑️ Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style>{`
         @keyframes spin {
