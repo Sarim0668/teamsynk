@@ -1,5 +1,6 @@
+// src/components/auth/Login.tsx
 import React, { useState, useEffect, useRef } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 import { IMAGES } from '../../constants/images'
 
@@ -224,73 +225,6 @@ const SportsSVGScene: React.FC = () => (
   </svg>
 )
 
-/* ─── PasswordInput ───────────────────────────────────────────── */
-const PasswordInput: React.FC<{
-  value: string
-  onChange: (v: string) => void
-  placeholder?: string
-  id?: string
-  autoComplete?: string
-}> = ({ value, onChange, placeholder = '••••••••', id, autoComplete }) => {
-  const [show, setShow] = useState(false)
-  return (
-    <div className="ts-field-wrap" style={{ position: 'relative' }}>
-      {/* lock icon */}
-      <svg
-        className="ts-field-icon"
-        style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)', pointerEvents: 'none', transition: 'color 0.2s' }}
-        width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-      >
-        <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-      </svg>
-      <input
-        id={id}
-        type={show ? 'text' : 'password'}
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        placeholder={placeholder}
-        autoComplete={autoComplete}
-        required
-        className="ts-input"
-        style={{
-          width: '100%', padding: '13px 44px 13px 42px',
-          background: 'rgba(255,255,255,0.04)',
-          border: '1px solid rgba(255,255,255,0.08)',
-          borderRadius: 10, color: '#fff', fontSize: 14,
-          fontFamily: 'Plus Jakarta Sans, sans-serif',
-          transition: 'all 0.25s ease',
-          boxSizing: 'border-box',
-        }}
-      />
-      <button
-        type="button"
-        onClick={() => setShow(s => !s)}
-        aria-label={show ? 'Hide password' : 'Show password'}
-        style={{
-          position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
-          background: 'none', border: 'none', cursor: 'pointer',
-          color: 'rgba(255,255,255,0.35)', fontSize: 15, padding: 4, lineHeight: 1,
-          transition: 'color 0.2s',
-        }}
-      >
-        {show ? '🙈' : '👁'}
-      </button>
-    </div>
-  )
-}
-
-/* ─── FieldLabel ──────────────────────────────────────────────── */
-const FieldLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div style={{
-    fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.35)',
-    letterSpacing: '1px', textTransform: 'uppercase',
-    marginBottom: 7, fontFamily: 'Plus Jakarta Sans, sans-serif',
-  }}>
-    {children}
-  </div>
-)
-
 /* ─── EmailInput ──────────────────────────────────────────────── */
 const EmailInput: React.FC<{ value: string; onChange: (v: string) => void }> = ({ value, onChange }) => (
   <div className="ts-field-wrap" style={{ position: 'relative' }}>
@@ -323,6 +257,53 @@ const EmailInput: React.FC<{ value: string; onChange: (v: string) => void }> = (
   </div>
 )
 
+/* ─── OTP Input ───────────────────────────────────────────────── */
+const OtpInput: React.FC<{ value: string; onChange: (v: string) => void }> = ({ value, onChange }) => (
+  <div className="ts-field-wrap" style={{ position: 'relative' }}>
+    <svg
+      className="ts-field-icon"
+      style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)', pointerEvents: 'none', transition: 'color 0.2s' }}
+      width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+    >
+      <rect x="2" y="4" width="20" height="16" rx="2" />
+      <path d="M8 12h8" />
+      <path d="M12 8v8" />
+    </svg>
+    <input
+      type="text"
+      value={value}
+      onChange={e => onChange(e.target.value.replace(/\D/g, '').slice(0, 6))}
+      placeholder="000000"
+      maxLength={6}
+      required
+      className="ts-input"
+      style={{
+        width: '100%', padding: '13px 14px 13px 42px',
+        background: 'rgba(255,255,255,0.04)',
+        border: '1px solid rgba(255,255,255,0.08)',
+        borderRadius: 10, color: '#fff', fontSize: 20,
+        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        transition: 'all 0.25s ease',
+        boxSizing: 'border-box',
+        letterSpacing: '6px',
+        textAlign: 'center',
+        fontWeight: '600',
+      }}
+    />
+  </div>
+)
+
+/* ─── FieldLabel ──────────────────────────────────────────────── */
+const FieldLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <div style={{
+    fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.35)',
+    letterSpacing: '1px', textTransform: 'uppercase',
+    marginBottom: 7, fontFamily: 'Plus Jakarta Sans, sans-serif',
+  }}>
+    {children}
+  </div>
+)
+
 /* ─── Alert ───────────────────────────────────────────────────── */
 const Alert: React.FC<{ message: string; type?: 'error' | 'success' }> = ({ message, type = 'error' }) => (
   <div style={{
@@ -352,51 +333,138 @@ const Spinner: React.FC = () => (
 )
 
 /* ═══════════════════════════════════════════════════════════════
-   LOGIN COMPONENT
+   LOGIN COMPONENT - EMAIL OTP VERSION
 ═══════════════════════════════════════════════════════════════ */
 export const Login: React.FC = () => {
-  const [email,    setEmail]    = useState('')
-  const [password, setPassword] = useState('')
-  const [loading,  setLoading]  = useState(false)
-  const [error,    setError]    = useState('')
+  const location = useLocation()
+  const [email, setEmail] = useState('')
+  const [otp, setOtp] = useState('')
+  const [step, setStep] = useState<'email' | 'otp'>('email')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [message, setMessage] = useState('')
+  const [resendTimer, setResendTimer] = useState(0)
   const cardRef = useRef<HTMLDivElement>(null)
 
-  /* ── original Supabase auth logic — untouched ── */
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setError('')
+  // ─── Pre-fill email from navigation state ──────────────────────────────
+  useEffect(() => {
+    const state = location.state as { email?: string }
+    if (state?.email) {
+      setEmail(state.email)
+    }
+  }, [location])
 
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-      if (error) throw error
-
-      if (data.user) {
-        const { data: profile, error: profileError } = await supabase
-          .from('users')
-          .select('status')
-          .eq('id', data.user.id)
-          .single()
-
-        if (profileError) throw profileError
-
-        if (profile?.status === 'suspended') {
-          await supabase.auth.signOut()
-          setError('⚠️ Your account has been suspended. Please contact support.')
-          setLoading(false)
-          return
-        }
-
+  // ─── Check if already logged in ─────────────────────────────────────────
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
         window.location.href = '/'
       }
-    } catch (err: any) {
-      setError(err.message || 'Login failed')
-    } finally {
-      setLoading(false)
+    })
+  }, [])
+
+  // ─── Send OTP ────────────────────────────────────────────────────────────
+  const handleSendOTP = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!email) {
+      setError('Please enter your email')
+      return
     }
+
+    setLoading(true)
+    setError('')
+    setMessage('')
+
+    const { error } = await supabase.auth.signInWithOtp({
+      email: email,
+      options: {
+        shouldCreateUser: true,
+        emailRedirectTo: window.location.origin,
+      },
+    })
+
+    if (error) {
+      setError(error.message)
+    } else {
+      setMessage('✅ Magic code sent! Check your email.')
+      setStep('otp')
+      setResendTimer(60)
+      
+      const interval = setInterval(() => {
+        setResendTimer(prev => {
+          if (prev <= 1) {
+            clearInterval(interval)
+            return 0
+          }
+          return prev - 1
+        })
+      }, 1000)
+    }
+    setLoading(false)
   }
 
-  /* ── 3-D card tilt on mouse move ── */
+  // ─── Verify OTP ──────────────────────────────────────────────────────────
+  const handleVerifyOTP = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!otp || otp.length < 6) {
+      setError('Please enter the 6-digit code')
+      return
+    }
+
+    setLoading(true)
+    setError('')
+    setMessage('')
+
+    const { error } = await supabase.auth.verifyOtp({
+      email,
+      token: otp,
+      type: 'email',
+    })
+
+    if (error) {
+      setError('Invalid or expired code. Please try again.')
+    } else {
+      setMessage('✅ Login successful! Redirecting...')
+      setTimeout(() => {
+        window.location.href = '/'
+      }, 1500)
+    }
+    setLoading(false)
+  }
+
+  // ─── Resend OTP ──────────────────────────────────────────────────────────
+  const handleResendOTP = async () => {
+    if (resendTimer > 0) return
+    
+    setLoading(true)
+    setError('')
+    
+    const { error } = await supabase.auth.signInWithOtp({
+      email: email,
+      options: {
+        shouldCreateUser: true,
+      },
+    })
+
+    if (error) {
+      setError(error.message)
+    } else {
+      setMessage('✅ New magic code sent!')
+      setResendTimer(60)
+      const interval = setInterval(() => {
+        setResendTimer(prev => {
+          if (prev <= 1) {
+            clearInterval(interval)
+            return 0
+          }
+          return prev - 1
+        })
+      }, 1000)
+    }
+    setLoading(false)
+  }
+
+  // ─── 3-D card tilt ──────────────────────────────────────────────────────
   const handleMouseMove = (e: React.MouseEvent) => {
     const card = cardRef.current
     if (!card) return
@@ -560,52 +628,118 @@ export const Login: React.FC = () => {
 
             {/* Heading */}
             <div style={{ fontSize: 26, fontWeight: 700, textAlign: 'center', marginBottom: 6, letterSpacing: '-0.5px' }}>
-              Welcome back!
+              {step === 'email' ? 'Welcome back!' : 'Enter Magic Code'}
             </div>
             <div className="ts-font2" style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)', textAlign: 'center', marginBottom: 28, lineHeight: 1.5 }}>
-              Continue your journey with TeamSynk.
+              {step === 'email' 
+                ? 'No password needed! We\'ll send you a magic code.' 
+                : `We sent a code to ${email}`
+              }
             </div>
 
             {/* Alert */}
             {error && <Alert message={error} type="error" />}
+            {message && <Alert message={message} type="success" />}
 
-            {/* Form */}
-            <form onSubmit={handleLogin} noValidate>
-              {/* Email field */}
-              <div style={{ marginBottom: 16 }}>
-                <FieldLabel>Email</FieldLabel>
-                <EmailInput value={email} onChange={setEmail} />
-              </div>
+            {/* ─── STEP 1: Email ─── */}
+            {step === 'email' && (
+              <form onSubmit={handleSendOTP} noValidate>
+                <div style={{ marginBottom: 16 }}>
+                  <FieldLabel>Email</FieldLabel>
+                  <EmailInput value={email} onChange={setEmail} />
+                </div>
 
-              {/* Password field */}
-              <div style={{ marginBottom: 28 }}>
-                <FieldLabel>Password</FieldLabel>
-                <PasswordInput
-                  value={password}
-                  onChange={setPassword}
-                  autoComplete="current-password"
-                />
-              </div>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="ts-btn-gold ts-shimmer-btn"
+                  style={{
+                    width: '100%', padding: '15px 0',
+                    background: 'linear-gradient(135deg,#c8a200 0%,#FFD700 50%,#f0c840 100%)',
+                    border: 'none', borderRadius: 11,
+                    color: '#0a0800', fontSize: 15, fontWeight: 700,
+                    fontFamily: 'Sora, sans-serif', cursor: 'pointer',
+                    position: 'relative', overflow: 'hidden',
+                    transition: 'all 0.25s ease', letterSpacing: '0.3px',
+                    boxShadow: '0 4px 20px rgba(200,162,0,0.2)',
+                  }}
+                >
+                  {loading ? <><Spinner />Sending magic code…</> : '📧 Send Magic Code'}
+                </button>
+              </form>
+            )}
 
-              {/* CTA button */}
-              <button
-                type="submit"
-                disabled={loading}
-                className="ts-btn-gold ts-shimmer-btn"
-                style={{
-                  width: '100%', padding: '15px 0',
-                  background: 'linear-gradient(135deg,#c8a200 0%,#FFD700 50%,#f0c840 100%)',
-                  border: 'none', borderRadius: 11,
-                  color: '#0a0800', fontSize: 15, fontWeight: 700,
-                  fontFamily: 'Sora, sans-serif', cursor: 'pointer',
-                  position: 'relative', overflow: 'hidden',
-                  transition: 'all 0.25s ease', letterSpacing: '0.3px',
-                  boxShadow: '0 4px 20px rgba(200,162,0,0.2)',
-                }}
-              >
-                {loading ? <><Spinner />Signing you in…</> : 'Sign In to TeamSynk'}
-              </button>
-            </form>
+            {/* ─── STEP 2: OTP ─── */}
+            {step === 'otp' && (
+              <form onSubmit={handleVerifyOTP} noValidate>
+                <div style={{ marginBottom: 16 }}>
+                  <FieldLabel>Enter 6-Digit Code</FieldLabel>
+                  <OtpInput value={otp} onChange={setOtp} />
+                </div>
+
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: 20,
+                }}>
+                  <button
+                    type="button"
+                    onClick={handleResendOTP}
+                    disabled={resendTimer > 0 || loading}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: resendTimer > 0 ? '#374151' : '#c8a200',
+                      fontSize: 13,
+                      fontFamily: 'Plus Jakarta Sans, sans-serif',
+                      cursor: resendTimer > 0 ? 'not-allowed' : 'pointer',
+                      transition: 'color 0.3s ease',
+                    }}
+                  >
+                    {resendTimer > 0 ? `Resend in ${resendTimer}s` : 'Resend Code'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStep('email')
+                      setOtp('')
+                      setError('')
+                      setMessage('')
+                    }}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: '#6b7280',
+                      fontSize: 13,
+                      fontFamily: 'Plus Jakarta Sans, sans-serif',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    ← Change Email
+                  </button>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading || otp.length < 6}
+                  className="ts-btn-gold ts-shimmer-btn"
+                  style={{
+                    width: '100%', padding: '15px 0',
+                    background: otp.length < 6 ? 'rgba(200,162,0,0.3)' : 'linear-gradient(135deg,#c8a200 0%,#FFD700 50%,#f0c840 100%)',
+                    border: 'none', borderRadius: 11,
+                    color: otp.length < 6 ? '#4b5563' : '#0a0800',
+                    fontSize: 15, fontWeight: 700,
+                    fontFamily: 'Sora, sans-serif', cursor: otp.length < 6 ? 'not-allowed' : 'pointer',
+                    position: 'relative', overflow: 'hidden',
+                    transition: 'all 0.25s ease', letterSpacing: '0.3px',
+                    boxShadow: otp.length < 6 ? 'none' : '0 4px 20px rgba(200,162,0,0.2)',
+                  }}
+                >
+                  {loading ? <><Spinner />Verifying…</> : '🔓 Verify & Login'}
+                </button>
+              </form>
+            )}
 
             {/* Footer */}
             <div className="ts-font2" style={{ textAlign: 'center', marginTop: 22, fontSize: 13, color: 'rgba(255,255,255,0.35)' }}>
@@ -613,6 +747,17 @@ export const Login: React.FC = () => {
               <Link to="/register" style={{ color: '#f0c000', textDecoration: 'none', fontWeight: 600 }}>
                 Join the community →
               </Link>
+            </div>
+
+            {/* Security note */}
+            <div className="ts-font2" style={{
+              textAlign: 'center',
+              marginTop: 12,
+              fontSize: 11,
+              color: 'rgba(255,255,255,0.2)',
+              letterSpacing: '0.3px'
+            }}>
+              🔐 Secure • No Password Required • Magic Code via Email
             </div>
           </div>
         </div>
