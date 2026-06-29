@@ -1,25 +1,14 @@
 // src/components/support/HelpSupport.tsx
 import React, { useState, useEffect, useRef } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
-
-interface Message {
-  id: string
-  sender_id: string
-  receiver_id: string
-  message_text: string
-  is_read: boolean
-  created_at: string
-  sender?: {
-    full_name: string
-  }
-}
 
 export const HelpSupport: React.FC = () => {
   const navigate = useNavigate()
-  const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [messages, setMessages] = useState<Message[]>([])
+  const [user, setUser] = useState<any>(null)
+  const [admin, setAdmin] = useState<any>(null)
+  const [messages, setMessages] = useState<any[]>([])
   const [newMessage, setNewMessage] = useState('')
   const [sending, setSending] = useState(false)
   const [showEmailModal, setShowEmailModal] = useState(false)
@@ -29,50 +18,48 @@ export const HelpSupport: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const ADMIN_EMAIL = 'i240668@isb.nu.edu.pk'
-  const ADMIN_ID = 'admin' // This will be replaced with actual admin ID from database
 
   useEffect(() => {
-    checkUserAndLoad()
+    loadData()
   }, [])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  const checkUserAndLoad = async () => {
-    const { data: { user: currentUser } } = await supabase.auth.getUser()
+  const loadData = async () => {
+    setLoading(true)
     
+    // Get current user
+    const { data: { user: currentUser } } = await supabase.auth.getUser()
     if (!currentUser) {
       navigate('/login')
       return
     }
-
     setUser(currentUser)
-    
-    // Get admin user ID
+
+    // Get admin user
     const { data: adminData } = await supabase
       .from('users')
-      .select('id')
+      .select('id, full_name, email')
       .eq('email', ADMIN_EMAIL)
       .single()
 
     if (adminData) {
+      setAdmin(adminData)
       await loadMessages(currentUser.id, adminData.id)
+      subscribeToMessages(currentUser.id, adminData.id)
     } else {
-      // If admin not found, still allow messaging
-      await loadMessages(currentUser.id, 'admin')
+      console.log('Admin not found:', ADMIN_EMAIL)
     }
-    
+
     setLoading(false)
   }
 
   const loadMessages = async (userId: string, adminId: string) => {
     const { data, error } = await supabase
       .from('messages')
-      .select(`
-        *,
-        sender:users!sender_id(full_name)
-      `)
+      .select('*')
       .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
       .or(`sender_id.eq.${adminId},receiver_id.eq.${adminId}`)
       .order('created_at', { ascending: true })
@@ -81,7 +68,7 @@ export const HelpSupport: React.FC = () => {
       setMessages(data)
       
       // Mark unread messages as read
-      const unreadMessages = data.filter(m => m.receiver_id === userId && !m.is_read)
+      const unreadMessages = data.filter((m: any) => m.receiver_id === userId && !m.is_read)
       for (const msg of unreadMessages) {
         await supabase
           .from('messages')
@@ -91,25 +78,41 @@ export const HelpSupport: React.FC = () => {
     }
   }
 
+  const subscribeToMessages = (userId: string, adminId: string) => {
+    const subscription = supabase
+      .channel('support-messages')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `receiver_id=eq.${userId}`
+        },
+        (payload) => {
+          const newMsg = payload.new as any
+          if (newMsg.sender_id === adminId) {
+            setMessages(prev => [...prev, newMsg])
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      subscription.unsubscribe()
+    }
+  }
+
   const sendMessage = async () => {
-    if (!newMessage.trim() || sending || !user) return
+    if (!newMessage.trim() || sending || !user || !admin) return
 
     setSending(true)
-
-    // Get admin ID
-    const { data: adminData } = await supabase
-      .from('users')
-      .select('id')
-      .eq('email', ADMIN_EMAIL)
-      .single()
-
-    const receiverId = adminData?.id || 'admin'
 
     const { error } = await supabase
       .from('messages')
       .insert({
         sender_id: user.id,
-        receiver_id: receiverId,
+        receiver_id: admin.id,
         message_text: newMessage.trim(),
         is_read: false
       })
@@ -117,9 +120,17 @@ export const HelpSupport: React.FC = () => {
     if (error) {
       alert('Failed to send message: ' + error.message)
     } else {
+      // Add to local state immediately
+      const tempMsg = {
+        id: Date.now().toString(),
+        sender_id: user.id,
+        receiver_id: admin.id,
+        message_text: newMessage.trim(),
+        is_read: false,
+        created_at: new Date().toISOString()
+      }
+      setMessages(prev => [...prev, tempMsg])
       setNewMessage('')
-      // Reload messages
-      await loadMessages(user.id, receiverId)
     }
     setSending(false)
   }
@@ -133,7 +144,6 @@ export const HelpSupport: React.FC = () => {
     setSendingEmail(true)
 
     try {
-      // Open default email client
       const mailtoLink = `mailto:${ADMIN_EMAIL}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(
         `From: ${user?.email || 'Anonymous'}\n\n${emailBody}\n\n---\nSent from TeamSynk Support`
       )}`
@@ -382,7 +392,35 @@ export const HelpSupport: React.FC = () => {
             flexDirection: 'column',
             gap: '6px'
           }}>
-            {messages.length === 0 ? (
+            {!admin ? (
+              <div style={{
+                textAlign: 'center',
+                color: '#4b5563',
+                padding: '40px 20px'
+              }}>
+                <div style={{ fontSize: '40px', marginBottom: '12px' }}>📧</div>
+                <p style={{ fontWeight: 'bold', color: '#6b7280' }}>Admin not found</p>
+                <p style={{ fontSize: '13px' }}>Please use the <strong style={{ color: '#c8a200' }}>Email Support</strong> button above</p>
+                <p style={{ fontSize: '12px', color: '#4b5563', marginTop: '8px' }}>
+                  Admin email: {ADMIN_EMAIL}
+                </p>
+                <button
+                  onClick={() => setShowEmailModal(true)}
+                  style={{
+                    marginTop: '12px',
+                    padding: '10px 24px',
+                    background: 'linear-gradient(135deg, #c8a200, #FFD700)',
+                    border: 'none',
+                    borderRadius: '8px',
+                    color: '#0a0a0a',
+                    fontWeight: 'bold',
+                    cursor: 'pointer'
+                  }}
+                >
+                  📧 Send Email
+                </button>
+              </div>
+            ) : messages.length === 0 ? (
               <div style={{
                 textAlign: 'center',
                 color: '#4b5563',
@@ -393,9 +431,9 @@ export const HelpSupport: React.FC = () => {
                 <p style={{ fontSize: '13px' }}>Send a message to get support</p>
               </div>
             ) : (
-              messages.map((msg) => {
+              messages.map((msg: any) => {
                 const isMine = msg.sender_id === user?.id
-                const isAdmin = msg.sender?.full_name === 'Admin' || msg.sender_id === 'admin'
+                const isAdmin = msg.sender_id === admin?.id
                 
                 return (
                   <div
@@ -447,54 +485,56 @@ export const HelpSupport: React.FC = () => {
           </div>
 
           {/* Input */}
-          <div style={{
-            padding: '12px 20px',
-            background: 'rgba(0,0,0,0.2)',
-            borderTop: '1px solid rgba(255,255,255,0.05)',
-            display: 'flex',
-            gap: '12px'
-          }}>
-            <input
-              type="text"
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault()
-                  sendMessage()
-                }
-              }}
-              placeholder="Type your message..."
-              style={{
-                flex: 1,
-                padding: '10px 16px',
-                background: 'rgba(255,255,255,0.04)',
-                border: '1px solid rgba(255,255,255,0.08)',
-                borderRadius: '10px',
-                color: 'white',
-                fontSize: '14px',
-                outline: 'none'
-              }}
-            />
-            <button
-              onClick={sendMessage}
-              disabled={sending || !newMessage.trim()}
-              style={{
-                padding: '10px 24px',
-                background: !newMessage.trim() || sending 
-                  ? 'rgba(200,162,0,0.3)' 
-                  : 'linear-gradient(135deg, #c8a200, #FFD700)',
-                border: 'none',
-                borderRadius: '10px',
-                color: !newMessage.trim() || sending ? '#4b5563' : '#0a0a0a',
-                fontWeight: 'bold',
-                cursor: !newMessage.trim() || sending ? 'not-allowed' : 'pointer',
-                fontSize: '14px'
-              }}
-            >
-              {sending ? '...' : 'Send'}
-            </button>
-          </div>
+          {admin && (
+            <div style={{
+              padding: '12px 20px',
+              background: 'rgba(0,0,0,0.2)',
+              borderTop: '1px solid rgba(255,255,255,0.05)',
+              display: 'flex',
+              gap: '12px'
+            }}>
+              <input
+                type="text"
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault()
+                    sendMessage()
+                  }
+                }}
+                placeholder="Type your message..."
+                style={{
+                  flex: 1,
+                  padding: '10px 16px',
+                  background: 'rgba(255,255,255,0.04)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: '10px',
+                  color: 'white',
+                  fontSize: '14px',
+                  outline: 'none'
+                }}
+              />
+              <button
+                onClick={sendMessage}
+                disabled={sending || !newMessage.trim()}
+                style={{
+                  padding: '10px 24px',
+                  background: !newMessage.trim() || sending 
+                    ? 'rgba(200,162,0,0.3)' 
+                    : 'linear-gradient(135deg, #c8a200, #FFD700)',
+                  border: 'none',
+                  borderRadius: '10px',
+                  color: !newMessage.trim() || sending ? '#4b5563' : '#0a0a0a',
+                  fontWeight: 'bold',
+                  cursor: !newMessage.trim() || sending ? 'not-allowed' : 'pointer',
+                  fontSize: '14px'
+                }}
+              >
+                {sending ? '...' : 'Send'}
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Email Modal */}
