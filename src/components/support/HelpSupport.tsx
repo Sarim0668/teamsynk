@@ -20,6 +20,22 @@ export const HelpSupport: React.FC = () => {
       <p style={{ color: '#666', fontSize: '14px', marginTop: '8px' }}>
         If you can see this, the route is working correctly.
       </p>
+      <button
+        onClick={() => window.location.href = '/'}
+        style={{
+          marginTop: '24px',
+          padding: '12px 24px',
+          background: 'linear-gradient(135deg, #c8a200, #FFD700)',
+          border: 'none',
+          borderRadius: '8px',
+          color: '#0a0a0a',
+          fontWeight: 'bold',
+          cursor: 'pointer',
+          fontSize: '16px'
+        }}
+      >
+        ← Back to Dashboard
+      </button>
     </div>
   )
 }

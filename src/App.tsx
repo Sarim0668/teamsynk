@@ -26,7 +26,7 @@ import { CommunityChat } from './components/community/CommunityChat'
 import { CreateTournament } from './components/tournaments/CreateTournament'
 import { TournamentDetail } from './components/tournaments/TournamentDetail'
 import { TournamentsList } from './components/tournaments/TournamentsList'
-
+import { HelpSupport } from './components/support/HelpSupport'
 import './premiumMotion.css'
 
 // ─── Placeholder page ─────────────────────────────────────────────────────────
@@ -378,6 +378,7 @@ function AppInner({ user }: { user: any }) {
           <Route path="/music" element={user ? <Music /> : <Navigate to="/login" />} />  
           <Route path="/community" element={user ? <CommunityHub /> : <Navigate to="/login" />} />
           <Route path="/community/:id" element={user ? <CommunityChat /> : <Navigate to="/login" />} />
+          <Route path="/help" element={user ? <HelpSupport /> : <Navigate to="/login" />} />
         </Routes>
       </main>
     </>
