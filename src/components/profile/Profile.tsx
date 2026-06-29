@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react'
+// src/components/profile/Profile.tsx
+import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 
-// ─── Animated counter (reused from Dashboard pattern) ───────────────────────
+// ─── Animated counter ───────────────────────────────────────────────────────
 function AnimatedNumber({ value }: { value: number }) {
   const [display, setDisplay] = useState(0)
   useEffect(() => {
@@ -142,7 +143,11 @@ function PremiumSelect({
           {options.map((opt: any) => {
             const v = typeof opt === 'string' ? opt : opt.value
             const l = typeof opt === 'string' ? opt : opt.label
-            return <option key={v} value={v} style={{ background: '#111118', color: '#f9fafb' }}>{l}</option>
+            return <option key={v} value={v} style={{ 
+              background: '#1a1a24', 
+              color: '#f9fafb',
+              padding: '8px'
+            }}>{l}</option>
           })}
         </select>
         {/* Chevron */}
@@ -205,88 +210,39 @@ function StatCard({ label, value, icon, delay }: { label: string; value: number;
   )
 }
 
-// ─── Avatar ring ──────────────────────────────────────────────────────────────
-function AvatarRing({ avatarUrl, initials, editMode, uploading, onUpload }: {
-  avatarUrl: string | null; initials: string
-  editMode: boolean; uploading: boolean
-  onUpload: () => void
-}) {
-  const [hovered, setHovered] = useState(false)
+// ─── Avatar (without upload) ────────────────────────────────────────────────
+function Avatar({ initials }: { initials: string }) {
   return (
-    <div
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{ position: 'relative', width: '120px', height: '120px', flexShrink: 0 }}
-    >
+    <div style={{
+      position: 'relative', width: '100px', height: '100px', flexShrink: 0
+    }}>
       {/* Rotating gold ring */}
       <div style={{
         position: 'absolute', inset: '-5px',
         borderRadius: '50%',
         background: 'conic-gradient(from 0deg, transparent 30%, rgba(200,162,0,0.5) 55%, rgba(255,215,0,1) 70%, rgba(200,162,0,0.5) 85%, transparent)',
         animation: 'rotateConic 3.5s linear infinite',
-        opacity: hovered ? 1 : 0.7,
-        transition: 'opacity 0.4s ease',
+        opacity: 0.7,
       }} />
       {/* Ring mask */}
       <div style={{
         position: 'absolute', inset: '-3px', borderRadius: '50%',
         background: '#0D0D0F',
       }} />
-      {/* Glow behind avatar */}
-      <div style={{
-        position: 'absolute', inset: 0, borderRadius: '50%',
-        boxShadow: hovered
-          ? '0 0 40px rgba(200,162,0,0.4), 0 0 80px rgba(200,162,0,0.15)'
-          : '0 0 20px rgba(200,162,0,0.2)',
-        transition: 'box-shadow 0.4s ease',
-        zIndex: 1,
-      }} />
       {/* Avatar circle */}
       <div style={{
         position: 'absolute', inset: 0, borderRadius: '50%',
         background: 'linear-gradient(135deg, rgba(200,162,0,0.15), rgba(255,215,0,0.08))',
         border: '2px solid rgba(200,162,0,0.3)',
-        overflow: 'hidden',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         zIndex: 2,
       }}>
-        {avatarUrl ? (
-          <img src={avatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-        ) : (
-          <span style={{
-            fontSize: '40px', fontWeight: '900', fontFamily: "'Inter', sans-serif",
-            background: 'linear-gradient(135deg, #c8a200, #FFD700)',
-            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
-          }}>{initials}</span>
-        )}
+        <span style={{
+          fontSize: '36px', fontWeight: '900', fontFamily: "'Inter', sans-serif",
+          background: 'linear-gradient(135deg, #c8a200, #FFD700)',
+          WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+        }}>{initials}</span>
       </div>
-      {/* Upload button */}
-      {editMode && (
-        <button
-          onClick={onUpload}
-          disabled={uploading}
-          style={{
-            position: 'absolute', bottom: '4px', right: '4px',
-            width: '32px', height: '32px', borderRadius: '50%',
-            background: uploading ? 'rgba(200,162,0,0.5)' : 'linear-gradient(135deg, #c8a200, #FFD700)',
-            border: '2px solid #0D0D0F',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            cursor: uploading ? 'not-allowed' : 'pointer',
-            zIndex: 3, boxShadow: '0 4px 16px rgba(200,162,0,0.4)',
-            transition: 'all 0.25s ease',
-            transform: hovered ? 'scale(1.1)' : 'scale(1)',
-          }}
-        >
-          {uploading ? (
-            <div style={{ width: '14px', height: '14px', border: '2px solid rgba(0,0,0,0.4)', borderTopColor: '#000', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
-          ) : (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-              <circle cx="12" cy="13" r="4" />
-            </svg>
-          )}
-        </button>
-      )}
     </div>
   )
 }
@@ -346,12 +302,8 @@ export const Profile: React.FC = () => {
     role: 'Player',
     bio: '',
     skill_level: 'Beginner',
-    university: '', // ← ADDED
+    university: '',
   })
-
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
-  const [uploading, setUploading] = useState(false)
 
   // ─── University options ──────────────────────────────────────────────────────
   const universities = [
@@ -389,9 +341,8 @@ export const Profile: React.FC = () => {
         role: profileData.role || 'Player',
         bio: profileData.bio || '',
         skill_level: profileData.skill_level || 'Beginner',
-        university: profileData.university || '', // ← ADDED
+        university: profileData.university || '',
       })
-      setAvatarUrl(profileData.avatar_url || null)
     }
     setLoading(false)
   }
@@ -411,8 +362,7 @@ export const Profile: React.FC = () => {
         role: formData.role,
         bio: formData.bio || null,
         skill_level: formData.skill_level,
-        university: formData.university || null, // ← ADDED
-        avatar_url: avatarUrl,
+        university: formData.university || null,
         updated_at: new Date().toISOString(),
       }).eq('id', user.id)
 
@@ -426,30 +376,6 @@ export const Profile: React.FC = () => {
     setSaving(false)
   }
 
-  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    if (!['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.type)) {
-      setMessage({ text: 'Please upload a JPEG, PNG, GIF, or WEBP image', type: 'error' }); return
-    }
-    if (file.size > 2 * 1024 * 1024) {
-      setMessage({ text: 'Image must be less than 2MB', type: 'error' }); return
-    }
-    setUploading(true); setMessage(null)
-    try {
-      const fileExt = file.name.split('.').pop()
-      const filePath = `avatars/${user.id}-${Date.now()}.${fileExt}`
-      const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, file)
-      if (uploadError) throw uploadError
-      const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath)
-      setAvatarUrl(publicUrl)
-      setMessage({ text: 'Avatar uploaded', type: 'success' })
-    } catch (err: any) {
-      setMessage({ text: 'Upload failed: ' + err.message, type: 'error' })
-    }
-    setUploading(false)
-  }
-
   const handleCancel = () => {
     setEditMode(false)
     setFormData({
@@ -460,9 +386,8 @@ export const Profile: React.FC = () => {
       role: profile?.role || 'Player',
       bio: profile?.bio || '',
       skill_level: profile?.skill_level || 'Beginner',
-      university: profile?.university || '', // ← ADDED
+      university: profile?.university || '',
     })
-    setAvatarUrl(profile?.avatar_url || null)
     setMessage(null)
   }
 
@@ -517,18 +442,15 @@ export const Profile: React.FC = () => {
           marginBottom: '24px',
           animation: 'fadeSlideUp 0.6s ease both',
         }}>
-          {/* Hero gradient banner */}
           <div style={{
             position: 'absolute', inset: 0,
             background: 'linear-gradient(135deg, rgba(20,18,10,0.98) 0%, rgba(12,12,18,0.98) 60%, rgba(16,12,6,0.98) 100%)',
             backdropFilter: 'blur(40px)',
           }} />
-          {/* Gold shimmer top border */}
           <div style={{
             position: 'absolute', top: 0, left: 0, right: 0, height: '1px',
             background: 'linear-gradient(90deg, transparent 0%, rgba(200,162,0,0.3) 20%, rgba(255,215,0,0.7) 50%, rgba(200,162,0,0.3) 80%, transparent 100%)',
           }} />
-          {/* Decorative corner glow */}
           <div style={{
             position: 'absolute', top: '-60px', right: '-60px', width: '300px', height: '300px',
             borderRadius: '50%', background: 'rgba(200,162,0,0.04)', filter: 'blur(60px)', pointerEvents: 'none',
@@ -566,15 +488,8 @@ export const Profile: React.FC = () => {
 
             {/* Main hero content */}
             <div style={{ display: 'flex', gap: '32px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-              {/* Avatar */}
-              <AvatarRing
-                avatarUrl={avatarUrl}
-                initials={initials}
-                editMode={editMode}
-                uploading={uploading}
-                onUpload={() => fileInputRef.current?.click()}
-              />
-              <input ref={fileInputRef} type="file" accept="image/*" onChange={handleAvatarUpload} style={{ display: 'none' }} />
+              {/* Avatar - No upload */}
+              <Avatar initials={initials} />
 
               {/* Info */}
               <div style={{ flex: 1, minWidth: '200px' }}>
@@ -651,7 +566,6 @@ export const Profile: React.FC = () => {
           marginBottom: '24px',
           animation: 'fadeSlideUp 0.6s ease 0.1s both',
         }}>
-          {/* Card top gold line */}
           <div style={{ height: '1px', background: 'linear-gradient(90deg, transparent, rgba(200,162,0,0.25), transparent)' }} />
 
           <div style={{ padding: '36px' }}>
@@ -732,7 +646,7 @@ export const Profile: React.FC = () => {
               />
             </div>
 
-            {/* Action row inside card (mobile-friendly secondary) */}
+            {/* Action row inside card */}
             {editMode && (
               <div style={{ display: 'flex', gap: '12px', marginTop: '28px', justifyContent: 'flex-end' }}>
                 <GhostButton onClick={handleCancel} disabled={saving}>Cancel</GhostButton>
@@ -768,7 +682,11 @@ export const Profile: React.FC = () => {
         *  { box-sizing: border-box; }
 
         input::placeholder, textarea::placeholder { color: #374151; }
-        select option { background: #111118; color: #f9fafb; }
+        select option { 
+          background: #1a1a24; 
+          color: #f9fafb;
+          padding: 8px;
+        }
 
         ::-webkit-scrollbar       { width: 6px; }
         ::-webkit-scrollbar-track { background: #0D0D0F; }
