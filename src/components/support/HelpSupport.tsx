@@ -1,6 +1,6 @@
 // src/components/support/HelpSupport.tsx
 import React, { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 
 export const HelpSupport: React.FC = () => {
@@ -39,19 +39,12 @@ export const HelpSupport: React.FC = () => {
       }
       setUser(currentUser)
 
-      // Get admin user
-      const { data: adminData, error: adminError } = await supabase
+      // Try to get admin user
+      const { data: adminData } = await supabase
         .from('users')
         .select('id, full_name, email')
         .eq('email', ADMIN_EMAIL)
         .single()
-
-      if (adminError) {
-        console.log('Admin not found:', adminError)
-        setAdmin(null)
-        setLoading(false)
-        return
-      }
 
       if (adminData) {
         setAdmin(adminData)
@@ -134,7 +127,6 @@ export const HelpSupport: React.FC = () => {
       if (error) {
         alert('Failed to send message: ' + error.message)
       } else {
-        // Add to local state immediately
         const tempMsg = {
           id: Date.now().toString(),
           sender_id: user.id,
@@ -187,6 +179,7 @@ export const HelpSupport: React.FC = () => {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   }
 
+  // ─── SHOW LOADING ──────────────────────────────────────────────────────────
   if (loading) {
     return (
       <div style={{
@@ -213,6 +206,7 @@ export const HelpSupport: React.FC = () => {
     )
   }
 
+  // ─── RENDER COMPONENT ──────────────────────────────────────────────────────
   return (
     <div style={{
       minHeight: '100vh',
@@ -221,6 +215,7 @@ export const HelpSupport: React.FC = () => {
       padding: '24px',
       position: 'relative'
     }}>
+      {/* Background glow */}
       <div style={{
         position: 'fixed', inset: 0, zIndex: 0,
         background: 'radial-gradient(ellipse 70% 45% at 50% -5%, rgba(200,162,0,0.05) 0%, transparent 65%)',
@@ -228,7 +223,7 @@ export const HelpSupport: React.FC = () => {
       }} />
 
       <div style={{ maxWidth: '900px', margin: '0 auto', position: 'relative', zIndex: 1 }}>
-        {/* Header */}
+        {/* ─── HEADER ─── */}
         <div style={{ marginBottom: '24px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
             <div style={{
@@ -250,7 +245,7 @@ export const HelpSupport: React.FC = () => {
           </div>
         </div>
 
-        {/* Quick Actions */}
+        {/* ─── QUICK ACTIONS ─── */}
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
@@ -308,7 +303,7 @@ export const HelpSupport: React.FC = () => {
           </div>
         </div>
 
-        {/* Info Cards */}
+        {/* ─── INFO CARDS ─── */}
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
@@ -368,7 +363,7 @@ export const HelpSupport: React.FC = () => {
           </div>
         </div>
 
-        {/* Chat Section */}
+        {/* ─── CHAT SECTION ─── */}
         <div style={{
           background: 'rgba(16,16,22,0.95)',
           borderRadius: '16px',
@@ -554,7 +549,7 @@ export const HelpSupport: React.FC = () => {
           )}
         </div>
 
-        {/* Email Modal */}
+        {/* ─── EMAIL MODAL ─── */}
         {showEmailModal && (
           <div style={{
             position: 'fixed',
