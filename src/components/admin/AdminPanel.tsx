@@ -168,7 +168,6 @@ export const AdminPanel: React.FC = () => {
       .order('created_at', { ascending: false })
 
     if (!error && data) {
-      // Get participant counts for each session
       const sessionsWithCounts = await Promise.all(
         data.map(async (session: any) => {
           const { count } = await supabase
@@ -196,7 +195,6 @@ export const AdminPanel: React.FC = () => {
       .order('created_at', { ascending: false })
 
     if (!error && data) {
-      // Get team and match counts for each tournament
       const tournamentsWithCounts = await Promise.all(
         data.map(async (tournament: any) => {
           const { count: teamsCount } = await supabase
@@ -351,27 +349,15 @@ export const AdminPanel: React.FC = () => {
     }
   }
 
-  // ─── Session Actions ──────────────────────────────────────────────────────
-// src/components/admin/AdminPanel.tsx - FIXED DELETE FUNCTIONS
-
-  // ─── Session Actions ──────────────────────────────────────────────────────
+  // ─── FIXED: Session Delete ────────────────────────────────────────────────
   const handleDeleteSession = async (sessionId: string) => {
+    if (!window.confirm(`⚠️ Are you sure you want to DELETE this session? This will remove all participants too!`)) return
+    
     setIsDeleting(true)
     try {
-      console.log('🗑️ Attempting to delete session:', sessionId)
+      console.log('🗑️ Deleting session:', sessionId)
       
-      // First, verify the session exists
-      const { data: sessionExists, error: checkError } = await supabase
-        .from('sports_sessions')
-        .select('id')
-        .eq('id', sessionId)
-        .single()
-
-      if (checkError || !sessionExists) {
-        throw new Error('Session not found or already deleted')
-      }
-
-      // Delete participants first
+      // First delete all participants
       const { error: participantsError } = await supabase
         .from('session_participants')
         .delete()
@@ -379,7 +365,7 @@ export const AdminPanel: React.FC = () => {
 
       if (participantsError) {
         console.error('Error deleting participants:', participantsError)
-        // Continue anyway - maybe there are no participants
+        // Continue anyway
       }
 
       // Then delete the session
@@ -389,52 +375,39 @@ export const AdminPanel: React.FC = () => {
         .eq('id', sessionId)
 
       if (sessionError) {
-        throw new Error('Failed to delete session: ' + sessionError.message)
+        throw new Error('Delete failed: ' + sessionError.message)
       }
 
-      console.log('✅ Session deleted successfully:', sessionId)
-      setMessage({ text: '✅ Session deleted successfully', type: 'success' })
+      console.log('✅ Session deleted successfully!')
+      setMessage({ text: '✅ Session deleted successfully!', type: 'success' })
       
-      // Update local state immediately
+      // Remove from local state
       setSessions(prev => prev.filter(s => s.id !== sessionId))
       
-      // Also reload from database to be safe
+      // Reload from database to confirm
       await loadSessions()
       
-      // Close the modal
       setShowDeleteModal(null)
       
-      // Show success notification
-      setTimeout(() => {
-        setMessage(null)
-      }, 5000)
+      setTimeout(() => setMessage(null), 4000)
       
     } catch (error: any) {
-      console.error('Delete session error:', error)
+      console.error('Delete error:', error)
       setMessage({ text: '❌ ' + error.message, type: 'error' })
     } finally {
       setIsDeleting(false)
     }
   }
 
-  // ─── Tournament Actions ──────────────────────────────────────────────────
+  // ─── FIXED: Tournament Delete ─────────────────────────────────────────────
   const handleDeleteTournament = async (tournamentId: string) => {
+    if (!window.confirm(`⚠️ Are you sure you want to DELETE this tournament? This will remove all teams, matches, and participants!`)) return
+    
     setIsDeleting(true)
     try {
-      console.log('🗑️ Attempting to delete tournament:', tournamentId)
+      console.log('🗑️ Deleting tournament:', tournamentId)
       
-      // First, verify the tournament exists
-      const { data: tournamentExists, error: checkError } = await supabase
-        .from('tournaments')
-        .select('id')
-        .eq('id', tournamentId)
-        .single()
-
-      if (checkError || !tournamentExists) {
-        throw new Error('Tournament not found or already deleted')
-      }
-
-      // Delete all related data in correct order
+      // Delete all matches
       const { error: matchesError } = await supabase
         .from('tournament_matches')
         .delete()
@@ -444,6 +417,7 @@ export const AdminPanel: React.FC = () => {
         console.error('Error deleting matches:', matchesError)
       }
 
+      // Delete all teams
       const { error: teamsError } = await supabase
         .from('tournament_teams')
         .delete()
@@ -453,6 +427,7 @@ export const AdminPanel: React.FC = () => {
         console.error('Error deleting teams:', teamsError)
       }
 
+      // Delete all participants
       const { error: participantsError } = await supabase
         .from('tournament_participants')
         .delete()
@@ -469,33 +444,30 @@ export const AdminPanel: React.FC = () => {
         .eq('id', tournamentId)
 
       if (tournamentError) {
-        throw new Error('Failed to delete tournament: ' + tournamentError.message)
+        throw new Error('Delete failed: ' + tournamentError.message)
       }
 
-      console.log('✅ Tournament deleted successfully:', tournamentId)
-      setMessage({ text: '✅ Tournament deleted successfully', type: 'success' })
+      console.log('✅ Tournament deleted successfully!')
+      setMessage({ text: '✅ Tournament deleted successfully!', type: 'success' })
       
-      // Update local state immediately
+      // Remove from local state
       setTournaments(prev => prev.filter(t => t.id !== tournamentId))
       
-      // Also reload from database to be safe
+      // Reload from database to confirm
       await loadTournaments()
       
-      // Close the modal
       setShowDeleteModal(null)
       
-      // Show success notification
-      setTimeout(() => {
-        setMessage(null)
-      }, 5000)
+      setTimeout(() => setMessage(null), 4000)
       
     } catch (error: any) {
-      console.error('Delete tournament error:', error)
+      console.error('Delete error:', error)
       setMessage({ text: '❌ ' + error.message, type: 'error' })
     } finally {
       setIsDeleting(false)
     }
   }
+
   const filteredUsers = users.filter(u =>
     u.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     u.email?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -569,7 +541,6 @@ export const AdminPanel: React.FC = () => {
       }} />
 
       <div style={{ maxWidth: '1200px', margin: '0 auto', position: 'relative', zIndex: 1 }}>
-        {/* Header */}
         <div style={{ marginBottom: '24px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
             <div style={{
@@ -592,7 +563,6 @@ export const AdminPanel: React.FC = () => {
           </p>
         </div>
 
-        {/* Message */}
         {message && (
           <div style={{
             padding: '12px 16px',
@@ -614,7 +584,6 @@ export const AdminPanel: React.FC = () => {
           </div>
         )}
 
-        {/* Tabs */}
         <div style={{
           display: 'flex',
           gap: '0',
@@ -645,7 +614,6 @@ export const AdminPanel: React.FC = () => {
           ))}
         </div>
 
-        {/* Search */}
         <div style={{ marginBottom: '16px' }}>
           <input
             type="text"
@@ -1244,7 +1212,6 @@ export const AdminPanel: React.FC = () => {
           </div>
         )}
 
-        {/* Footer */}
         <div style={{ marginTop: '40px', textAlign: 'center' }}>
           <span style={{ color: '#374151', fontSize: '11px', letterSpacing: '0.06em' }}>
             ⚡ Admin Panel v2.0 • Users • Listings • Songs • Sessions • Tournaments
@@ -1252,7 +1219,7 @@ export const AdminPanel: React.FC = () => {
         </div>
       </div>
 
-      {/* ─── Delete Confirmation Modal ─── */}
+      {/* Delete Confirmation Modal */}
       {showDeleteModal && (
         <div style={{
           position: 'fixed',
