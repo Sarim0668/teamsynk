@@ -1,4 +1,4 @@
-// src/components/admin/AdminPanel.tsx
+// src/components/admin/AdminPanel.tsx - Complete file with fixed community delete
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
@@ -496,9 +496,9 @@ export const AdminPanel: React.FC = () => {
     }
   }
 
-  // ─── NEW: Community Actions ──────────────────────────────────────────────
+  // ─── FIXED: Community Delete ──────────────────────────────────────────────
   const handleDeleteCommunity = async (communityId: string) => {
-    if (!window.confirm(`⚠️ Are you sure you want to DELETE this community? This will remove all members and messages!`)) return
+    if (!window.confirm(`⚠️ Are you sure you want to DELETE this community? This will remove all members, messages, and events!`)) return
     
     setIsDeleting(true)
     try {
@@ -748,7 +748,7 @@ export const AdminPanel: React.FC = () => {
           />
         </div>
 
-        {/* Users Tab */}
+        {/* ─── Users Tab ─── */}
         {activeTab === 'users' && (
           <div style={{
             background: 'rgba(13,13,13,0.95)',
@@ -882,7 +882,7 @@ export const AdminPanel: React.FC = () => {
           </div>
         )}
 
-        {/* Listings Tab */}
+        {/* ─── Listings Tab ─── */}
         {activeTab === 'listings' && (
           <div style={{
             background: 'rgba(13,13,13,0.95)',
@@ -1003,7 +1003,7 @@ export const AdminPanel: React.FC = () => {
           </div>
         )}
 
-        {/* Songs Tab */}
+        {/* ─── Songs Tab ─── */}
         {activeTab === 'songs' && (
           <div style={{
             background: 'rgba(13,13,13,0.95)',
@@ -1142,7 +1142,7 @@ export const AdminPanel: React.FC = () => {
           </div>
         )}
 
-        {/* Sessions Tab */}
+        {/* ─── Sessions Tab ─── */}
         {activeTab === 'sessions' && (
           <div style={{
             background: 'rgba(13,13,13,0.95)',
@@ -1231,7 +1231,7 @@ export const AdminPanel: React.FC = () => {
           </div>
         )}
 
-        {/* Tournaments Tab */}
+        {/* ─── Tournaments Tab ─── */}
         {activeTab === 'tournaments' && (
           <div style={{
             background: 'rgba(13,13,13,0.95)',
@@ -1322,7 +1322,7 @@ export const AdminPanel: React.FC = () => {
           </div>
         )}
 
-        {/* Communities Tab - NEW */}
+        {/* ─── Communities Tab ─── */}
         {activeTab === 'communities' && (
           <div style={{
             background: 'rgba(13,13,13,0.95)',
@@ -1438,7 +1438,7 @@ export const AdminPanel: React.FC = () => {
         </div>
       </div>
 
-      {/* Delete Confirmation Modal */}
+      {/* ─── Delete Confirmation Modal ─── */}
       {showDeleteModal && (
         <div style={{
           position: 'fixed',
