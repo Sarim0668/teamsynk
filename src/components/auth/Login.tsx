@@ -46,10 +46,6 @@ const CSS = `
     from { transform: rotate(0deg); }
     to   { transform: rotate(360deg); }
   }
-  @keyframes ts-countUp {
-    from { opacity: 0; transform: translateY(6px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
   @keyframes ts-particle {
     0%   { transform: translateY(0) scale(1);   opacity: 0.6; }
     100% { transform: translateY(-120px) scale(0); opacity: 0; }
@@ -110,31 +106,6 @@ const CSS = `
     .ts-auth-card { padding: 28px 20px !important; }
   }
 `
-
-/* ─── StatCounter ─────────────────────────────────────────────── */
-const StatCounter: React.FC<{ target: number; suffix?: string; label: string }> = ({ target, suffix = '+', label }) => {
-  const [count, setCount] = useState(0)
-  useEffect(() => {
-    let cur = 0
-    const step = target / 60
-    const t = setInterval(() => {
-      cur = Math.min(cur + step, target)
-      setCount(Math.floor(cur))
-      if (cur >= target) clearInterval(t)
-    }, 25)
-    return () => clearInterval(t)
-  }, [target])
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <span style={{ fontSize: 24, fontWeight: 700, color: '#FFD700', animation: 'ts-countUp 0.6s ease both' }}>
-        {count}{count >= target ? suffix : ''}
-      </span>
-      <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', fontWeight: 500, letterSpacing: '0.5px', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
-        {label}
-      </span>
-    </div>
-  )
-}
 
 /* ─── SportsSVGScene ──────────────────────────────────────────── */
 const SportsSVGScene: React.FC = () => (
@@ -503,26 +474,46 @@ export const Login: React.FC = () => {
             Find teammates, organise sessions, buy gear — all in one premium platform.
           </div>
 
-          {/* Stats */}
-          <div style={{ display: 'flex', gap: 32, marginBottom: 52, animation: 'ts-fadeUp 0.7s ease 0.5s both' }}>
-            <StatCounter target={10}   suffix="+"  label="Universities"    />
-            <StatCounter target={1000} suffix="+"  label="Students"        />
-            <StatCounter target={500}  suffix="+"  label="Sports Sessions" />
+          {/* Feature highlights */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 380, animation: 'ts-fadeUp 0.7s ease 0.5s both' }}>
+            {[
+              { icon: '⚽', title: 'Find Teammates',      desc: 'Discover players at your university by sport, skill level, and availability.' },
+              { icon: '📅', title: 'Organise Sessions',   desc: 'Create or join sports sessions — cricket, football, basketball and more.' },
+              { icon: '🏪', title: 'Equipment Marketplace', desc: 'Buy and sell sports gear with fellow students on campus.' },
+              { icon: '🎓', title: 'University-First',    desc: 'Built exclusively for Pakistani university students. Your campus, your community.' },
+            ].map((f, i) => (
+              <div
+                key={f.title}
+                style={{
+                  display: 'flex', alignItems: 'flex-start', gap: 14,
+                  background: 'rgba(255,255,255,0.04)',
+                  border: '1px solid rgba(200,162,0,0.14)',
+                  borderRadius: 12, padding: '14px 16px',
+                  animation: `ts-fadeUp 0.6s ease ${0.5 + i * 0.1}s both`,
+                }}
+              >
+                <span style={{ fontSize: 20, lineHeight: 1, marginTop: 2, flexShrink: 0 }}>{f.icon}</span>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', marginBottom: 3 }}>{f.title}</div>
+                  <div className="ts-font2" style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', lineHeight: 1.5 }}>{f.desc}</div>
+                </div>
+              </div>
+            ))}
           </div>
 
-          {/* Testimonial */}
+          {/* Coming soon badge */}
           <div style={{
-            background: 'rgba(255,255,255,0.04)',
-            border: '1px solid rgba(200,162,0,0.22)',
-            borderRadius: 14, padding: '18px 22px', maxWidth: 380,
-            animation: 'ts-fadeUp 0.7s ease 0.65s both',
+            display: 'inline-flex', alignItems: 'center', gap: 8,
+            marginTop: 24, padding: '8px 16px',
+            background: 'rgba(200,162,0,0.1)',
+            border: '1px solid rgba(200,162,0,0.3)',
+            borderRadius: 100,
+            animation: 'ts-fadeUp 0.7s ease 0.9s both',
           }}>
-            <div className="ts-font2" style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)', lineHeight: 1.6, marginBottom: 10 }}>
-              "Found my cricket squad in literally 10 minutes. TeamSynk is exactly what FAST needed."
-            </div>
-            <div style={{ fontSize: 12, color: '#f0c000', fontWeight: 600 }}>
-              — Ali Hassan, FAST Islamabad · Computer Science
-            </div>
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#FFD700', display: 'inline-block', boxShadow: '0 0 8px #FFD700' }} />
+            <span className="ts-font2" style={{ fontSize: 12, fontWeight: 600, color: '#f0c000', letterSpacing: '0.5px' }}>
+              Launching Soon — Be Among the First
+            </span>
           </div>
 
           {/* SVG sports scene */}
