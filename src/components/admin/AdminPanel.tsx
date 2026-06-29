@@ -83,6 +83,7 @@ export const AdminPanel: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState<{ type: string; id: string; name: string } | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   useEffect(() => {
     checkAdminAndLoadData()
@@ -352,57 +353,103 @@ export const AdminPanel: React.FC = () => {
 
   // ─── Session Actions ──────────────────────────────────────────────────────
   const handleDeleteSession = async (sessionId: string) => {
-    if (!window.confirm('⚠️ Are you sure you want to DELETE this session? This will also remove all participants!')) return
+    setIsDeleting(true)
+    try {
+      // First delete participants
+      const { error: participantsError } = await supabase
+        .from('session_participants')
+        .delete()
+        .eq('session_id', sessionId)
 
-    // First delete participants (cascade should handle this, but we do it explicitly)
-    await supabase
-      .from('session_participants')
-      .delete()
-      .eq('session_id', sessionId)
+      if (participantsError) {
+        throw new Error('Failed to delete participants: ' + participantsError.message)
+      }
 
-    const { error } = await supabase
-      .from('sports_sessions')
-      .delete()
-      .eq('id', sessionId)
+      // Then delete the session
+      const { error: sessionError } = await supabase
+        .from('sports_sessions')
+        .delete()
+        .eq('id', sessionId)
 
-    if (error) {
-      setMessage({ text: 'Failed to delete session: ' + error.message, type: 'error' })
-    } else {
+      if (sessionError) {
+        throw new Error('Failed to delete session: ' + sessionError.message)
+      }
+
       setMessage({ text: '✅ Session deleted successfully', type: 'success' })
+      
+      // Force refresh the sessions list
       await loadSessions()
+      
+      // Also force refresh the data to ensure UI updates
+      setSessions(prev => prev.filter(s => s.id !== sessionId))
+      
+      // Close the modal
+      setShowDeleteModal(null)
+      
+    } catch (error: any) {
+      setMessage({ text: 'Failed to delete session: ' + error.message, type: 'error' })
+    } finally {
+      setIsDeleting(false)
     }
   }
 
   // ─── Tournament Actions ──────────────────────────────────────────────────
   const handleDeleteTournament = async (tournamentId: string) => {
-    if (!window.confirm('⚠️ Are you sure you want to DELETE this tournament? This will delete all teams, matches, and related data!')) return
+    setIsDeleting(true)
+    try {
+      // Delete all related data
+      const { error: matchesError } = await supabase
+        .from('tournament_matches')
+        .delete()
+        .eq('tournament_id', tournamentId)
 
-    // Delete all related data (cascade will handle it, but we do it explicitly for safety)
-    await supabase
-      .from('tournament_matches')
-      .delete()
-      .eq('tournament_id', tournamentId)
-    
-    await supabase
-      .from('tournament_teams')
-      .delete()
-      .eq('tournament_id', tournamentId)
-    
-    await supabase
-      .from('tournament_participants')
-      .delete()
-      .eq('tournament_id', tournamentId)
+      if (matchesError) {
+        throw new Error('Failed to delete matches: ' + matchesError.message)
+      }
 
-    const { error } = await supabase
-      .from('tournaments')
-      .delete()
-      .eq('id', tournamentId)
+      const { error: teamsError } = await supabase
+        .from('tournament_teams')
+        .delete()
+        .eq('tournament_id', tournamentId)
 
-    if (error) {
-      setMessage({ text: 'Failed to delete tournament: ' + error.message, type: 'error' })
-    } else {
+      if (teamsError) {
+        throw new Error('Failed to delete teams: ' + teamsError.message)
+      }
+
+      const { error: participantsError } = await supabase
+        .from('tournament_participants')
+        .delete()
+        .eq('tournament_id', tournamentId)
+
+      if (participantsError) {
+        throw new Error('Failed to delete participants: ' + participantsError.message)
+      }
+
+      // Finally delete the tournament
+      const { error: tournamentError } = await supabase
+        .from('tournaments')
+        .delete()
+        .eq('id', tournamentId)
+
+      if (tournamentError) {
+        throw new Error('Failed to delete tournament: ' + tournamentError.message)
+      }
+
       setMessage({ text: '✅ Tournament deleted successfully', type: 'success' })
+      
+      // Force refresh the tournaments list
       await loadTournaments()
+      
+      // Also force refresh the data to ensure UI updates
+      setTournaments(prev => prev.filter(t => t.id !== tournamentId))
+      
+      // Close the modal
+      setShowDeleteModal(null)
+      
+    } catch (error: any) {
+      setMessage({ text: 'Failed to delete tournament: ' + error.message, type: 'error' })
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -1213,6 +1260,7 @@ export const AdminPanel: React.FC = () => {
                   color: '#666',
                   cursor: 'pointer'
                 }}
+                disabled={isDeleting}
               >
                 Cancel
               </button>
@@ -1223,20 +1271,20 @@ export const AdminPanel: React.FC = () => {
                   } else if (showDeleteModal.type === 'tournament') {
                     await handleDeleteTournament(showDeleteModal.id)
                   }
-                  setShowDeleteModal(null)
                 }}
+                disabled={isDeleting}
                 style={{
                   flex: 2,
                   padding: '12px',
                   borderRadius: '8px',
                   border: 'none',
-                  background: '#ef4444',
+                  background: isDeleting ? '#666' : '#ef4444',
                   color: 'white',
                   fontWeight: 'bold',
-                  cursor: 'pointer'
+                  cursor: isDeleting ? 'not-allowed' : 'pointer'
                 }}
               >
-                🗑️ Delete
+                {isDeleting ? 'Deleting...' : '🗑️ Delete'}
               </button>
             </div>
           </div>
