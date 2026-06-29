@@ -30,51 +30,64 @@ export const HelpSupport: React.FC = () => {
   const loadData = async () => {
     setLoading(true)
     
-    // Get current user
-    const { data: { user: currentUser } } = await supabase.auth.getUser()
-    if (!currentUser) {
-      navigate('/login')
-      return
-    }
-    setUser(currentUser)
+    try {
+      // Get current user
+      const { data: { user: currentUser } } = await supabase.auth.getUser()
+      if (!currentUser) {
+        navigate('/login')
+        return
+      }
+      setUser(currentUser)
 
-    // Get admin user
-    const { data: adminData } = await supabase
-      .from('users')
-      .select('id, full_name, email')
-      .eq('email', ADMIN_EMAIL)
-      .single()
+      // Get admin user
+      const { data: adminData, error: adminError } = await supabase
+        .from('users')
+        .select('id, full_name, email')
+        .eq('email', ADMIN_EMAIL)
+        .single()
 
-    if (adminData) {
-      setAdmin(adminData)
-      await loadMessages(currentUser.id, adminData.id)
-      subscribeToMessages(currentUser.id, adminData.id)
-    } else {
-      console.log('Admin not found:', ADMIN_EMAIL)
+      if (adminError) {
+        console.log('Admin not found:', adminError)
+        setAdmin(null)
+        setLoading(false)
+        return
+      }
+
+      if (adminData) {
+        setAdmin(adminData)
+        await loadMessages(currentUser.id, adminData.id)
+        subscribeToMessages(currentUser.id, adminData.id)
+      }
+    } catch (error) {
+      console.error('Error loading data:', error)
     }
 
     setLoading(false)
   }
 
   const loadMessages = async (userId: string, adminId: string) => {
-    const { data, error } = await supabase
-      .from('messages')
-      .select('*')
-      .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
-      .or(`sender_id.eq.${adminId},receiver_id.eq.${adminId}`)
-      .order('created_at', { ascending: true })
+    try {
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
+        .or(`sender_id.eq.${adminId},receiver_id.eq.${adminId}`)
+        .order('created_at', { ascending: true })
 
-    if (!error && data) {
-      setMessages(data)
-      
-      // Mark unread messages as read
-      const unreadMessages = data.filter((m: any) => m.receiver_id === userId && !m.is_read)
-      for (const msg of unreadMessages) {
-        await supabase
-          .from('messages')
-          .update({ is_read: true })
-          .eq('id', msg.id)
+      if (!error && data) {
+        setMessages(data)
+        
+        // Mark unread messages as read
+        const unreadMessages = data.filter((m: any) => m.receiver_id === userId && !m.is_read)
+        for (const msg of unreadMessages) {
+          await supabase
+            .from('messages')
+            .update({ is_read: true })
+            .eq('id', msg.id)
+        }
       }
+    } catch (error) {
+      console.error('Error loading messages:', error)
     }
   }
 
@@ -108,29 +121,33 @@ export const HelpSupport: React.FC = () => {
 
     setSending(true)
 
-    const { error } = await supabase
-      .from('messages')
-      .insert({
-        sender_id: user.id,
-        receiver_id: admin.id,
-        message_text: newMessage.trim(),
-        is_read: false
-      })
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .insert({
+          sender_id: user.id,
+          receiver_id: admin.id,
+          message_text: newMessage.trim(),
+          is_read: false
+        })
 
-    if (error) {
-      alert('Failed to send message: ' + error.message)
-    } else {
-      // Add to local state immediately
-      const tempMsg = {
-        id: Date.now().toString(),
-        sender_id: user.id,
-        receiver_id: admin.id,
-        message_text: newMessage.trim(),
-        is_read: false,
-        created_at: new Date().toISOString()
+      if (error) {
+        alert('Failed to send message: ' + error.message)
+      } else {
+        // Add to local state immediately
+        const tempMsg = {
+          id: Date.now().toString(),
+          sender_id: user.id,
+          receiver_id: admin.id,
+          message_text: newMessage.trim(),
+          is_read: false,
+          created_at: new Date().toISOString()
+        }
+        setMessages(prev => [...prev, tempMsg])
+        setNewMessage('')
       }
-      setMessages(prev => [...prev, tempMsg])
-      setNewMessage('')
+    } catch (error: any) {
+      alert('Error sending message: ' + error.message)
     }
     setSending(false)
   }
