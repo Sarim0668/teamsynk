@@ -1,3 +1,4 @@
+// src/components/dashboard/Dashboard.tsx
 import React, { useEffect, useState, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
@@ -33,12 +34,10 @@ const GLOBAL_CSS = `
 
   body { background: var(--bg); color: var(--text); font-family: var(--font); }
 
-  /* ─── Scrollbar ─── */
   ::-webkit-scrollbar { width: 4px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: rgba(200,162,0,0.2); border-radius: 4px; }
 
-  /* ─── Animations ─── */
   @keyframes ts-spin     { to { transform: rotate(360deg); } }
   @keyframes ts-pulse    { 0%,100%{opacity:.5;transform:scale(1)} 50%{opacity:1;transform:scale(1.15)} }
   @keyframes ts-fadeUp   { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:translateY(0)} }
@@ -51,7 +50,6 @@ const GLOBAL_CSS = `
   @keyframes ts-slide-r  { from{opacity:0;transform:translateX(-12px)} to{opacity:1;transform:translateX(0)} }
   @keyframes ts-net      { 0%,100%{opacity:0.12} 50%{opacity:0.35} }
 
-  /* ─── Stagger helpers ─── */
   .ts-stagger-1 { animation: ts-fadeUp .6s ease .05s both; }
   .ts-stagger-2 { animation: ts-fadeUp .6s ease .12s both; }
   .ts-stagger-3 { animation: ts-fadeUp .6s ease .20s both; }
@@ -59,7 +57,6 @@ const GLOBAL_CSS = `
   .ts-stagger-5 { animation: ts-fadeUp .6s ease .36s both; }
   .ts-stagger-6 { animation: ts-fadeUp .6s ease .44s both; }
 
-  /* ─── Card base ─── */
   .ts-card {
     background: var(--bg2);
     border: 1px solid rgba(255,255,255,0.055);
@@ -88,7 +85,6 @@ const GLOBAL_CSS = `
     background: linear-gradient(135deg, rgba(200,162,0,0.1), rgba(200,162,0,0.04)) !important;
   }
 
-  /* ─── Button shimmer ─── */
   .ts-btn-shimmer { position: relative; overflow: hidden; }
   .ts-btn-shimmer::after {
     content: '';
@@ -99,7 +95,6 @@ const GLOBAL_CSS = `
     pointer-events: none;
   }
 
-  /* ─── Gold CTA ─── */
   .ts-cta {
     display: inline-flex; align-items: center; gap: 8px;
     padding: 11px 22px;
@@ -113,7 +108,6 @@ const GLOBAL_CSS = `
   .ts-cta:hover { transform: translateY(-2px); box-shadow: 0 8px 36px rgba(200,162,0,0.4); }
   .ts-cta:active { transform: translateY(0); }
 
-  /* ─── Ghost link ─── */
   .ts-ghost {
     display: inline-flex; align-items: center; gap: 5px;
     padding: 8px 16px;
@@ -126,7 +120,6 @@ const GLOBAL_CSS = `
   }
   .ts-ghost:hover { background: rgba(200,162,0,0.14); border-color: rgba(200,162,0,0.35); }
 
-  /* ─── Section header ─── */
   .ts-sec-eyebrow {
     display: flex; align-items: center; gap: 8px;
     color: var(--text3); font-size: 10px; font-weight: 700;
@@ -144,7 +137,6 @@ const GLOBAL_CSS = `
     color: var(--text); letter-spacing: -.02em; margin: 0;
   }
 
-  /* ─── Status pill ─── */
   .ts-pill {
     display: inline-flex; align-items: center; gap: 5px;
     padding: 3px 10px; border-radius: 99px;
@@ -157,7 +149,6 @@ const GLOBAL_CSS = `
   .ts-pill-purple{ background: rgba(168,85,247,.1); border:1px solid rgba(168,85,247,.25); color: #c084fc; }
   .ts-pill-grey  { background: rgba(107,114,128,.1); border:1px solid rgba(107,114,128,.25); color: #6b7280; }
 
-  /* ─── Medal ─── */
   .ts-medal {
     width: 38px; height: 38px; border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
@@ -165,7 +156,6 @@ const GLOBAL_CSS = `
     transition: transform .2s ease;
   }
 
-  /* ─── Quick-action ─── */
   .ts-qa {
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     gap: 8px; padding: 20px 12px;
@@ -196,12 +186,10 @@ const GLOBAL_CSS = `
   }
   .ts-qa-label { font-size: 12px; font-weight: 600; color: var(--text2); text-align: center; line-height: 1.3; }
 
-  /* ─── Responsive grid ─── */
   .ts-grid-2 { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px,1fr)); gap: 14px; }
   .ts-grid-3 { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px,1fr)); gap: 14px; }
   .ts-grid-qa{ display: grid; grid-template-columns: repeat(auto-fill, minmax(130px,1fr)); gap: 12px; }
 
-  /* ─── Nav sidebar ─── */
   .ts-nav-item {
     display: flex; align-items: center; gap: 10px;
     padding: 10px 14px; border-radius: 10px;
@@ -217,7 +205,6 @@ const GLOBAL_CSS = `
     background: linear-gradient(180deg, var(--gold2), var(--gold));
   }
 
-  /* ─── Hero canvas wrapper ─── */
   #ts-canvas { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
 
   @media (max-width: 900px) {
@@ -327,7 +314,199 @@ const MOTIVATIONAL_QUOTES = [
 const DAILY_QUOTE = MOTIVATIONAL_QUOTES[new Date().getDate() % MOTIVATIONAL_QUOTES.length]
 
 /* ═══════════════════════════════════════════════════════════════════
-   STAT PILL (unchanged from original)
+   INVITE FRIENDS MODAL
+═══════════════════════════════════════════════════════════════════ */
+const InviteModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+  const [copied, setCopied] = useState(false)
+  const shareUrl = window.location.origin
+
+  const shareLinks = [
+    { name: 'WhatsApp', icon: '💬', url: `https://wa.me/?text=Join%20me%20on%20TeamSynk!%20${shareUrl}` },
+    { name: 'Instagram', icon: '📸', url: `https://www.instagram.com/` },
+    { name: 'Facebook', icon: '👍', url: `https://www.facebook.com/sharer/sharer.php?u=${shareUrl}` },
+    { name: 'LinkedIn', icon: '💼', url: `https://www.linkedin.com/sharing/share-offsite/?url=${shareUrl}` },
+    { name: 'Twitter/X', icon: '🐦', url: `https://twitter.com/intent/tweet?text=Join%20me%20on%20TeamSynk!&url=${shareUrl}` },
+    { name: 'Copy Link', icon: '📋', url: '#' },
+  ]
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 3000)
+    } catch (err) {
+      // Fallback
+      const textArea = document.createElement('textarea')
+      textArea.value = shareUrl
+      document.body.appendChild(textArea)
+      textArea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textArea)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 3000)
+    }
+  }
+
+  const handleShare = (url: string, name: string) => {
+    if (name === 'Copy Link') {
+      handleCopyLink()
+      return
+    }
+    if (name === 'Instagram') {
+      alert('📸 Open Instagram app and share your profile link!\n\nYour link: ' + shareUrl)
+      return
+    }
+    window.open(url, '_blank', 'width=600,height=400')
+  }
+
+  return (
+    <div style={{
+      position: 'fixed',
+      inset: 0,
+      zIndex: 9999,
+      background: 'rgba(0,0,0,0.85)',
+      backdropFilter: 'blur(12px)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '20px',
+      animation: 'ts-fadeIn 0.3s ease'
+    }} onClick={onClose}>
+      <div style={{
+        background: 'rgba(13,13,20,0.98)',
+        borderRadius: '24px',
+        border: '1px solid rgba(200,162,0,0.2)',
+        maxWidth: '480px',
+        width: '100%',
+        padding: '32px',
+        position: 'relative',
+        animation: 'ts-fadeUp 0.3s ease'
+      }} onClick={e => e.stopPropagation()}>
+        <button
+          onClick={onClose}
+          style={{
+            position: 'absolute',
+            top: '12px',
+            right: '16px',
+            background: 'transparent',
+            border: 'none',
+            color: 'rgba(255,255,255,0.3)',
+            fontSize: '24px',
+            cursor: 'pointer',
+            transition: 'color 0.2s'
+          }}
+          onMouseEnter={e => e.currentTarget.style.color = 'white'}
+          onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.3)'}
+        >
+          ✕
+        </button>
+
+        <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+          <div style={{ fontSize: '48px', marginBottom: '12px' }}>📢</div>
+          <h2 style={{ color: '#FFD700', fontSize: '24px', fontWeight: '700' }}>
+            Invite Friends
+          </h2>
+          <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '14px', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
+            Share TeamSynk with your friends and build your network!
+          </p>
+        </div>
+
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
+          gap: '10px',
+          marginBottom: '16px'
+        }}>
+          {shareLinks.map((link) => (
+            <button
+              key={link.name}
+              onClick={() => handleShare(link.url, link.name)}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '14px 10px',
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: '12px',
+                color: 'white',
+                cursor: 'pointer',
+                transition: 'all 0.25s ease',
+                fontFamily: 'Plus Jakarta Sans, sans-serif',
+                fontSize: '11px',
+                fontWeight: '600'
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = 'rgba(200,162,0,0.12)'
+                e.currentTarget.style.borderColor = 'rgba(200,162,0,0.3)'
+                e.currentTarget.style.transform = 'translateY(-2px)'
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.04)'
+                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'
+                e.currentTarget.style.transform = 'translateY(0)'
+              }}
+            >
+              <span style={{ fontSize: '24px' }}>{link.icon}</span>
+              {link.name}
+              {link.name === 'Copy Link' && copied && (
+                <span style={{
+                  fontSize: '9px',
+                  color: '#4ade80',
+                  fontWeight: 'bold'
+                }}>
+                  ✅ Copied!
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        <div style={{
+          padding: '12px',
+          background: 'rgba(255,255,255,0.03)',
+          borderRadius: '10px',
+          border: '1px solid rgba(255,255,255,0.05)',
+          marginBottom: '12px'
+        }}>
+          <p style={{
+            color: 'rgba(255,255,255,0.3)',
+            fontSize: '11px',
+            fontFamily: 'Plus Jakarta Sans, sans-serif',
+            textAlign: 'center',
+            wordBreak: 'break-all'
+          }}>
+            🔗 {shareUrl}
+          </p>
+        </div>
+
+        <button
+          onClick={onClose}
+          style={{
+            width: '100%',
+            padding: '12px',
+            background: 'linear-gradient(135deg, #c8a200, #FFD700)',
+            border: 'none',
+            borderRadius: '10px',
+            color: '#0a0800',
+            fontWeight: '700',
+            fontSize: '14px',
+            cursor: 'pointer',
+            transition: 'transform 0.2s'
+          }}
+          onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.02)'}
+          onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   STAT PILL
 ═══════════════════════════════════════════════════════════════════ */
 function StatPill({ icon, value, label, highlight }: { icon:string; value:number; label:string; highlight?:boolean }) {
   return (
@@ -343,7 +522,7 @@ function StatPill({ icon, value, label, highlight }: { icon:string; value:number
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   UNIVERSITY LEADERBOARD CARD  (original logic + premium skin)
+   UNIVERSITY LEADERBOARD CARD
 ═══════════════════════════════════════════════════════════════════ */
 function UniversityLeaderboardCard({ uni, index, isUserUni }: { uni:any; index:number; isUserUni:boolean }) {
   const [hovered, setHovered] = useState(false)
@@ -362,7 +541,6 @@ function UniversityLeaderboardCard({ uni, index, isUserUni }: { uni:any; index:n
           : hovered ? 'rgba(18,18,26,0.98)' : 'rgba(13,13,20,0.9)',
       }}
     >
-      {/* YOUR UNIVERSITY badge */}
       {isUserUni && (
         <div style={{
           position:'absolute', top:0, right:0,
@@ -374,7 +552,6 @@ function UniversityLeaderboardCard({ uni, index, isUserUni }: { uni:any; index:n
       )}
 
       <div style={{display:'flex', alignItems:'center', gap:16}}>
-        {/* Rank medal */}
         <div className="ts-medal" style={{
           background: isUserUni
             ? 'linear-gradient(135deg,#c8a200,#FFD700)'
@@ -386,7 +563,6 @@ function UniversityLeaderboardCard({ uni, index, isUserUni }: { uni:any; index:n
           {getMedal(rank)}
         </div>
 
-        {/* Info */}
         <div style={{flex:1, minWidth:0}}>
           <div style={{display:'flex', alignItems:'center', gap:8, flexWrap:'wrap'}}>
             <span style={{fontWeight: isUserUni?800:600, color: isUserUni?'#FFD700':'white', fontSize:15, letterSpacing:'-.01em'}}>
@@ -406,7 +582,6 @@ function UniversityLeaderboardCard({ uni, index, isUserUni }: { uni:any; index:n
           </div>
         </div>
 
-        {/* Points badge */}
         <div style={{
           padding:'7px 18px', borderRadius:99,
           background: isUserUni ? 'linear-gradient(135deg,#c8a200,#FFD700)' : 'rgba(200,162,0,0.08)',
@@ -421,7 +596,7 @@ function UniversityLeaderboardCard({ uni, index, isUserUni }: { uni:any; index:n
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   COMPETITION CARD  (original logic + premium skin)
+   COMPETITION CARD
 ═══════════════════════════════════════════════════════════════════ */
 function CompetitionCard({ competition, index }: { competition:any; index:number }) {
   const [hovered, setHovered] = useState(false)
@@ -448,7 +623,6 @@ function CompetitionCard({ competition, index }: { competition:any; index:number
         background: hovered ? 'rgba(18,18,26,0.98)' : 'rgba(13,13,20,0.9)',
       }}
     >
-      {/* Top stripe */}
       <div style={{
         position:'absolute', top:0, left:0, right:0, height:2,
         background:`linear-gradient(90deg, ${type.color}50, transparent)`,
@@ -501,7 +675,7 @@ function CompetitionCard({ competition, index }: { competition:any; index:number
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   SESSION CARD  (original logic + premium skin)
+   SESSION CARD
 ═══════════════════════════════════════════════════════════════════ */
 function SessionCard({ session, index }: { session:any; index:number }) {
   const [hovered, setHovered] = useState(false)
@@ -522,7 +696,6 @@ function SessionCard({ session, index }: { session:any; index:number }) {
         background: hovered ? 'rgba(18,18,26,0.98)' : 'rgba(13,13,20,0.9)',
       }}
     >
-      {/* Sport icon badge */}
       <div style={{
         display:'inline-flex', alignItems:'center', justifyContent:'center',
         width:46, height:46, borderRadius:13,
@@ -564,17 +737,15 @@ function SessionCard({ session, index }: { session:any; index:number }) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   QUICK ACTIONS
+   QUICK ACTIONS (FIXED)
 ═══════════════════════════════════════════════════════════════════ */
 const QUICK_ACTIONS = [
   {icon:'➕', label:'Create Session',   to:'/create-session'},
   {icon:'🔍', label:'Find Players',     to:'/find-players'},
   {icon:'🏪', label:'Marketplace',      to:'/marketplace'},
-  {icon:'👥', label:'Communities',      to:'/communities'},
-  {icon:'🏆', label:'Tournaments',      to:'/create-tournament'},
-  {icon:'📚', label:'Study Groups',     to:'/study-groups'},
-  {icon:'🎮', label:'Gaming',           to:'/gaming'},
-  {icon:'📢', label:'Invite Friends',   to:'/invite'},
+  {icon:'👥', label:'Communities',      to:'/community'},
+  {icon:'🏆', label:'Tournaments',      to:'/tournaments'},
+  {icon:'📢', label:'Invite Friends',   to:'#invite'},
 ]
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -583,10 +754,9 @@ const QUICK_ACTIONS = [
 const NAV_ITEMS = [
   {icon:'🏠', label:'Dashboard',     to:'/'},
   {icon:'⚽', label:'Sessions',      to:'/browse-sessions'},
-  {icon:'🏆', label:'Competitions',  to:'/competitions'},
-  {icon:'👥', label:'Communities',   to:'/communities'},
+  {icon:'👥', label:'Communities',   to:'/community'},
   {icon:'🛒', label:'Marketplace',   to:'/marketplace'},
-  {icon:'📚', label:'Study Groups',  to:'/study-groups'},
+  {icon:'🏆', label:'Tournaments',   to:'/tournaments'},
   {icon:'🏅', label:'Leaderboard',   to:'/leaderboard'},
   {icon:'👤', label:'Profile',       to:'/profile'},
 ]
@@ -595,15 +765,14 @@ const NAV_ITEMS = [
    MAIN DASHBOARD COMPONENT
 ═══════════════════════════════════════════════════════════════════ */
 export const Dashboard: React.FC = () => {
-  /* ── state (all original) ── */
   const [profile,          setProfile]          = useState<any>(null)
   const [upcomingSessions, setUpcomingSessions] = useState<any[]>([])
   const [universityStats,  setUniversityStats]  = useState<any[]>([])
   const [competitions,     setCompetitions]     = useState<any[]>([])
   const [userUniversity,   setUserUniversity]   = useState<string>('')
   const [loading,          setLoading]          = useState(true)
+  const [showInviteModal,  setShowInviteModal]  = useState(false)
 
-  /* ── subscriptions + initial load (100% original) ── */
   useEffect(() => {
     loadData()
 
@@ -632,7 +801,6 @@ export const Dashboard: React.FC = () => {
     }
   }, [])
 
-  /* ── loadData (100% original) ── */
   const loadData = async () => {
     setLoading(true)
     const { data: { user } } = await supabase.auth.getUser()
@@ -671,7 +839,15 @@ export const Dashboard: React.FC = () => {
     setLoading(false)
   }
 
-  /* ── loading screen ── */
+  // Handle quick action click
+  const handleQuickAction = (action: {icon:string; label:string; to:string}) => {
+    if (action.to === '#invite') {
+      setShowInviteModal(true)
+      return
+    }
+    // Navigation handled by Link component
+  }
+
   if (loading) {
     return (
       <>
@@ -707,14 +883,17 @@ export const Dashboard: React.FC = () => {
       <style>{GLOBAL_CSS}</style>
       <CanvasBackground />
 
+      {/* Invite Modal */}
+      {showInviteModal && (
+        <InviteModal onClose={() => setShowInviteModal(false)} />
+      )}
+
       <div style={{
         display:'flex', minHeight:'100vh',
         fontFamily:'Sora,sans-serif', position:'relative', zIndex:1,
       }}>
 
-        {/* ══════════════════════════════
-            LEFT SIDEBAR
-        ══════════════════════════════ */}
+        {/* LEFT SIDEBAR */}
         <aside className="ts-left-sidebar" style={{
           width:220, flexShrink:0, position:'fixed', top:0, left:0, bottom:0,
           background:'rgba(6,6,10,0.9)',
@@ -725,7 +904,6 @@ export const Dashboard: React.FC = () => {
           padding:'28px 12px', zIndex:100,
           overflowY:'auto',
         }}>
-          {/* Logo */}
           <div style={{display:'flex', alignItems:'center', gap:10, padding:'0 4px', marginBottom:32}}>
             <div style={{
               width:34, height:34, borderRadius:9,
@@ -738,7 +916,6 @@ export const Dashboard: React.FC = () => {
             </span>
           </div>
 
-          {/* Nav */}
           <nav style={{display:'flex', flexDirection:'column', gap:2, flex:1}}>
             {NAV_ITEMS.map(n => (
               <Link key={n.to} to={n.to} className="ts-nav-item">
@@ -748,7 +925,6 @@ export const Dashboard: React.FC = () => {
             ))}
           </nav>
 
-          {/* User pill */}
           {profile && (
             <div style={{
               display:'flex', alignItems:'center', gap:10, padding:'12px 10px',
@@ -771,16 +947,14 @@ export const Dashboard: React.FC = () => {
           )}
         </aside>
 
-        {/* ══════════════════════════════
-            MAIN CONTENT
-        ══════════════════════════════ */}
+        {/* MAIN CONTENT */}
         <main className="ts-main-content" style={{
           marginLeft:220, flex:1,
           padding:'40px 32px 80px',
           maxWidth:'100%', overflowX:'hidden',
         }}>
 
-          {/* ─── HERO ─── */}
+          {/* HERO */}
           <section className="ts-stagger-1" style={{marginBottom:40}}>
             <div style={{
               position:'relative',
@@ -789,14 +963,12 @@ export const Dashboard: React.FC = () => {
               borderRadius:24, padding:'36px 40px',
               overflow:'hidden',
             }}>
-              {/* Ambient glow */}
               <div style={{
                 position:'absolute', top:-40, right:-40, width:240, height:240,
                 borderRadius:'50%', background:'rgba(200,162,0,0.07)',
                 filter:'blur(60px)', pointerEvents:'none',
               }} />
 
-              {/* Date pill */}
               <div style={{
                 display:'inline-flex', alignItems:'center', gap:8,
                 padding:'5px 14px 5px 10px',
@@ -815,7 +987,6 @@ export const Dashboard: React.FC = () => {
                 </span>
               </div>
 
-              {/* Greeting */}
               <h1 className="ts-hero-heading" style={{
                 fontSize:'clamp(28px,4vw,52px)', fontWeight:800,
                 lineHeight:1.08, letterSpacing:'-.03em', marginBottom:10,
@@ -835,7 +1006,6 @@ export const Dashboard: React.FC = () => {
                 {DAILY_QUOTE}
               </p>
 
-              {/* University badge */}
               {userUniversity && (
                 <div style={{display:'flex', alignItems:'center', gap:12, flexWrap:'wrap'}}>
                   <div style={{
@@ -858,27 +1028,35 @@ export const Dashboard: React.FC = () => {
             </div>
           </section>
 
-          {/* ─── QUICK ACTIONS ─── */}
+          {/* QUICK ACTIONS */}
           <section className="ts-stagger-2" style={{marginBottom:40}}>
             <SectionHeader eyebrow="⚡ Quick Actions" title="What do you want to do?" />
             <div className="ts-grid-qa">
               {QUICK_ACTIONS.map((qa, i) => (
-                <Link
+                <div
                   key={qa.to}
-                  to={qa.to}
-                  className="ts-qa"
-                  style={{animation:`ts-fadeUp .5s ease ${i*45+80}ms both`}}
+                  onClick={() => handleQuickAction(qa)}
+                  style={{ cursor: 'pointer' }}
                 >
-                  <div className="ts-qa-icon">{qa.icon}</div>
-                  <div className="ts-qa-label">{qa.label}</div>
-                </Link>
+                  {qa.to === '#invite' ? (
+                    <div className="ts-qa" style={{animation:`ts-fadeUp .5s ease ${i*45+80}ms both`}}>
+                      <div className="ts-qa-icon">{qa.icon}</div>
+                      <div className="ts-qa-label">{qa.label}</div>
+                    </div>
+                  ) : (
+                    <Link to={qa.to} className="ts-qa" style={{animation:`ts-fadeUp .5s ease ${i*45+80}ms both`}}>
+                      <div className="ts-qa-icon">{qa.icon}</div>
+                      <div className="ts-qa-label">{qa.label}</div>
+                    </Link>
+                  )}
+                </div>
               ))}
             </div>
           </section>
 
           <Divider />
 
-          {/* ─── UNIVERSITY LEADERBOARD ─── */}
+          {/* UNIVERSITY LEADERBOARD */}
           <section className="ts-stagger-3" style={{marginBottom:40}}>
             <SectionHeader
               eyebrow="🏆 University Rankings"
@@ -917,7 +1095,7 @@ export const Dashboard: React.FC = () => {
 
           <Divider />
 
-          {/* ─── UPCOMING SESSIONS ─── */}
+          {/* UPCOMING SESSIONS */}
           <section className="ts-stagger-4" style={{marginBottom:40}}>
             <SectionHeader
               eyebrow="⚡ Live Arena"
@@ -947,7 +1125,7 @@ export const Dashboard: React.FC = () => {
 
           <Divider />
 
-          {/* ─── COMPETITIONS ─── */}
+          {/* COMPETITIONS */}
           <section className="ts-stagger-5" style={{marginBottom:40}}>
             <SectionHeader
               eyebrow="🏅 Competitions"
@@ -987,7 +1165,7 @@ export const Dashboard: React.FC = () => {
             )}
           </section>
 
-          {/* ─── FOOTER ─── */}
+          {/* FOOTER */}
           <div style={{display:'flex', justifyContent:'center', marginTop:56}}>
             <div style={{
               display:'inline-flex', alignItems:'center', gap:10,
