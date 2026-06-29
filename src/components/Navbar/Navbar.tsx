@@ -1,3 +1,4 @@
+// src/components/Navbar/Navbar.tsx
 import React, { useEffect, useState, useRef, useCallback } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
@@ -100,18 +101,6 @@ const IconAdmin = () => (
   </svg>
 )
 
-const IconTrophy = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/>
-    <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/>
-    <path d="M4 22h16"/>
-    <path d="M12 15v7"/>
-    <path d="M8 22v-3.5a3 3 0 0 1 3-3h2a3 3 0 0 1 3 3V22"/>
-    <path d="M6 9h12a2 2 0 0 1 2 2v1.5a3.5 3.5 0 0 1-7 0"/>
-    <path d="M6 9V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v5"/>
-  </svg>
-)
-
 const IconMenu = () => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
     <line x1="3" y1="6" x2="21" y2="6"/>
@@ -124,6 +113,45 @@ const IconClose = () => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
     <line x1="18" y1="6" x2="6" y2="18"/>
     <line x1="6" y1="6" x2="18" y2="18"/>
+  </svg>
+)
+
+// ─── NEW: Help Icon ──────────────────────────────────────────────────────────
+const IconHelp = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10"/>
+    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+    <line x1="12" y1="17" x2="12.01" y2="17"/>
+  </svg>
+)
+
+// ─── NEW: Music Icon ──────────────────────────────────────────────────────────
+const IconMusic = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M9 18V5l12-2v13"/>
+    <circle cx="6" cy="18" r="3"/>
+    <circle cx="18" cy="16" r="3"/>
+    <line x1="9" y1="7" x2="21" y2="5"/>
+  </svg>
+)
+
+// ─── NEW: Community Icon ──────────────────────────────────────────────────────
+const IconCommunity = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+  </svg>
+)
+
+// ─── NEW: Tournament Icon ─────────────────────────────────────────────────────
+const IconTournament = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/>
+    <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/>
+    <path d="M4 22h16"/>
+    <path d="M12 15v7"/>
+    <path d="M8 22v-3.5a3 3 0 0 1 3-3h2a3 3 0 0 1 3 3V22"/>
+    <path d="M6 9h12a2 2 0 0 1 2 2v1.5a3.5 3.5 0 0 1-7 0"/>
+    <path d="M6 9V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v5"/>
   </svg>
 )
 
@@ -195,18 +223,6 @@ function MobileNavItem({ item, isActive, onClick }: { item: NavItem; isActive: b
     >
       <span style={{ color: isActive ? '#FFD700' : '#6b7280' }}>{item.icon}</span>
       <span style={{ flex: 1 }}>{item.label}</span>
-      {item.label === 'Chat' && (
-        <span style={{
-          background: '#ef4444',
-          color: 'white',
-          fontSize: '10px',
-          fontWeight: 'bold',
-          padding: '1px 8px',
-          borderRadius: '99px',
-        }}>
-          {/* Show unread count if needed */}
-        </span>
-      )}
     </Link>
   )
 }
@@ -277,17 +293,17 @@ export const Navbar: React.FC = () => {
   }, [])
 
   // ─── Navigation Items ─────────────────────────────────────────────────────
-const navItems: NavItem[] = [
-  { path: '/', label: 'Home', icon: <IconHome /> },
-  { path: '/find-players', label: 'Players', icon: <IconUsers /> },
-  { path: '/browse-sessions', label: 'Sessions', icon: <IconCalendar /> },
-  { path: '/marketplace', label: 'Market', icon: <IconShop /> },
-  { path: '/messages', label: 'Chat', icon: <IconMessages unreadCount={unreadCount} /> },
-  { path: '/music', label: 'Music', icon: <IconMusic /> },
-  { path: '/community', label: 'Community', icon: <IconCommunity /> },
-  { path: '/tournaments', label: 'Tournament', icon: <IconTournament /> }, // Only this one
-  { path: '/help', label: 'Help', icon: <IconHelp /> },
-]
+  const navItems: NavItem[] = [
+    { path: '/', label: 'Home', icon: <IconHome /> },
+    { path: '/find-players', label: 'Players', icon: <IconUsers /> },
+    { path: '/browse-sessions', label: 'Sessions', icon: <IconCalendar /> },
+    { path: '/marketplace', label: 'Market', icon: <IconShop /> },
+    { path: '/messages', label: 'Chat', icon: <IconMessages unreadCount={unreadCount} /> },
+    { path: '/music', label: 'Music', icon: <IconMusic /> },
+    { path: '/community', label: 'Community', icon: <IconCommunity /> },
+    { path: '/tournaments', label: 'Tournament', icon: <IconTournament /> },
+    { path: '/help', label: 'Help', icon: <IconHelp /> },
+  ]
 
   if (userRole === 'Admin') {
     navItems.push({ path: '/admin', label: 'Admin', icon: <IconAdmin /> })
@@ -728,47 +744,4 @@ function DropdownItem({ to, icon, label }: { to: string; icon: React.ReactNode; 
       {label}
     </Link>
   )
-}// ─── Add this icon function in your Navbar.tsx ────────────────────────────
-const IconChat = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-    <circle cx="9" cy="10" r="1"/>
-    <circle cx="15" cy="10" r="1"/>
-  </svg>
-)
-// ─── Music Icon ──────────────────────────────────────────────────────────────
-const IconMusic = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M9 18V5l12-2v13"/>
-    <circle cx="6" cy="18" r="3"/>
-    <circle cx="18" cy="16" r="3"/>
-    <line x1="9" y1="7" x2="21" y2="5"/>
-  </svg>
-)
-// ─── Community Icon ──────────────────────────────────────────────────────────
-const IconCommunity = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
-  </svg>
-)
-
-// ─── Tournament Icon ──────────────────────────────────────────────────────────
-const IconTournament = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/>
-    <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/>
-    <path d="M4 22h16"/>
-    <path d="M12 15v7"/>
-    <path d="M8 22v-3.5a3 3 0 0 1 3-3h2a3 3 0 0 1 3 3V22"/>
-    <path d="M6 9h12a2 2 0 0 1 2 2v1.5a3.5 3.5 0 0 1-7 0"/>
-    <path d="M6 9V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v5"/>
-  </svg>
-)
-
-const IconHelp = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="10"/>
-    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
-    <line x1="12" y1="17" x2="12.01" y2="17"/>
-  </svg>
-)
+}
