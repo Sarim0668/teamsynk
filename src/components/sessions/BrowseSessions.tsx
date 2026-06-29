@@ -656,8 +656,48 @@ export const BrowseSessions: React.FC = () => {
     setLoading(false)
   }
 
+  // src/components/sessions/BrowseSessions.tsx - Add this useEffect
+
   useEffect(() => {
     loadData()
+
+    // ─── REAL-TIME SUBSCRIPTION ──────────────────────────────────────────
+    const sessionSubscription = supabase
+      .channel('sessions-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'sports_sessions'
+        },
+        (payload) => {
+          console.log('🔄 Session change detected:', payload)
+          loadData()
+        }
+      )
+      .subscribe()
+
+    const participantsSubscription = supabase
+      .channel('session-participants-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'session_participants'
+        },
+        () => {
+          console.log('🔄 Session participants change detected')
+          loadData()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      sessionSubscription.unsubscribe()
+      participantsSubscription.unsubscribe()
+    }
   }, [])
 
   // ─── Auto-refresh every 60 seconds to clean up expired sessions ──────────

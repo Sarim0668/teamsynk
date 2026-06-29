@@ -352,17 +352,34 @@ export const AdminPanel: React.FC = () => {
   }
 
   // ─── Session Actions ──────────────────────────────────────────────────────
+// src/components/admin/AdminPanel.tsx - FIXED DELETE FUNCTIONS
+
+  // ─── Session Actions ──────────────────────────────────────────────────────
   const handleDeleteSession = async (sessionId: string) => {
     setIsDeleting(true)
     try {
-      // First delete participants
+      console.log('🗑️ Attempting to delete session:', sessionId)
+      
+      // First, verify the session exists
+      const { data: sessionExists, error: checkError } = await supabase
+        .from('sports_sessions')
+        .select('id')
+        .eq('id', sessionId)
+        .single()
+
+      if (checkError || !sessionExists) {
+        throw new Error('Session not found or already deleted')
+      }
+
+      // Delete participants first
       const { error: participantsError } = await supabase
         .from('session_participants')
         .delete()
         .eq('session_id', sessionId)
 
       if (participantsError) {
-        throw new Error('Failed to delete participants: ' + participantsError.message)
+        console.error('Error deleting participants:', participantsError)
+        // Continue anyway - maybe there are no participants
       }
 
       // Then delete the session
@@ -375,19 +392,26 @@ export const AdminPanel: React.FC = () => {
         throw new Error('Failed to delete session: ' + sessionError.message)
       }
 
+      console.log('✅ Session deleted successfully:', sessionId)
       setMessage({ text: '✅ Session deleted successfully', type: 'success' })
       
-      // Force refresh the sessions list
-      await loadSessions()
-      
-      // Also force refresh the data to ensure UI updates
+      // Update local state immediately
       setSessions(prev => prev.filter(s => s.id !== sessionId))
+      
+      // Also reload from database to be safe
+      await loadSessions()
       
       // Close the modal
       setShowDeleteModal(null)
       
+      // Show success notification
+      setTimeout(() => {
+        setMessage(null)
+      }, 5000)
+      
     } catch (error: any) {
-      setMessage({ text: 'Failed to delete session: ' + error.message, type: 'error' })
+      console.error('Delete session error:', error)
+      setMessage({ text: '❌ ' + error.message, type: 'error' })
     } finally {
       setIsDeleting(false)
     }
@@ -397,14 +421,27 @@ export const AdminPanel: React.FC = () => {
   const handleDeleteTournament = async (tournamentId: string) => {
     setIsDeleting(true)
     try {
-      // Delete all related data
+      console.log('🗑️ Attempting to delete tournament:', tournamentId)
+      
+      // First, verify the tournament exists
+      const { data: tournamentExists, error: checkError } = await supabase
+        .from('tournaments')
+        .select('id')
+        .eq('id', tournamentId)
+        .single()
+
+      if (checkError || !tournamentExists) {
+        throw new Error('Tournament not found or already deleted')
+      }
+
+      // Delete all related data in correct order
       const { error: matchesError } = await supabase
         .from('tournament_matches')
         .delete()
         .eq('tournament_id', tournamentId)
 
       if (matchesError) {
-        throw new Error('Failed to delete matches: ' + matchesError.message)
+        console.error('Error deleting matches:', matchesError)
       }
 
       const { error: teamsError } = await supabase
@@ -413,7 +450,7 @@ export const AdminPanel: React.FC = () => {
         .eq('tournament_id', tournamentId)
 
       if (teamsError) {
-        throw new Error('Failed to delete teams: ' + teamsError.message)
+        console.error('Error deleting teams:', teamsError)
       }
 
       const { error: participantsError } = await supabase
@@ -422,7 +459,7 @@ export const AdminPanel: React.FC = () => {
         .eq('tournament_id', tournamentId)
 
       if (participantsError) {
-        throw new Error('Failed to delete participants: ' + participantsError.message)
+        console.error('Error deleting participants:', participantsError)
       }
 
       // Finally delete the tournament
@@ -435,24 +472,30 @@ export const AdminPanel: React.FC = () => {
         throw new Error('Failed to delete tournament: ' + tournamentError.message)
       }
 
+      console.log('✅ Tournament deleted successfully:', tournamentId)
       setMessage({ text: '✅ Tournament deleted successfully', type: 'success' })
       
-      // Force refresh the tournaments list
-      await loadTournaments()
-      
-      // Also force refresh the data to ensure UI updates
+      // Update local state immediately
       setTournaments(prev => prev.filter(t => t.id !== tournamentId))
+      
+      // Also reload from database to be safe
+      await loadTournaments()
       
       // Close the modal
       setShowDeleteModal(null)
       
+      // Show success notification
+      setTimeout(() => {
+        setMessage(null)
+      }, 5000)
+      
     } catch (error: any) {
-      setMessage({ text: 'Failed to delete tournament: ' + error.message, type: 'error' })
+      console.error('Delete tournament error:', error)
+      setMessage({ text: '❌ ' + error.message, type: 'error' })
     } finally {
       setIsDeleting(false)
     }
   }
-
   const filteredUsers = users.filter(u =>
     u.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     u.email?.toLowerCase().includes(searchQuery.toLowerCase())

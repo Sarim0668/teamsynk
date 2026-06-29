@@ -25,10 +25,6 @@ export const TournamentsList: React.FC = () => {
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<any>(null)
 
-  useEffect(() => {
-    loadData()
-  }, [])
-
   const loadData = async () => {
     setLoading(true)
     
@@ -49,10 +45,71 @@ export const TournamentsList: React.FC = () => {
         creator_name: t.creator?.full_name || 'Unknown'
       }))
       setTournaments(tournamentsWithCreator)
+    } else {
+      console.error('Error loading tournaments:', error)
     }
 
     setLoading(false)
   }
+
+  useEffect(() => {
+    loadData()
+
+    // ─── REAL-TIME SUBSCRIPTION ──────────────────────────────────────────
+    const subscription = supabase
+      .channel('tournaments-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tournaments'
+        },
+        (payload) => {
+          console.log('🔄 Tournament change detected:', payload)
+          loadData()
+        }
+      )
+      .subscribe()
+
+    const teamsSubscription = supabase
+      .channel('tournament-teams-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tournament_teams'
+        },
+        () => {
+          console.log('🔄 Tournament teams change detected')
+          loadData()
+        }
+      )
+      .subscribe()
+
+    const matchesSubscription = supabase
+      .channel('tournament-matches-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tournament_matches'
+        },
+        () => {
+          console.log('🔄 Tournament matches change detected')
+          loadData()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      subscription.unsubscribe()
+      teamsSubscription.unsubscribe()
+      matchesSubscription.unsubscribe()
+    }
+  }, [])
 
   const getStatusBadge = (status: string) => {
     const styles: Record<string, { bg: string; color: string; label: string }> = {
@@ -74,23 +131,6 @@ export const TournamentsList: React.FC = () => {
         {s.label}
       </span>
     )
-  }
-
-  const handleDeleteTournament = async (tournamentId: string, e: React.MouseEvent) => {
-    e.stopPropagation()
-    if (!window.confirm('⚠️ Are you sure you want to delete this tournament? All data will be lost!')) return
-
-    // Delete all related data (cascade will handle it)
-    const { error } = await supabase
-      .from('tournaments')
-      .delete()
-      .eq('id', tournamentId)
-
-    if (error) {
-      alert('Failed to delete tournament: ' + error.message)
-    } else {
-      await loadData()
-    }
   }
 
   if (loading) {
@@ -134,7 +174,6 @@ export const TournamentsList: React.FC = () => {
       }} />
 
       <div style={{ maxWidth: '1000px', margin: '0 auto', position: 'relative', zIndex: 1 }}>
-        {/* ─── Header ─── */}
         <div style={{
           display: 'flex',
           justifyContent: 'space-between',
@@ -176,7 +215,6 @@ export const TournamentsList: React.FC = () => {
           </Link>
         </div>
 
-        {/* ─── Stats ─── */}
         <div style={{
           display: 'flex',
           gap: '16px',
@@ -218,7 +256,6 @@ export const TournamentsList: React.FC = () => {
           </div>
         </div>
 
-        {/* ─── Tournament Cards ─── */}
         {tournaments.length === 0 ? (
           <div style={{
             textAlign: 'center',
@@ -353,7 +390,6 @@ export const TournamentsList: React.FC = () => {
           </div>
         )}
 
-        {/* ─── Footer ─── */}
         <div style={{ marginTop: '40px', textAlign: 'center' }}>
           <span style={{ color: '#374151', fontSize: '11px', letterSpacing: '0.06em' }}>
             🏆 Tournaments • Create • Compete • Win

@@ -52,9 +52,71 @@ export const TournamentDetail: React.FC = () => {
   const [selectedAdvanceCount, setSelectedAdvanceCount] = useState<number>(2)
   const [showChampionCelebration, setShowChampionCelebration] = useState(false)
 
+  // src/components/tournaments/TournamentDetail.tsx - Add this useEffect
+
   useEffect(() => {
     if (id) {
       loadData()
+    }
+
+    // Subscribe to changes for this specific tournament
+    const subscription = supabase
+      .channel(`tournament-${id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tournaments',
+          filter: `id=eq.${id}`
+        },
+        () => {
+          console.log('🔄 Tournament detail change detected')
+          loadData()
+        }
+      )
+      .subscribe()
+
+    // Also listen for match changes
+    const matchSub = supabase
+      .channel(`tournament-matches-${id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tournament_matches',
+          filter: `tournament_id=eq.${id}`
+        },
+        () => {
+          console.log('🔄 Tournament matches change detected')
+          loadData()
+        }
+      )
+      .subscribe()
+
+    // Listen for team changes
+    const teamSub = supabase
+      .channel(`tournament-teams-${id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tournament_teams',
+          filter: `tournament_id=eq.${id}`
+        },
+        () => {
+          console.log('🔄 Tournament teams change detected')
+          loadData()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      subscription.unsubscribe()
+      matchSub.unsubscribe()
+      teamSub.unsubscribe()
     }
   }, [id])
 

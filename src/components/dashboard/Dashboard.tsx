@@ -259,7 +259,68 @@ export const Dashboard: React.FC = () => {
   const [userUniversity, setUserUniversity] = useState<string>('')
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => { loadData() }, [])
+  // src/components/dashboard/Dashboard.tsx - Add this useEffect
+
+  useEffect(() => {
+    loadData()
+
+    // Subscribe to tournament changes
+    const tournamentSub = supabase
+      .channel('dashboard-tournaments')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tournaments'
+        },
+        () => {
+          console.log('🔄 Dashboard: Tournament change detected')
+          loadData()
+        }
+      )
+      .subscribe()
+
+    // Subscribe to session changes
+    const sessionSub = supabase
+      .channel('dashboard-sessions')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'sports_sessions'
+        },
+        () => {
+          console.log('🔄 Dashboard: Session change detected')
+          loadData()
+        }
+      )
+      .subscribe()
+
+    // Subscribe to competition changes
+    const competitionSub = supabase
+      .channel('dashboard-competitions')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'competitions'
+        },
+        () => {
+          console.log('🔄 Dashboard: Competition change detected')
+          loadData()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      tournamentSub.unsubscribe()
+      sessionSub.unsubscribe()
+      competitionSub.unsubscribe()
+    }
+  }, [])
 
   const loadData = async () => {
     setLoading(true)
