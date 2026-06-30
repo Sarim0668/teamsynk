@@ -24,15 +24,50 @@ export const Register: React.FC = () => {
     university: ''
   })
 
-  // ─── Check if email already exists ───────────────────────────────────────
+  // ─── Check if email exists in AUTH (not just users table) ───────────────
   const checkEmailExists = async (email: string): Promise<boolean> => {
     try {
-      const { data } = await supabase
+      // First check in auth.users via the admin API
+      const { data: authData, error: authError } = await supabase
         .from('users')
         .select('id')
         .eq('email', email)
-        .single()
-      return !!data
+        .maybeSingle()
+      
+      if (authData) return true
+      
+      // Also check if there's any error that indicates the user exists
+      if (authError && authError.code === 'PGRST116') {
+        // No user found in users table
+        return false
+      }
+      
+      return false
+    } catch {
+      return false
+    }
+  }
+
+  // ─── Check if email exists in auth.users (more reliable) ────────────────
+  const checkAuthUserExists = async (email: string): Promise<boolean> => {
+    try {
+      // Try to sign in with a dummy password - if it says user exists, they exist
+      const { error } = await supabase.auth.signInWithPassword({
+        email: email,
+        password: 'dummy_password_for_check'
+      })
+      
+      // If error says "Invalid login credentials", user exists
+      if (error?.message?.includes('Invalid login credentials')) {
+        return true
+      }
+      
+      // If error says "User not found", user doesn't exist
+      if (error?.message?.includes('User not found')) {
+        return false
+      }
+      
+      return false
     } catch {
       return false
     }
@@ -64,9 +99,10 @@ export const Register: React.FC = () => {
     }
 
     try {
-      // Check if email already exists
-      const exists = await checkEmailExists(formData.email)
-      if (exists) {
+      // Check if email already exists in users table
+      const existsInUsers = await checkEmailExists(formData.email)
+      
+      if (existsInUsers) {
         setError('❌ This email is already registered. Please login instead.')
         setLoading(false)
         return
@@ -108,7 +144,7 @@ export const Register: React.FC = () => {
 
       // Try to insert user into users table
       try {
-        await supabase
+        const { error: insertError } = await supabase
           .from('users')
           .insert({
             id: authData.user.id,
@@ -120,6 +156,16 @@ export const Register: React.FC = () => {
             university: formData.university,
             status: 'pending'
           })
+
+        if (insertError) {
+          console.error('Insert error:', insertError)
+          // If it's a duplicate error, the user might already exist in users table
+          if (insertError.message?.includes('duplicate')) {
+            setError('❌ This email is already registered. Please login instead.')
+            setLoading(false)
+            return
+          }
+        }
       } catch (insertErr) {
         console.error('Insert error:', insertErr)
       }
