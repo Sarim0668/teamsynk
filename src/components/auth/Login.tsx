@@ -464,30 +464,30 @@ export const Login: React.FC = () => {
   }
 
   // ─── Google Sign-In ──────────────────────────────────────────────────────
-  // ─── Google Sign-In ──────────────────────────────────────────────────────
-const handleGoogleLogin = async () => {
-  setLoading(true)
-  setError('')
-  setMessage('')
+  const handleGoogleLogin = async () => {
+    setLoading(true)
+    setError('')
+    setMessage('')
 
-  const redirectUrl = window.location.origin + '/auth/callback'
+    const redirectUrl = window.location.origin + '/auth/callback'
 
-  const { error } = await supabase.auth.signInWithOAuth({
-    provider: 'google',
-    options: {
-      redirectTo: redirectUrl,
-      queryParams: {
-        access_type: 'offline',
-        prompt: 'consent',
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: redirectUrl,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        },
       },
-    },
-  })
+    })
 
-  if (error) {
-    setError(error.message)
-    setLoading(false)
+    if (error) {
+      setError(error.message)
+      setLoading(false)
+    }
+    // The redirect will happen automatically
   }
-}
 
   // ─── 3-D card tilt ──────────────────────────────────────────────────────
   const handleMouseMove = (e: React.MouseEvent) => {
@@ -720,53 +720,50 @@ const handleGoogleLogin = async () => {
             </div>
 
             {/* ─── EMAIL/PASSWORD FORM ─── */}
-            // src/components/auth/Login.tsx - Updated button section
+            <form onSubmit={handleLogin} noValidate>
+              <div style={{ marginBottom: 16 }}>
+                <FieldLabel>Email</FieldLabel>
+                <EmailInput value={email} onChange={setEmail} />
+              </div>
 
-// ─── EMAIL/PASSWORD FORM ───
-<form onSubmit={handleLogin} noValidate>
-  <div style={{ marginBottom: 16 }}>
-    <FieldLabel>Email</FieldLabel>
-    <EmailInput value={email} onChange={setEmail} />
-  </div>
+              <div style={{ marginBottom: 28 }}>
+                <FieldLabel>Password</FieldLabel>
+                <PasswordInput
+                  value={password}
+                  onChange={setPassword}
+                  autoComplete="current-password"
+                />
+              </div>
 
-  <div style={{ marginBottom: 28 }}>
-    <FieldLabel>Password</FieldLabel>
-    <PasswordInput
-      value={password}
-      onChange={setPassword}
-      autoComplete="current-password"
-    />
-  </div>
-
-  <button
-    type="submit"
-    disabled={loading}
-    className="ts-btn-gold ts-shimmer-btn"
-    style={{
-      width: '100%', 
-      padding: '15px 0',
-      background: 'linear-gradient(135deg,#c8a200 0%,#FFD700 50%,#f0c840 100%)',
-      border: 'none', 
-      borderRadius: 11,
-      color: '#0a0800', 
-      fontSize: 15, 
-      fontWeight: 700,
-      fontFamily: 'Sora, sans-serif', 
-      cursor: 'pointer',
-      position: 'relative', 
-      overflow: 'hidden',
-      transition: 'all 0.25s ease', 
-      letterSpacing: '0.3px',
-      boxShadow: '0 4px 20px rgba(200,162,0,0.2)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      textAlign: 'center',
-    }}
-  >
-    {loading ? <><Spinner />Signing you in…</> : 'Sign In to TeamSynk'}
-  </button>
-</form>
+              <button
+                type="submit"
+                disabled={loading}
+                className="ts-btn-gold ts-shimmer-btn"
+                style={{
+                  width: '100%', 
+                  padding: '15px 0',
+                  background: 'linear-gradient(135deg,#c8a200 0%,#FFD700 50%,#f0c840 100%)',
+                  border: 'none', 
+                  borderRadius: 11,
+                  color: '#0a0800', 
+                  fontSize: 15, 
+                  fontWeight: 700,
+                  fontFamily: 'Sora, sans-serif', 
+                  cursor: 'pointer',
+                  position: 'relative', 
+                  overflow: 'hidden',
+                  transition: 'all 0.25s ease', 
+                  letterSpacing: '0.3px',
+                  boxShadow: '0 4px 20px rgba(200,162,0,0.2)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  textAlign: 'center',
+                }}
+              >
+                {loading ? <><Spinner />Signing you in…</> : 'Sign In to TeamSynk'}
+              </button>
+            </form>
 
             {/* Footer */}
             <div className="ts-font2" style={{ textAlign: 'center', marginTop: 22, fontSize: 13, color: 'rgba(255,255,255,0.35)' }}>
