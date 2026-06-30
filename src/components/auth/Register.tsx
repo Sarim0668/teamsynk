@@ -9,9 +9,7 @@ export const Register: React.FC = () => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
-  const [showOTP, setShowOTP] = useState(false)
-  const [otp, setOtp] = useState('')
-  const [resendTimer, setResendTimer] = useState(0)
+  const [showConfirmation, setShowConfirmation] = useState(false)
   const [tempEmail, setTempEmail] = useState('')
 
   const [formData, setFormData] = useState({
@@ -28,7 +26,7 @@ export const Register: React.FC = () => {
   // ─── Check if email already exists ───────────────────────────────────────
   const checkEmailExists = async (email: string): Promise<boolean> => {
     try {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('users')
         .select('id')
         .eq('email', email)
@@ -40,7 +38,7 @@ export const Register: React.FC = () => {
     }
   }
 
-  // ─── Handle initial registration ─────────────────────────────────────────
+  // ─── Handle registration ──────────────────────────────────────────────────
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -67,7 +65,7 @@ export const Register: React.FC = () => {
     }
 
     try {
-      // Check if email already exists in users table
+      // Check if email already exists
       const exists = await checkEmailExists(formData.email)
       if (exists) {
         setError('❌ This email is already registered. Please login instead.')
@@ -75,7 +73,7 @@ export const Register: React.FC = () => {
         return
       }
 
-      // ✅ STEP 1: Create the user account with email confirmation disabled
+      // Create the user account
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
@@ -101,171 +99,46 @@ export const Register: React.FC = () => {
         return
       }
 
-      // ✅ STEP 2: Store email for OTP verification
+      // Store email for display
       setTempEmail(formData.email)
       
-      // ✅ STEP 3: Send OTP for verification
-      const { error: otpError } = await supabase.auth.signInWithOtp({
-        email: formData.email,
-        options: {
-          shouldCreateUser: false,
-        }
-      })
-
-      if (otpError) {
-        // If OTP fails, the user is created but not verified
-        console.error('OTP error:', otpError)
-        // Try to insert user manually anyway
-        try {
-          await supabase
-            .from('users')
-            .insert({
-              id: authData.user.id,
-              full_name: formData.full_name,
-              email: formData.email,
-              sport_interests: formData.sport_interests,
-              location: formData.location,
-              role: formData.role,
-              university: formData.university,
-              status: 'active'
-            })
-        } catch (insertErr) {
-          console.error('Insert error:', insertErr)
-        }
-        setSuccess(true)
-        setTimeout(() => navigate('/login'), 2000)
+      // If user is created but needs email confirmation
+      if (authData.user?.identities?.length === 0) {
+        // User already exists but not confirmed
+        setError('⚠️ This email is already registered but not confirmed. Please check your email.')
         setLoading(false)
         return
       }
 
-      // Show OTP screen
-      setShowOTP(true)
-      setResendTimer(60)
-      
-      const interval = setInterval(() => {
-        setResendTimer(prev => {
-          if (prev <= 1) {
-            clearInterval(interval)
-            return 0
-          }
-          return prev - 1
-        })
-      }, 1000)
+      // Try to insert user into users table
+      try {
+        await supabase
+          .from('users')
+          .insert({
+            id: authData.user.id,
+            full_name: formData.full_name,
+            email: formData.email,
+            sport_interests: formData.sport_interests,
+            location: formData.location,
+            role: formData.role,
+            university: formData.university,
+            status: 'active'
+          })
+      } catch (insertErr) {
+        console.error('Insert error (may already exist):', insertErr)
+      }
 
-      setError('')
+      // Show confirmation message
+      setShowConfirmation(true)
       setLoading(false)
 
     } catch (err: any) {
       console.error('Registration error:', err)
-      // Check if it's a duplicate email error from auth
       if (err.message?.includes('already registered')) {
         setError('❌ This email is already registered. Please login instead.')
       } else {
         setError(err.message || 'Registration failed. Please try again.')
       }
-      setLoading(false)
-    }
-  }
-
-  // ─── Verify OTP and complete registration ──────────────────────────────
-  const handleVerifyOTP = async () => {
-    if (!otp || otp.length < 6) {
-      setError('Please enter the 6-digit code')
-      return
-    }
-
-    setLoading(true)
-    setError('')
-
-    try {
-      // Verify OTP
-      const { error: verifyError } = await supabase.auth.verifyOtp({
-        email: tempEmail,
-        token: otp,
-        type: 'email',
-      })
-
-      if (verifyError) {
-        // If verification fails, the user might still be created
-        console.error('OTP verification error:', verifyError)
-        setError('Invalid or expired code. Please try again or check your email.')
-        setLoading(false)
-        return
-      }
-
-      // ✅ OTP verified - now get the user and create profile if not exists
-      const { data: { user } } = await supabase.auth.getUser()
-      
-      if (user) {
-        // Check if user already has a profile
-        const { data: existingProfile } = await supabase
-          .from('users')
-          .select('id')
-          .eq('id', user.id)
-          .single()
-
-        if (!existingProfile) {
-          // Create profile
-          await supabase
-            .from('users')
-            .insert({
-              id: user.id,
-              full_name: formData.full_name,
-              email: formData.email,
-              sport_interests: formData.sport_interests,
-              location: formData.location,
-              role: formData.role,
-              university: formData.university,
-              status: 'active'
-            })
-        }
-      }
-
-      setSuccess(true)
-      setTimeout(() => navigate('/login'), 2000)
-
-    } catch (err: any) {
-      console.error('OTP verification error:', err)
-      setError(err.message || 'Verification failed. Please try again.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // ─── Resend OTP ──────────────────────────────────────────────────────────
-  const handleResendOTP = async () => {
-    if (resendTimer > 0) return
-
-    setLoading(true)
-    setError('')
-
-    try {
-      const { error: otpError } = await supabase.auth.signInWithOtp({
-        email: formData.email,
-        options: {
-          shouldCreateUser: false,
-        }
-      })
-
-      if (otpError) {
-        throw otpError
-      }
-
-      setResendTimer(60)
-      const interval = setInterval(() => {
-        setResendTimer(prev => {
-          if (prev <= 1) {
-            clearInterval(interval)
-            return 0
-          }
-          return prev - 1
-        })
-      }, 1000)
-
-      setError('')
-    } catch (err: any) {
-      setError(err.message || 'Failed to resend code')
-    } finally {
       setLoading(false)
     }
   }
@@ -290,6 +163,125 @@ export const Register: React.FC = () => {
     )
   }
 
+  // ─── SHOW CONFIRMATION SCREEN ────────────────────────────────────────────
+  if (showConfirmation) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: '#0a0a0a',
+        color: 'white',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '20px',
+        position: 'relative'
+      }}>
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 0,
+          background: 'radial-gradient(ellipse 70% 45% at 50% -5%, rgba(200,162,0,0.05) 0%, transparent 65%)',
+          pointerEvents: 'none',
+        }} />
+
+        <div style={{
+          maxWidth: '480px',
+          width: '100%',
+          background: 'rgba(13,13,20,0.95)',
+          border: '1px solid rgba(200,162,0,0.2)',
+          borderRadius: '24px',
+          padding: '40px',
+          textAlign: 'center',
+          position: 'relative',
+          zIndex: 1
+        }}>
+          <div style={{ fontSize: '64px', marginBottom: '16px' }}>📧</div>
+          <h2 style={{ color: '#FFD700', fontSize: '24px', fontWeight: 'bold', marginBottom: '12px' }}>
+            Verify Your Email
+          </h2>
+          
+          <p style={{ color: '#aaa', fontSize: '15px', marginBottom: '8px' }}>
+            We sent a confirmation link to:
+          </p>
+          <p style={{ color: 'white', fontSize: '16px', fontWeight: 'bold', marginBottom: '20px' }}>
+            {tempEmail}
+          </p>
+
+          <div style={{
+            background: 'rgba(200,162,0,0.08)',
+            border: '1px solid rgba(200,162,0,0.15)',
+            borderRadius: '12px',
+            padding: '16px',
+            marginBottom: '20px',
+            textAlign: 'left'
+          }}>
+            <p style={{ color: '#9ca3af', fontSize: '13px', margin: 0, lineHeight: '1.6' }}>
+              <strong style={{ color: '#FFD700' }}>📌 Next Steps:</strong>
+              <br />
+              1. Check your email inbox (and spam folder)
+              <br />
+              2. Click the <strong style={{ color: '#FFD700' }}>confirmation link</strong> in the email
+              <br />
+              3. Return here and <strong style={{ color: '#FFD700' }}>Sign In</strong> to your account
+            </p>
+          </div>
+
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '10px'
+          }}>
+            <Link
+              to="/login"
+              style={{
+                padding: '14px',
+                background: 'linear-gradient(to right, #c8a200, #FFD700)',
+                border: 'none',
+                borderRadius: '10px',
+                color: '#0a0a0a',
+                fontWeight: 'bold',
+                fontSize: '16px',
+                textDecoration: 'none',
+                display: 'block'
+              }}
+            >
+              Go to Login
+            </Link>
+            
+            <button
+              onClick={() => {
+                setShowConfirmation(false)
+                setError('')
+              }}
+              style={{
+                padding: '12px',
+                background: 'transparent',
+                border: '1px solid #333',
+                borderRadius: '10px',
+                color: '#666',
+                fontSize: '14px',
+                cursor: 'pointer'
+              }}
+            >
+              ← Change Email
+            </button>
+          </div>
+
+          <div style={{
+            marginTop: '16px',
+            padding: '8px 12px',
+            background: 'rgba(239,68,68,0.1)',
+            borderRadius: '8px',
+            border: '1px solid rgba(239,68,68,0.2)'
+          }}>
+            <p style={{ color: '#f87171', fontSize: '12px', margin: 0 }}>
+              ⚠️ Check your spam folder if you don't see the email
+            </p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ─── MAIN REGISTRATION FORM ──────────────────────────────────────────────
   return (
     <div style={{
       minHeight: '100vh',
@@ -320,9 +312,7 @@ export const Register: React.FC = () => {
       }}>
         <div style={{ textAlign: 'center', marginBottom: '24px' }}>
           <h1 style={{ color: '#FFD700', fontSize: '32px', fontWeight: 'bold' }}>TEAMSYNK</h1>
-          <p style={{ color: '#666' }}>
-            {!showOTP ? 'Create your account' : 'Verify your email'}
-          </p>
+          <p style={{ color: '#666' }}>Create your account</p>
         </div>
 
         {error && (
@@ -337,314 +327,211 @@ export const Register: React.FC = () => {
           </div>
         )}
 
-        {/* ─── REGISTRATION FORM ─── */}
-        {!showOTP ? (
-          <form onSubmit={handleRegister} style={{
-            background: '#0d0d0d',
-            border: '1px solid #c8a20020',
-            borderRadius: '16px',
-            padding: '24px'
-          }}>
-            <div style={{ marginBottom: '16px' }}>
-              <label style={{ color: '#aaa', fontSize: '14px', display: 'block', marginBottom: '6px' }}>
-                Full Name *
-              </label>
-              <input
-                type="text"
-                value={formData.full_name}
-                onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                placeholder="Enter your full name"
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  background: '#1a1a1a',
-                  border: '1px solid #333',
-                  borderRadius: '8px',
-                  color: 'white',
-                  fontSize: '16px'
-                }}
-                required
-              />
-            </div>
-
-            <div style={{ marginBottom: '16px' }}>
-              <label style={{ color: '#aaa', fontSize: '14px', display: 'block', marginBottom: '6px' }}>
-                Email *
-              </label>
-              <input
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                placeholder="your@email.com"
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  background: '#1a1a1a',
-                  border: '1px solid #333',
-                  borderRadius: '8px',
-                  color: 'white',
-                  fontSize: '16px'
-                }}
-                required
-              />
-            </div>
-
-            <div style={{ marginBottom: '16px' }}>
-              <label style={{ color: '#aaa', fontSize: '14px', display: 'block', marginBottom: '6px' }}>
-                Password (min 8 chars) *
-              </label>
-              <input
-                type="password"
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                placeholder="••••••••"
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  background: '#1a1a1a',
-                  border: '1px solid #333',
-                  borderRadius: '8px',
-                  color: 'white',
-                  fontSize: '16px'
-                }}
-                required
-              />
-            </div>
-
-            <div style={{ marginBottom: '16px' }}>
-              <label style={{ color: '#aaa', fontSize: '14px', display: 'block', marginBottom: '6px' }}>
-                Confirm Password *
-              </label>
-              <input
-                type="password"
-                value={formData.confirm_password}
-                onChange={(e) => setFormData({ ...formData, confirm_password: e.target.value })}
-                placeholder="••••••••"
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  background: '#1a1a1a',
-                  border: '1px solid #333',
-                  borderRadius: '8px',
-                  color: 'white',
-                  fontSize: '16px'
-                }}
-                required
-              />
-            </div>
-
-            <div style={{ marginBottom: '16px' }}>
-              <label style={{ color: '#aaa', fontSize: '14px', display: 'block', marginBottom: '6px' }}>
-                University
-              </label>
-              <select
-                value={formData.university}
-                onChange={(e) => setFormData({ ...formData, university: e.target.value })}
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  background: '#1a1a1a',
-                  border: '1px solid #333',
-                  borderRadius: '8px',
-                  color: 'white',
-                  fontSize: '16px'
-                }}
-              >
-                <option value="">Select your university</option>
-                {['FAST University', 'NUST', 'IIUI', 'Bahria University', 'Air University', 'COMSATS', 'GIKI', 'LUMS', 'Other'].map(uni => (
-                  <option key={uni} value={uni}>{uni}</option>
-                ))}
-              </select>
-            </div>
-
-            <div style={{ marginBottom: '16px' }}>
-              <label style={{ color: '#aaa', fontSize: '14px', display: 'block', marginBottom: '6px' }}>
-                Sport Interest
-              </label>
-              <select
-                value={formData.sport_interests}
-                onChange={(e) => setFormData({ ...formData, sport_interests: e.target.value })}
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  background: '#1a1a1a',
-                  border: '1px solid #333',
-                  borderRadius: '8px',
-                  color: 'white',
-                  fontSize: '16px'
-                }}
-              >
-                <option value="">Select your sport</option>
-                {['Football', 'Basketball', 'Cricket', 'Tennis', 'Badminton', 'Volleyball', 'Swimming', 'Running', 'Cycling', 'Hockey', 'Other'].map(sport => (
-                  <option key={sport} value={sport}>{sport}</option>
-                ))}
-              </select>
-            </div>
-
-            <div style={{ marginBottom: '16px' }}>
-              <label style={{ color: '#aaa', fontSize: '14px', display: 'block', marginBottom: '6px' }}>
-                Location
-              </label>
-              <input
-                type="text"
-                value={formData.location}
-                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                placeholder="City, Country"
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  background: '#1a1a1a',
-                  border: '1px solid #333',
-                  borderRadius: '8px',
-                  color: 'white',
-                  fontSize: '16px'
-                }}
-              />
-            </div>
-
-            <div style={{ marginBottom: '24px' }}>
-              <label style={{ color: '#aaa', fontSize: '14px', display: 'block', marginBottom: '6px' }}>
-                Role
-              </label>
-              <select
-                value={formData.role}
-                onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  background: '#1a1a1a',
-                  border: '1px solid #333',
-                  borderRadius: '8px',
-                  color: 'white',
-                  fontSize: '16px'
-                }}
-              >
-                <option value="Player">Player</option>
-                <option value="Coach">Coach</option>
-                <option value="Organizer">Organizer</option>
-              </select>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              style={{
-                width: '100%',
-                padding: '14px',
-                background: 'linear-gradient(to right, #c8a200, #FFD700)',
-                border: 'none',
-                borderRadius: '8px',
-                color: '#0a0a0a',
-                fontWeight: 'bold',
-                fontSize: '16px',
-                cursor: 'pointer',
-                opacity: loading ? 0.7 : 1
-              }}
-            >
-              {loading ? 'Creating account...' : '📧 Create Account'}
-            </button>
-          </form>
-        ) : (
-          // ─── OTP VERIFICATION ───
-          <div style={{
-            background: '#0d0d0d',
-            border: '1px solid #c8a20020',
-            borderRadius: '16px',
-            padding: '32px 24px',
-            textAlign: 'center'
-          }}>
-            <div style={{ fontSize: '48px', marginBottom: '16px' }}>📧</div>
-            <h2 style={{ color: '#FFD700', marginBottom: '8px' }}>Verify Your Email</h2>
-            <p style={{ color: '#888', fontSize: '14px', marginBottom: '20px' }}>
-              We sent a 6-digit code to <strong style={{ color: 'white' }}>{tempEmail}</strong>
-            </p>
-
+        <form onSubmit={handleRegister} style={{
+          background: '#0d0d0d',
+          border: '1px solid #c8a20020',
+          borderRadius: '16px',
+          padding: '24px'
+        }}>
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{ color: '#aaa', fontSize: '14px', display: 'block', marginBottom: '6px' }}>
+              Full Name *
+            </label>
             <input
               type="text"
-              value={otp}
-              onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              placeholder="000000"
-              maxLength={6}
+              value={formData.full_name}
+              onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+              placeholder="Enter your full name"
               style={{
                 width: '100%',
-                padding: '14px',
+                padding: '12px',
                 background: '#1a1a1a',
                 border: '1px solid #333',
                 borderRadius: '8px',
                 color: 'white',
-                fontSize: '24px',
-                textAlign: 'center',
-                letterSpacing: '8px',
-                fontWeight: 'bold',
-                marginBottom: '20px'
+                fontSize: '16px'
               }}
+              required
             />
+          </div>
 
-            <button
-              onClick={handleVerifyOTP}
-              disabled={loading || otp.length < 6}
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{ color: '#aaa', fontSize: '14px', display: 'block', marginBottom: '6px' }}>
+              Email *
+            </label>
+            <input
+              type="email"
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              placeholder="your@email.com"
               style={{
                 width: '100%',
-                padding: '14px',
-                background: otp.length < 6 ? 'rgba(200,162,0,0.3)' : 'linear-gradient(to right, #c8a200, #FFD700)',
-                border: 'none',
+                padding: '12px',
+                background: '#1a1a1a',
+                border: '1px solid #333',
                 borderRadius: '8px',
-                color: otp.length < 6 ? '#666' : '#0a0a0a',
-                fontWeight: 'bold',
-                fontSize: '16px',
-                cursor: otp.length < 6 ? 'not-allowed' : 'pointer',
-                opacity: loading ? 0.7 : 1
+                color: 'white',
+                fontSize: '16px'
+              }}
+              required
+            />
+          </div>
+
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{ color: '#aaa', fontSize: '14px', display: 'block', marginBottom: '6px' }}>
+              Password (min 8 chars) *
+            </label>
+            <input
+              type="password"
+              value={formData.password}
+              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              placeholder="••••••••"
+              style={{
+                width: '100%',
+                padding: '12px',
+                background: '#1a1a1a',
+                border: '1px solid #333',
+                borderRadius: '8px',
+                color: 'white',
+                fontSize: '16px'
+              }}
+              required
+            />
+          </div>
+
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{ color: '#aaa', fontSize: '14px', display: 'block', marginBottom: '6px' }}>
+              Confirm Password *
+            </label>
+            <input
+              type="password"
+              value={formData.confirm_password}
+              onChange={(e) => setFormData({ ...formData, confirm_password: e.target.value })}
+              placeholder="••••••••"
+              style={{
+                width: '100%',
+                padding: '12px',
+                background: '#1a1a1a',
+                border: '1px solid #333',
+                borderRadius: '8px',
+                color: 'white',
+                fontSize: '16px'
+              }}
+              required
+            />
+          </div>
+
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{ color: '#aaa', fontSize: '14px', display: 'block', marginBottom: '6px' }}>
+              University
+            </label>
+            <select
+              value={formData.university}
+              onChange={(e) => setFormData({ ...formData, university: e.target.value })}
+              style={{
+                width: '100%',
+                padding: '12px',
+                background: '#1a1a1a',
+                border: '1px solid #333',
+                borderRadius: '8px',
+                color: 'white',
+                fontSize: '16px'
               }}
             >
-              {loading ? 'Verifying...' : '✅ Verify & Create Account'}
-            </button>
-
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginTop: '16px'
-            }}>
-              <button
-                onClick={handleResendOTP}
-                disabled={resendTimer > 0}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: resendTimer > 0 ? '#444' : '#c8a200',
-                  fontSize: '13px',
-                  cursor: resendTimer > 0 ? 'not-allowed' : 'pointer'
-                }}
-              >
-                {resendTimer > 0 ? `Resend in ${resendTimer}s` : 'Resend Code'}
-              </button>
-              <button
-                onClick={() => {
-                  setShowOTP(false)
-                  setOtp('')
-                  setError('')
-                }}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: '#666',
-                  fontSize: '13px',
-                  cursor: 'pointer'
-                }}
-              >
-                ← Change Email
-              </button>
-            </div>
-
-            <p style={{
-              color: '#374151',
-              fontSize: '11px',
-              marginTop: '16px'
-            }}>
-              🔐 Check your email spam folder if you don't see the code
-            </p>
+              <option value="">Select your university</option>
+              {['FAST University', 'NUST', 'IIUI', 'Bahria University', 'Air University', 'COMSATS', 'GIKI', 'LUMS', 'Other'].map(uni => (
+                <option key={uni} value={uni}>{uni}</option>
+              ))}
+            </select>
           </div>
-        )}
+
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{ color: '#aaa', fontSize: '14px', display: 'block', marginBottom: '6px' }}>
+              Sport Interest
+            </label>
+            <select
+              value={formData.sport_interests}
+              onChange={(e) => setFormData({ ...formData, sport_interests: e.target.value })}
+              style={{
+                width: '100%',
+                padding: '12px',
+                background: '#1a1a1a',
+                border: '1px solid #333',
+                borderRadius: '8px',
+                color: 'white',
+                fontSize: '16px'
+              }}
+            >
+              <option value="">Select your sport</option>
+              {['Football', 'Basketball', 'Cricket', 'Tennis', 'Badminton', 'Volleyball', 'Swimming', 'Running', 'Cycling', 'Hockey', 'Other'].map(sport => (
+                <option key={sport} value={sport}>{sport}</option>
+              ))}
+            </select>
+          </div>
+
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{ color: '#aaa', fontSize: '14px', display: 'block', marginBottom: '6px' }}>
+              Location
+            </label>
+            <input
+              type="text"
+              value={formData.location}
+              onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+              placeholder="City, Country"
+              style={{
+                width: '100%',
+                padding: '12px',
+                background: '#1a1a1a',
+                border: '1px solid #333',
+                borderRadius: '8px',
+                color: 'white',
+                fontSize: '16px'
+              }}
+            />
+          </div>
+
+          <div style={{ marginBottom: '24px' }}>
+            <label style={{ color: '#aaa', fontSize: '14px', display: 'block', marginBottom: '6px' }}>
+              Role
+            </label>
+            <select
+              value={formData.role}
+              onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+              style={{
+                width: '100%',
+                padding: '12px',
+                background: '#1a1a1a',
+                border: '1px solid #333',
+                borderRadius: '8px',
+                color: 'white',
+                fontSize: '16px'
+              }}
+            >
+              <option value="Player">Player</option>
+              <option value="Coach">Coach</option>
+              <option value="Organizer">Organizer</option>
+            </select>
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              width: '100%',
+              padding: '14px',
+              background: 'linear-gradient(to right, #c8a200, #FFD700)',
+              border: 'none',
+              borderRadius: '8px',
+              color: '#0a0a0a',
+              fontWeight: 'bold',
+              fontSize: '16px',
+              cursor: 'pointer',
+              opacity: loading ? 0.7 : 1
+            }}
+          >
+            {loading ? 'Creating account...' : '📧 Create Account'}
+          </button>
+        </form>
 
         <p style={{ textAlign: 'center', color: '#666', marginTop: '20px' }}>
           Already have an account?{' '}
