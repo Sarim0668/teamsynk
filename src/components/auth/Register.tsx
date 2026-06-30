@@ -21,53 +21,31 @@ export const Register: React.FC = () => {
     sport_interests: '',
     location: '',
     role: 'Player',
-    university: ''
+    university: '' // ← University field is here
   })
 
-  // ─── Check if email exists in AUTH (not just users table) ───────────────
+  // ─── University options ──────────────────────────────────────────────────────
+  const universities = [
+    'FAST University',
+    'NUST',
+    'IIUI',
+    'Bahria University',
+    'Air University',
+    'COMSATS',
+    'GIKI',
+    'LUMS',
+    'Other'
+  ]
+
+  // ─── Check if email already exists ───────────────────────────────────────
   const checkEmailExists = async (email: string): Promise<boolean> => {
     try {
-      // First check in auth.users via the admin API
-      const { data: authData, error: authError } = await supabase
+      const { data } = await supabase
         .from('users')
         .select('id')
         .eq('email', email)
-        .maybeSingle()
-      
-      if (authData) return true
-      
-      // Also check if there's any error that indicates the user exists
-      if (authError && authError.code === 'PGRST116') {
-        // No user found in users table
-        return false
-      }
-      
-      return false
-    } catch {
-      return false
-    }
-  }
-
-  // ─── Check if email exists in auth.users (more reliable) ────────────────
-  const checkAuthUserExists = async (email: string): Promise<boolean> => {
-    try {
-      // Try to sign in with a dummy password - if it says user exists, they exist
-      const { error } = await supabase.auth.signInWithPassword({
-        email: email,
-        password: 'dummy_password_for_check'
-      })
-      
-      // If error says "Invalid login credentials", user exists
-      if (error?.message?.includes('Invalid login credentials')) {
-        return true
-      }
-      
-      // If error says "User not found", user doesn't exist
-      if (error?.message?.includes('User not found')) {
-        return false
-      }
-      
-      return false
+        .single()
+      return !!data
     } catch {
       return false
     }
@@ -99,16 +77,15 @@ export const Register: React.FC = () => {
     }
 
     try {
-      // Check if email already exists in users table
-      const existsInUsers = await checkEmailExists(formData.email)
-      
-      if (existsInUsers) {
+      // Check if email already exists
+      const exists = await checkEmailExists(formData.email)
+      if (exists) {
         setError('❌ This email is already registered. Please login instead.')
         setLoading(false)
         return
       }
 
-      // Create the user account
+      // Create the user account with ALL fields in metadata
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
@@ -118,7 +95,7 @@ export const Register: React.FC = () => {
             sport_interests: formData.sport_interests,
             location: formData.location,
             role: formData.role,
-            university: formData.university
+            university: formData.university // ← IMPORTANT: University in metadata
           }
         }
       })
@@ -142,7 +119,7 @@ export const Register: React.FC = () => {
       // Store email for display
       setTempEmail(formData.email)
 
-      // Try to insert user into users table
+      // Insert user into users table with ALL fields
       try {
         const { error: insertError } = await supabase
           .from('users')
@@ -153,13 +130,12 @@ export const Register: React.FC = () => {
             sport_interests: formData.sport_interests,
             location: formData.location,
             role: formData.role,
-            university: formData.university,
+            university: formData.university, // ← IMPORTANT: University in users table
             status: 'pending'
           })
 
         if (insertError) {
           console.error('Insert error:', insertError)
-          // If it's a duplicate error, the user might already exist in users table
           if (insertError.message?.includes('duplicate')) {
             setError('❌ This email is already registered. Please login instead.')
             setLoading(false)
@@ -541,9 +517,10 @@ export const Register: React.FC = () => {
             />
           </div>
 
+          {/* ─── UNIVERSITY FIELD ─── */}
           <div style={{ marginBottom: '16px' }}>
             <label style={{ color: '#aaa', fontSize: '14px', display: 'block', marginBottom: '6px' }}>
-              University
+              University *
             </label>
             <select
               value={formData.university}
@@ -557,12 +534,16 @@ export const Register: React.FC = () => {
                 color: 'white',
                 fontSize: '16px'
               }}
+              required
             >
               <option value="">Select your university</option>
-              {['FAST University', 'NUST', 'IIUI', 'Bahria University', 'Air University', 'COMSATS', 'GIKI', 'LUMS', 'Other'].map(uni => (
+              {universities.map(uni => (
                 <option key={uni} value={uni}>{uni}</option>
               ))}
             </select>
+            <div style={{ color: '#555', fontSize: '11px', marginTop: '4px' }}>
+              🎓 Your university helps you find teammates and sessions near you
+            </div>
           </div>
 
           <div style={{ marginBottom: '16px' }}>

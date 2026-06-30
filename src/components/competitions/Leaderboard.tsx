@@ -25,19 +25,92 @@ export const Leaderboard: React.FC = () => {
     }
   }
 
-  const loadLeaderboard = async () => {
-    setLoading(true)
-    
-    const { data, error } = await supabase
+ // src/components/competitions/Leaderboard.tsx - Updated loadLeaderboard function
+
+const loadLeaderboard = async () => {
+  try {
+    // Try to get from view
+    let { data, error } = await supabase
       .from('university_overall_leaderboard')
       .select('*')
       .order('total_points', { ascending: false })
 
-    if (!error && data) {
-      setUniversities(data)
+    // If view fails, calculate manually
+    if (error || !data || data.length === 0) {
+      console.log('View not available, calculating manually...')
+      
+      const { data: uniGroups } = await supabase
+        .from('university_groups')
+        .select('*')
+
+      if (uniGroups && uniGroups.length > 0) {
+        const manualData = await Promise.all(uniGroups.map(async (uni) => {
+          // Get member count
+          const { count: members } = await supabase
+            .from('users')
+            .select('*', { count: 'exact', head: true })
+            .eq('university', uni.name)
+            .eq('status', 'active')
+
+          // Get sessions created
+          const { count: sessionsCreated } = await supabase
+            .from('sports_sessions')
+            .select('*, users!created_by(university)', { count: 'exact', head: true })
+            .eq('users.university', uni.name)
+
+          // Get sessions joined
+          const { count: sessionsJoined } = await supabase
+            .from('session_participants')
+            .select('*, users!user_id(university)', { count: 'exact', head: true })
+            .eq('users.university', uni.name)
+
+          const totalMembers = members || 0
+          const totalSessionsCreated = sessionsCreated || 0
+          const totalSessionsJoined = sessionsJoined || 0
+          const totalPoints = (totalMembers * 5) + (totalSessionsCreated * 10) + (totalSessionsJoined * 5)
+
+          return {
+            ...uni,
+            total_members: totalMembers,
+            total_sessions_created: totalSessionsCreated,
+            total_sessions_joined: totalSessionsJoined,
+            total_competitions_participated: 0,
+            competitions_won: 0,
+            total_points: totalPoints,
+            rank: 0
+          }
+        }))
+
+        manualData.sort((a, b) => b.total_points - a.total_points)
+        manualData.forEach((item, index) => {
+          item.rank = index + 1
+        })
+
+        data = manualData
+      }
     }
-    setLoading(false)
+
+    if (data && data.length > 0) {
+      setUniversities(data)
+      
+      const totalMembers = data.reduce((sum, u) => sum + (u.total_members || 0), 0)
+      const totalSessions = data.reduce((sum, u) => sum + (u.total_sessions_created || 0), 0)
+      const totalCompetitions = data.reduce((sum, u) => sum + (u.total_competitions_participated || 0), 0)
+      
+      setStats({
+        totalUniversities: data.length,
+        totalMembers,
+        totalSessions,
+        totalCompetitions
+      })
+    } else {
+      setError('No universities found. Please add universities to get started.')
+    }
+  } catch (err) {
+    console.error('Error loading leaderboard:', err)
+    setError('Failed to load leaderboard data.')
   }
+}
 
   const getMedal = (rank: number) => {
     if (rank === 1) return '🥇'
