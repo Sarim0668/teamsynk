@@ -9,8 +9,11 @@ export const Register: React.FC = () => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
-  const [showConfirmation, setShowConfirmation] = useState(false)
+  const [showOTP, setShowOTP] = useState(false)
+  const [otp, setOtp] = useState('')
+  const [resendTimer, setResendTimer] = useState(0)
   const [tempEmail, setTempEmail] = useState('')
+  const [tempUserId, setTempUserId] = useState<string | null>(null)
 
   const [formData, setFormData] = useState({
     full_name: '',
@@ -22,6 +25,34 @@ export const Register: React.FC = () => {
     role: 'Player',
     university: ''
   })
+
+  // ─── Generate random 6-digit OTP ──────────────────────────────────────────
+  const generateOTP = () => {
+    return Math.floor(100000 + Math.random() * 900000).toString()
+  }
+
+  // ─── Send OTP via email ──────────────────────────────────────────────────
+  const sendOTPEmail = async (email: string, otpCode: string) => {
+    // Using Supabase's built-in email functionality
+    // You can also use a custom email service
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email: email,
+        options: {
+          shouldCreateUser: false,
+          data: {
+            otp: otpCode
+          }
+        }
+      })
+      
+      if (error) throw error
+      return true
+    } catch (error) {
+      console.error('Error sending OTP:', error)
+      return false
+    }
+  }
 
   // ─── Check if email already exists ───────────────────────────────────────
   const checkEmailExists = async (email: string): Promise<boolean> => {
@@ -73,17 +104,100 @@ export const Register: React.FC = () => {
         return
       }
 
-      // Create the user account
-      const { data: authData, error: authError } = await supabase.auth.signUp({
+      // Generate OTP
+      const otpCode = generateOTP()
+      setTempEmail(formData.email)
+
+      // Send OTP via email (using Supabase's built-in email)
+      const { error: otpError } = await supabase.auth.signInWithOtp({
         email: formData.email,
-        password: formData.password,
+        options: {
+          shouldCreateUser: false,
+          data: {
+            otp: otpCode,
+            full_name: formData.full_name
+          }
+        }
+      })
+
+      if (otpError) {
+        // Fallback: Show OTP on screen for testing (remove in production)
+        console.log('📧 OTP Code (for testing):', otpCode)
+        setError(`⚠️ OTP sending failed. (Test OTP: ${otpCode})`)
+        setLoading(false)
+        return
+      }
+
+      // Store the OTP and user data temporarily
+      // In production, you'd store this in a session or database
+      sessionStorage.setItem('otp_data', JSON.stringify({
+        email: formData.email,
+        otp: otpCode,
+        userData: formData
+      }))
+
+      // Show OTP screen
+      setShowOTP(true)
+      setResendTimer(60)
+      
+      const interval = setInterval(() => {
+        setResendTimer(prev => {
+          if (prev <= 1) {
+            clearInterval(interval)
+            return 0
+          }
+          return prev - 1
+        })
+      }, 1000)
+
+      setLoading(false)
+
+    } catch (err: any) {
+      console.error('Registration error:', err)
+      setError(err.message || 'Registration failed. Please try again.')
+      setLoading(false)
+    }
+  }
+
+  // ─── Verify OTP and create account ──────────────────────────────────────
+  const handleVerifyOTP = async () => {
+    if (!otp || otp.length < 6) {
+      setError('Please enter the 6-digit code')
+      return
+    }
+
+    setLoading(true)
+    setError('')
+
+    try {
+      // Get stored OTP data
+      const storedData = sessionStorage.getItem('otp_data')
+      if (!storedData) {
+        setError('Session expired. Please try again.')
+        setLoading(false)
+        return
+      }
+
+      const { email, otp: storedOTP, userData } = JSON.parse(storedData)
+
+      // Verify OTP
+      if (otp !== storedOTP) {
+        setError('❌ Invalid code. Please try again.')
+        setLoading(false)
+        return
+      }
+
+      // ✅ OTP Verified - Create the account
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: email,
+        password: userData.password,
         options: {
           data: {
-            full_name: formData.full_name,
-            sport_interests: formData.sport_interests,
-            location: formData.location,
-            role: formData.role,
-            university: formData.university
+            full_name: userData.full_name,
+            sport_interests: userData.sport_interests,
+            location: userData.location,
+            role: userData.role,
+            university: userData.university
           },
           emailRedirectTo: window.location.origin + '/login'
         }
@@ -99,46 +213,88 @@ export const Register: React.FC = () => {
         return
       }
 
-      // Store email for display
-      setTempEmail(formData.email)
-      
-      // If user is created but needs email confirmation
-      if (authData.user?.identities?.length === 0) {
-        // User already exists but not confirmed
-        setError('⚠️ This email is already registered but not confirmed. Please check your email.')
-        setLoading(false)
-        return
-      }
-
-      // Try to insert user into users table
+      // Insert into users table
       try {
         await supabase
           .from('users')
           .insert({
             id: authData.user.id,
-            full_name: formData.full_name,
-            email: formData.email,
-            sport_interests: formData.sport_interests,
-            location: formData.location,
-            role: formData.role,
-            university: formData.university,
+            full_name: userData.full_name,
+            email: userData.email,
+            sport_interests: userData.sport_interests,
+            location: userData.location,
+            role: userData.role,
+            university: userData.university,
             status: 'active'
           })
       } catch (insertErr) {
-        console.error('Insert error (may already exist):', insertErr)
+        console.error('Insert error:', insertErr)
       }
 
-      // Show confirmation message
-      setShowConfirmation(true)
-      setLoading(false)
+      // Clear stored data
+      sessionStorage.removeItem('otp_data')
+
+      setSuccess(true)
+      setTimeout(() => navigate('/login'), 2000)
 
     } catch (err: any) {
-      console.error('Registration error:', err)
-      if (err.message?.includes('already registered')) {
-        setError('❌ This email is already registered. Please login instead.')
-      } else {
-        setError(err.message || 'Registration failed. Please try again.')
+      console.error('OTP verification error:', err)
+      setError(err.message || 'Verification failed. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // ─── Resend OTP ──────────────────────────────────────────────────────────
+  const handleResendOTP = async () => {
+    if (resendTimer > 0) return
+
+    setLoading(true)
+    setError('')
+
+    try {
+      const otpCode = generateOTP()
+      
+      const { error: otpError } = await supabase.auth.signInWithOtp({
+        email: tempEmail,
+        options: {
+          shouldCreateUser: false,
+          data: {
+            otp: otpCode
+          }
+        }
+      })
+
+      if (otpError) {
+        console.log('📧 New OTP Code (for testing):', otpCode)
+        setError(`⚠️ OTP sending failed. (Test OTP: ${otpCode})`)
+        setLoading(false)
+        return
       }
+
+      // Update stored OTP
+      const storedData = sessionStorage.getItem('otp_data')
+      if (storedData) {
+        const data = JSON.parse(storedData)
+        data.otp = otpCode
+        sessionStorage.setItem('otp_data', JSON.stringify(data))
+      }
+
+      setResendTimer(60)
+      const interval = setInterval(() => {
+        setResendTimer(prev => {
+          if (prev <= 1) {
+            clearInterval(interval)
+            return 0
+          }
+          return prev - 1
+        })
+      }, 1000)
+
+      setError('')
+    } catch (err: any) {
+      setError(err.message || 'Failed to resend code')
+    } finally {
       setLoading(false)
     }
   }
@@ -163,8 +319,8 @@ export const Register: React.FC = () => {
     )
   }
 
-  // ─── SHOW CONFIRMATION SCREEN ────────────────────────────────────────────
-  if (showConfirmation) {
+  // ─── SHOW OTP SCREEN ──────────────────────────────────────────────────────
+  if (showOTP) {
     return (
       <div style={{
         minHeight: '100vh',
@@ -193,71 +349,91 @@ export const Register: React.FC = () => {
           position: 'relative',
           zIndex: 1
         }}>
-          <div style={{ fontSize: '64px', marginBottom: '16px' }}>📧</div>
-          <h2 style={{ color: '#FFD700', fontSize: '24px', fontWeight: 'bold', marginBottom: '12px' }}>
-            Verify Your Email
+          <div style={{ fontSize: '48px', marginBottom: '16px' }}>📧</div>
+          <h2 style={{ color: '#FFD700', fontSize: '24px', fontWeight: 'bold', marginBottom: '8px' }}>
+            Enter Verification Code
           </h2>
           
-          <p style={{ color: '#aaa', fontSize: '15px', marginBottom: '8px' }}>
-            We sent a confirmation link to:
-          </p>
-          <p style={{ color: 'white', fontSize: '16px', fontWeight: 'bold', marginBottom: '20px' }}>
-            {tempEmail}
+          <p style={{ color: '#aaa', fontSize: '14px', marginBottom: '20px' }}>
+            We sent a 6-digit code to <strong style={{ color: 'white' }}>{tempEmail}</strong>
           </p>
 
-          <div style={{
-            background: 'rgba(200,162,0,0.08)',
-            border: '1px solid rgba(200,162,0,0.15)',
-            borderRadius: '12px',
-            padding: '16px',
-            marginBottom: '20px',
-            textAlign: 'left'
-          }}>
-            <p style={{ color: '#9ca3af', fontSize: '13px', margin: 0, lineHeight: '1.6' }}>
-              <strong style={{ color: '#FFD700' }}>📌 Next Steps:</strong>
-              <br />
-              1. Check your email inbox (and spam folder)
-              <br />
-              2. Click the <strong style={{ color: '#FFD700' }}>confirmation link</strong> in the email
-              <br />
-              3. Return here and <strong style={{ color: '#FFD700' }}>Sign In</strong> to your account
-            </p>
-          </div>
+          <input
+            type="text"
+            value={otp}
+            onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+            placeholder="000000"
+            maxLength={6}
+            autoFocus
+            style={{
+              width: '100%',
+              padding: '16px',
+              background: '#1a1a1a',
+              border: '1px solid #333',
+              borderRadius: '12px',
+              color: 'white',
+              fontSize: '28px',
+              textAlign: 'center',
+              letterSpacing: '10px',
+              fontWeight: 'bold',
+              marginBottom: '20px',
+              outline: 'none',
+              transition: 'border-color 0.3s'
+            }}
+            onFocus={(e) => e.currentTarget.style.borderColor = '#c8a200'}
+            onBlur={(e) => e.currentTarget.style.borderColor = '#333'}
+          />
+
+          <button
+            onClick={handleVerifyOTP}
+            disabled={loading || otp.length < 6}
+            style={{
+              width: '100%',
+              padding: '14px',
+              background: otp.length < 6 ? 'rgba(200,162,0,0.3)' : 'linear-gradient(to right, #c8a200, #FFD700)',
+              border: 'none',
+              borderRadius: '10px',
+              color: otp.length < 6 ? '#666' : '#0a0a0a',
+              fontWeight: 'bold',
+              fontSize: '16px',
+              cursor: otp.length < 6 ? 'not-allowed' : 'pointer',
+              opacity: loading ? 0.7 : 1
+            }}
+          >
+            {loading ? 'Verifying...' : '✅ Verify & Create Account'}
+          </button>
 
           <div style={{
             display: 'flex',
-            flexDirection: 'column',
-            gap: '10px'
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginTop: '16px'
           }}>
-            <Link
-              to="/login"
+            <button
+              onClick={handleResendOTP}
+              disabled={resendTimer > 0}
               style={{
-                padding: '14px',
-                background: 'linear-gradient(to right, #c8a200, #FFD700)',
+                background: 'transparent',
                 border: 'none',
-                borderRadius: '10px',
-                color: '#0a0a0a',
-                fontWeight: 'bold',
-                fontSize: '16px',
-                textDecoration: 'none',
-                display: 'block'
+                color: resendTimer > 0 ? '#444' : '#c8a200',
+                fontSize: '13px',
+                cursor: resendTimer > 0 ? 'not-allowed' : 'pointer'
               }}
             >
-              Go to Login
-            </Link>
-            
+              {resendTimer > 0 ? `Resend in ${resendTimer}s` : 'Resend Code'}
+            </button>
             <button
               onClick={() => {
-                setShowConfirmation(false)
+                setShowOTP(false)
+                setOtp('')
                 setError('')
+                sessionStorage.removeItem('otp_data')
               }}
               style={{
-                padding: '12px',
                 background: 'transparent',
-                border: '1px solid #333',
-                borderRadius: '10px',
+                border: 'none',
                 color: '#666',
-                fontSize: '14px',
+                fontSize: '13px',
                 cursor: 'pointer'
               }}
             >
@@ -265,17 +441,26 @@ export const Register: React.FC = () => {
             </button>
           </div>
 
-          <div style={{
-            marginTop: '16px',
-            padding: '8px 12px',
-            background: 'rgba(239,68,68,0.1)',
-            borderRadius: '8px',
-            border: '1px solid rgba(239,68,68,0.2)'
+          {error && (
+            <div style={{
+              marginTop: '12px',
+              padding: '10px',
+              background: '#ff444433',
+              borderRadius: '8px',
+              color: '#ff4444',
+              fontSize: '13px'
+            }}>
+              ⚠️ {error}
+            </div>
+          )}
+
+          <p style={{
+            color: '#374151',
+            fontSize: '11px',
+            marginTop: '16px'
           }}>
-            <p style={{ color: '#f87171', fontSize: '12px', margin: 0 }}>
-              ⚠️ Check your spam folder if you don't see the email
-            </p>
-          </div>
+            🔐 Check your email spam folder if you don't see the code
+          </p>
         </div>
       </div>
     )
