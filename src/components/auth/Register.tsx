@@ -21,7 +21,7 @@ export const Register: React.FC = () => {
     sport_interests: '',
     location: '',
     role: 'Player',
-    university: '' // ← University field is here
+    university: ''
   })
 
   // ─── University options ──────────────────────────────────────────────────────
@@ -76,6 +76,12 @@ export const Register: React.FC = () => {
       return
     }
 
+    if (!formData.university) {
+      setError('Please select your university')
+      setLoading(false)
+      return
+    }
+
     try {
       // Check if email already exists
       const exists = await checkEmailExists(formData.email)
@@ -84,6 +90,13 @@ export const Register: React.FC = () => {
         setLoading(false)
         return
       }
+
+      console.log('📝 Registering user with data:', {
+        full_name: formData.full_name,
+        email: formData.email,
+        university: formData.university,
+        sport: formData.sport_interests
+      })
 
       // Create the user account with ALL fields in metadata
       const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -95,12 +108,13 @@ export const Register: React.FC = () => {
             sport_interests: formData.sport_interests,
             location: formData.location,
             role: formData.role,
-            university: formData.university // ← IMPORTANT: University in metadata
+            university: formData.university
           }
         }
       })
 
       if (authError) {
+        console.error('❌ Auth error:', authError)
         if (authError.message?.includes('already registered')) {
           setError('❌ This email is already registered. Please login instead.')
         } else {
@@ -116,34 +130,44 @@ export const Register: React.FC = () => {
         return
       }
 
+      console.log('✅ Auth user created:', authData.user.id)
+
       // Store email for display
       setTempEmail(formData.email)
 
       // Insert user into users table with ALL fields
       try {
+        const userData = {
+          id: authData.user.id,
+          full_name: formData.full_name,
+          email: formData.email,
+          sport_interests: formData.sport_interests,
+          location: formData.location,
+          role: formData.role,
+          university: formData.university,
+          status: 'pending'
+        }
+        
+        console.log('📝 Inserting user data:', userData)
+
         const { error: insertError } = await supabase
           .from('users')
-          .insert({
-            id: authData.user.id,
-            full_name: formData.full_name,
-            email: formData.email,
-            sport_interests: formData.sport_interests,
-            location: formData.location,
-            role: formData.role,
-            university: formData.university, // ← IMPORTANT: University in users table
-            status: 'pending'
-          })
+          .insert(userData)
 
         if (insertError) {
-          console.error('Insert error:', insertError)
+          console.error('❌ Insert error:', insertError)
           if (insertError.message?.includes('duplicate')) {
             setError('❌ This email is already registered. Please login instead.')
             setLoading(false)
             return
           }
+          // Continue even if insert fails - the trigger might handle it
+        } else {
+          console.log('✅ User inserted into users table')
         }
       } catch (insertErr) {
-        console.error('Insert error:', insertErr)
+        console.error('❌ Insert error:', insertErr)
+        // Continue - the user might still be created by trigger
       }
 
       // Show confirmation screen
@@ -163,7 +187,7 @@ export const Register: React.FC = () => {
       setLoading(false)
 
     } catch (err: any) {
-      console.error('Registration error:', err)
+      console.error('❌ Registration error:', err)
       setError(err.message || 'Registration failed. Please try again.')
       setLoading(false)
     }
