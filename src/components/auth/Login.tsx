@@ -103,7 +103,117 @@ const CSS = `
 /* ─── SportsSVGScene ──────────────────────────────────────────── */
 const SportsSVGScene: React.FC = () => (
   <svg viewBox="0 0 300 400" xmlns="http://www.w3.org/2000/svg" width="300" height="400" style={{ display: 'block' }}>
-    {/* ... keep your existing SVG code ... */}
+    <defs>
+      <radialGradient id="ts-gball" cx="35%" cy="30%">
+        <stop offset="0%" stopColor="#fff8c0" />
+        <stop offset="60%" stopColor="#FFD700" />
+        <stop offset="100%" stopColor="#8B6A00" />
+      </radialGradient>
+      <radialGradient id="ts-gcricket" cx="35%" cy="30%">
+        <stop offset="0%" stopColor="#ff9999" />
+        <stop offset="50%" stopColor="#cc2200" />
+        <stop offset="100%" stopColor="#660000" />
+      </radialGradient>
+      <radialGradient id="ts-gbball" cx="35%" cy="30%">
+        <stop offset="0%" stopColor="#ffcc88" />
+        <stop offset="50%" stopColor="#dd6600" />
+        <stop offset="100%" stopColor="#884400" />
+      </radialGradient>
+      <radialGradient id="ts-gtrophy" cx="40%" cy="20%">
+        <stop offset="0%" stopColor="#fff8d0" />
+        <stop offset="50%" stopColor="#FFD700" />
+        <stop offset="100%" stopColor="#9a7000" />
+      </radialGradient>
+      <filter id="ts-glow">
+        <feGaussianBlur stdDeviation="3" result="coloredBlur" />
+        <feMerge><feMergeNode in="coloredBlur" /><feMergeNode in="SourceGraphic" /></feMerge>
+      </filter>
+    </defs>
+
+    {/* Network lines */}
+    <g opacity="0.22" stroke="#FFD700" strokeWidth="0.8" fill="none" className="ts-net-line">
+      <line x1="75"  y1="90"  x2="210" y2="55"  strokeDasharray="4 3" />
+      <line x1="210" y1="55"  x2="248" y2="190" strokeDasharray="4 3" />
+      <line x1="248" y1="190" x2="150" y2="300" strokeDasharray="4 3" />
+      <line x1="75"  y1="90"  x2="150" y2="300" strokeDasharray="4 3" />
+      <line x1="75"  y1="90"  x2="248" y2="190" strokeDasharray="4 3" />
+    </g>
+    <g fill="#FFD700" opacity="0.5">
+      <circle cx="75"  cy="90"  r="2.5" />
+      <circle cx="210" cy="55"  r="2.5" />
+      <circle cx="248" cy="190" r="2.5" />
+      <circle cx="150" cy="300" r="2.5" />
+    </g>
+
+    {/* Football */}
+    <g className="ts-float-1" transform="translate(45,52)">
+      <circle cx="30" cy="30" r="30" fill="url(#ts-gball)" filter="url(#ts-glow)" />
+      <path d="M30 5 L38 18 L23 18 Z"  fill="#1a1a00" opacity="0.55" />
+      <path d="M30 55 L22 42 L37 42 Z" fill="#1a1a00" opacity="0.55" />
+      <path d="M5 30 L18 22 L18 37 Z"  fill="#1a1a00" opacity="0.45" />
+      <path d="M55 30 L42 22 L42 37 Z" fill="#1a1a00" opacity="0.45" />
+      <circle cx="30" cy="30" r="30" fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="1" />
+    </g>
+
+    {/* Cricket ball */}
+    <g className="ts-float-2" transform="translate(186,26)">
+      <circle cx="24" cy="24" r="24" fill="url(#ts-gcricket)" filter="url(#ts-glow)" />
+      <path d="M8 17 Q24 11 40 17" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" />
+      <path d="M8 31 Q24 37 40 31" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" />
+      <circle cx="24" cy="24" r="24" fill="none" stroke="rgba(255,200,200,0.18)" strokeWidth="1" />
+    </g>
+
+    {/* University outline */}
+    <g transform="translate(98,124)" opacity="0.32">
+      <rect x="20" y="58" width="66" height="56" fill="none" stroke="#FFD700" strokeWidth="1" />
+      <polygon points="53,18 8,58 98,58" fill="none" stroke="#FFD700" strokeWidth="1" />
+      <rect x="37" y="76" width="13" height="18" fill="rgba(255,215,0,0.14)" stroke="#FFD700" strokeWidth="0.5" />
+      <rect x="57" y="76" width="13" height="18" fill="rgba(255,215,0,0.14)" stroke="#FFD700" strokeWidth="0.5" />
+      <rect x="38" y="100" width="29" height="14" fill="rgba(255,215,0,0.2)" stroke="#FFD700" strokeWidth="0.5" />
+      <line x1="53" y1="4" x2="53" y2="20" stroke="#FFD700" strokeWidth="1" />
+      <polygon points="53,6 65,11 53,16" fill="#FFD700" opacity="0.8" />
+    </g>
+
+    {/* Basketball */}
+    <g className="ts-float-3" transform="translate(218,162)">
+      <circle cx="26" cy="26" r="26" fill="url(#ts-gbball)" filter="url(#ts-glow)" />
+      <path d="M4 19 Q26 8 48 19" fill="none" stroke="#440000" strokeWidth="1.5" opacity="0.6" />
+      <path d="M4 33 Q26 44 48 33" fill="none" stroke="#440000" strokeWidth="1.5" opacity="0.6" />
+      <line x1="26" y1="0" x2="26" y2="52" stroke="#440000" strokeWidth="1.5" opacity="0.5" />
+      <circle cx="26" cy="26" r="26" fill="none" stroke="rgba(255,200,100,0.18)" strokeWidth="1" />
+    </g>
+
+    {/* Trophy */}
+    <g className="ts-float-4" transform="translate(116,258)">
+      <filter id="ts-tglow">
+        <feGaussianBlur stdDeviation="4" result="b" />
+        <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+      </filter>
+      <g filter="url(#ts-tglow)">
+        <path d="M28 5 Q46 5 46 23 Q46 42 33 52 L33 66 L42 66 L42 72 L14 72 L14 66 L23 66 L23 52 Q10 42 10 23 Q10 5 28 5Z" fill="url(#ts-gtrophy)" />
+        <path d="M10 14 Q0 14 0 24 Q0 33 10 36" fill="none" stroke="#FFD700" strokeWidth="2.5" />
+        <path d="M46 14 Q56 14 56 24 Q56 33 46 36" fill="none" stroke="#FFD700" strokeWidth="2.5" />
+      </g>
+      <text x="-9"  y="28" fill="#FFD700" fontSize="9"  opacity="0.6">✦</text>
+      <text x="62"  y="28" fill="#FFD700" fontSize="7"  opacity="0.5">✦</text>
+      <text x="23"  y="-4" fill="#FFD700" fontSize="7"  opacity="0.5">✦</text>
+    </g>
+
+    {/* Gold particles */}
+    {[
+      { cx: 162, cy: 38,  r: 1.5, d1: '2s',   d2: '0s'    },
+      { cx: 38,  cy: 195, r: 1,   d1: '3s',   d2: '-0.5s' },
+      { cx: 278, cy: 95,  r: 1.5, d1: '1.8s', d2: '-1s'   },
+      { cx: 142, cy: 372, r: 1,   d1: '2.5s', d2: '-1.5s' },
+      { cx: 18,  cy: 310, r: 2,   d1: '4s',   d2: '-2s'   },
+    ].map((p, i) => (
+      <circle key={i} cx={p.cx} cy={p.cy} r={p.r} fill="#FFD700">
+        <animate attributeName="opacity" values="0.5;1;0.5" dur={p.d1} begin={p.d2} repeatCount="indefinite" />
+      </circle>
+    ))}
+
+    {/* Ambient streak */}
+    <line x1="0" y1="0" x2="300" y2="400" stroke="rgba(255,215,0,0.04)" strokeWidth="36" />
   </svg>
 )
 
@@ -311,20 +421,6 @@ const ParticleBackground: React.FC = () => {
   )
 }
 
-/* ─── Logo Component ──────────────────────────────────────────── */
-const LogoImg: React.FC<{ size?: number; style?: React.CSSProperties }> = ({ size = 40, style = {} }) => (
-  <img 
-    src="/images/logo.png" 
-    alt="TeamSynk Logo" 
-    style={{
-      height: size,
-      width: 'auto',
-      objectFit: 'contain',
-      ...style
-    }}
-  />
-)
-
 /* ═══════════════════════════════════════════════════════════════
    LOGIN COMPONENT - WITH GOOGLE SIGN-IN
 ═══════════════════════════════════════════════════════════════ */
@@ -434,7 +530,13 @@ export const Login: React.FC = () => {
         >
           {/* Logo */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 48 }}>
-            <LogoImg size={48} />
+            <div style={{
+              width: 48, height: 48, borderRadius: 12,
+              background: 'linear-gradient(135deg,#c8a200,#FFD700)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 20, fontWeight: 800, color: '#0a0800',
+              boxShadow: '0 0 30px rgba(200,162,0,0.4)',
+            }}>TS</div>
             <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '0.5px' }}>
               Team<span style={{ color: '#FFD700' }}>Synk</span>
             </div>
@@ -539,7 +641,12 @@ export const Login: React.FC = () => {
           >
             {/* Card logo */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 28, justifyContent: 'center' }}>
-              <LogoImg size={34} />
+              <div style={{
+                width: 34, height: 34, borderRadius: 9,
+                background: 'linear-gradient(135deg,#c8a200,#FFD700)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 14, fontWeight: 800, color: '#0a0800',
+              }}>TS</div>
               <div style={{ fontSize: 17, fontWeight: 700 }}>
                 Team<span style={{ color: '#FFD700' }}>Synk</span>
               </div>
