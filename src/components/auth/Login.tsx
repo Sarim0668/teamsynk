@@ -464,30 +464,32 @@ export const Login: React.FC = () => {
   }
 
   // ─── Google Sign-In ──────────────────────────────────────────────────────
-  const handleGoogleLogin = async () => {
-    setLoading(true)
-    setError('')
-    setMessage('')
+  // In Login.tsx - Update handleGoogleLogin
+const handleGoogleLogin = async () => {
+  setLoading(true)
+  setError('')
+  setMessage('')
 
-    const redirectUrl = window.location.origin + '/auth/callback'
+  const redirectUrl = window.location.origin + '/auth/callback'
+  console.log('🔑 Starting Google login, redirect to:', redirectUrl)
 
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: redirectUrl,
-        queryParams: {
-          access_type: 'offline',
-          prompt: 'consent',
-        },
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: redirectUrl,
+      queryParams: {
+        access_type: 'offline',
+        prompt: 'consent',
       },
-    })
+    },
+  })
 
-    if (error) {
-      setError(error.message)
-      setLoading(false)
-    }
-    // The redirect will happen automatically
+  if (error) {
+    console.error('❌ Google login error:', error)
+    setError(error.message)
+    setLoading(false)
   }
+}
 
   // ─── 3-D card tilt ──────────────────────────────────────────────────────
   const handleMouseMove = (e: React.MouseEvent) => {
