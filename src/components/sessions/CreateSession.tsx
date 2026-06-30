@@ -1,3 +1,4 @@
+// src/components/sessions/CreateSession.tsx
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
@@ -21,8 +22,9 @@ export const CreateSession: React.FC = () => {
     whatsapp_link: ''
   })
 
-  // ─── SPORT TYPES WITH ICONS ──────────────────────────────────────────────
+  // ─── SPORT TYPES WITH ICONS (INCLUDING GROUP GAMES) ────────────────────
   const sportTypes = [
+    // ─── Sports ──────────────────────────────────────────────────────────────
     { value: 'Football', icon: '⚽' },
     { value: 'Basketball', icon: '🏀' },
     { value: 'Cricket', icon: '🏏' },
@@ -33,8 +35,22 @@ export const CreateSession: React.FC = () => {
     { value: 'Running', icon: '🏃' },
     { value: 'Cycling', icon: '🚴' },
     { value: 'Hockey', icon: '🏑' },
-    { value: 'Table Tennis', icon: '🏓' },  // ← ADDED
-    { value: 'Study Group', icon: '📚' },    // ← ADDED
+    { value: 'Table Tennis', icon: '🏓' },
+    // ─── Group Games ────────────────────────────────────────────────────────
+    { value: 'Group Games', icon: '🎯' },
+    { value: 'Board Games', icon: '🎲' },
+    { value: 'Card Games', icon: '🃏' },
+    { value: 'Escape Room', icon: '🔐' },
+    { value: 'Treasure Hunt', icon: '🗺️' },
+    { value: 'Team Building', icon: '🤝' },
+    { value: 'Quiz Competition', icon: '🧠' },
+    { value: 'Debate', icon: '🎤' },
+    { value: 'Drama / Skit', icon: '🎭' },
+    { value: 'Photography Walk', icon: '📸' },
+    // ─── Study / Clubs ──────────────────────────────────────────────────────
+    { value: 'Study Group', icon: '📚' },
+    { value: 'Coding Club', icon: '💻' },
+    { value: 'Book Club', icon: '📖' },
     { value: 'Other', icon: '🎯' },
   ]
 
@@ -181,7 +197,6 @@ export const CreateSession: React.FC = () => {
       padding: '24px',
       position: 'relative'
     }}>
-      {/* Dark Overlay */}
       <div style={{
         position: 'absolute',
         top: 0,
@@ -192,7 +207,6 @@ export const CreateSession: React.FC = () => {
         zIndex: 0
       }} />
       
-      {/* CONTENT - MUST HAVE position: relative AND zIndex: 1 */}
       <div style={{ 
         maxWidth: '600px', 
         margin: '0 auto', 
@@ -201,7 +215,7 @@ export const CreateSession: React.FC = () => {
       }}>
         <h1 style={{ color: '#FFD700', fontSize: '28px', marginBottom: '8px' }}>🏃 Create Session</h1>
         <p style={{ color: '#666', marginBottom: '24px' }}>
-          Organise a sports session or study group for others to join 
+          Organise a sports session, group game, or study group for others to join
           <span style={{ color: '#52c07a', display: 'block', fontSize: '13px', marginTop: '4px' }}>
             👑 You will automatically be added as the first participant
           </span>
@@ -244,11 +258,34 @@ export const CreateSession: React.FC = () => {
               required
             >
               <option value="">Select a sport or activity</option>
-              {sportTypes.map((sport) => (
-                <option key={sport.value} value={sport.value}>
-                  {sport.icon} {sport.value}
-                </option>
-              ))}
+              <optgroup label="⚽ Sports">
+                {sportTypes.filter(s => ['Football', 'Basketball', 'Cricket', 'Tennis', 'Badminton', 'Volleyball', 'Swimming', 'Running', 'Cycling', 'Hockey', 'Table Tennis'].includes(s.value)).map(sport => (
+                  <option key={sport.value} value={sport.value}>
+                    {sport.icon} {sport.value}
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="🎯 Group Games">
+                {sportTypes.filter(s => ['Group Games', 'Board Games', 'Card Games', 'Escape Room', 'Treasure Hunt', 'Team Building', 'Quiz Competition', 'Debate', 'Drama / Skit', 'Photography Walk'].includes(s.value)).map(sport => (
+                  <option key={sport.value} value={sport.value}>
+                    {sport.icon} {sport.value}
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="📚 Study / Clubs">
+                {sportTypes.filter(s => ['Study Group', 'Coding Club', 'Book Club'].includes(s.value)).map(sport => (
+                  <option key={sport.value} value={sport.value}>
+                    {sport.icon} {sport.value}
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="🎯 Other">
+                {sportTypes.filter(s => s.value === 'Other').map(sport => (
+                  <option key={sport.value} value={sport.value}>
+                    {sport.icon} {sport.value}
+                  </option>
+                ))}
+              </optgroup>
             </select>
           </div>
 
@@ -303,7 +340,7 @@ export const CreateSession: React.FC = () => {
               type="text"
               value={formData.location}
               onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-              placeholder="e.g. City Sports Complex"
+              placeholder="e.g. City Sports Complex, Room 301"
               style={{
                 width: '100%',
                 padding: '12px',
@@ -371,7 +408,7 @@ export const CreateSession: React.FC = () => {
             <textarea
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="Describe the session, skill level, what to bring..."
+              placeholder="Describe the session, what to bring, skill level..."
               rows={3}
               style={{
                 width: '100%',

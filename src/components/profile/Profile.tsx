@@ -306,17 +306,29 @@ export const Profile: React.FC = () => {
   })
 
   // ─── University options ──────────────────────────────────────────────────────
-  const universities = [
-    'FAST University',
-    'NUST',
-    'IIUI',
-    'Bahria University',
-    'Air University',
-    'COMSATS',
-    'GIKI',
-    'LUMS',
-    'Other'
-  ]
+// src/components/profile/Profile.tsx - Updated university list
+
+// ─── University options ──────────────────────────────────────────────────────
+const universities = [
+  'FAST University',
+  'NUST',
+  'IIUI',
+  'Bahria University',
+  'Air University',
+  'COMSATS',
+  'GIKI',
+  'LUMS',
+  'Islamia University',
+  'University of the Punjab',
+  'University of Karachi',
+  'Quaid-i-Azam University',
+  'University of Peshawar',
+  'University of Sargodha',
+  'Government College University',
+  'University of Engineering and Technology',
+  'School',
+  'Other'
+]
 
   useEffect(() => { loadProfile() }, [])
 
