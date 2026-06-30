@@ -37,20 +37,6 @@ export const Register: React.FC = () => {
     'Other'
   ]
 
-  // ─── Check if email already exists ───────────────────────────────────────
-  const checkEmailExists = async (email: string): Promise<boolean> => {
-    try {
-      const { data } = await supabase
-        .from('users')
-        .select('id')
-        .eq('email', email)
-        .single()
-      return !!data
-    } catch {
-      return false
-    }
-  }
-
   // ─── Handle registration ──────────────────────────────────────────────────
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -58,8 +44,20 @@ export const Register: React.FC = () => {
     setError('')
 
     // Validation
-    if (!formData.full_name || !formData.email || !formData.password) {
-      setError('Please fill in all required fields')
+    if (!formData.full_name.trim()) {
+      setError('Please enter your full name')
+      setLoading(false)
+      return
+    }
+
+    if (!formData.email.trim()) {
+      setError('Please enter your email')
+      setLoading(false)
+      return
+    }
+
+    if (!formData.password) {
+      setError('Please enter a password')
       setLoading(false)
       return
     }
@@ -83,14 +81,6 @@ export const Register: React.FC = () => {
     }
 
     try {
-      // Check if email already exists
-      const exists = await checkEmailExists(formData.email)
-      if (exists) {
-        setError('❌ This email is already registered. Please login instead.')
-        setLoading(false)
-        return
-      }
-
       console.log('📝 Registering user with data:', {
         full_name: formData.full_name,
         email: formData.email,
@@ -98,7 +88,7 @@ export const Register: React.FC = () => {
         sport: formData.sport_interests
       })
 
-      // Create the user account with ALL fields in metadata
+      // Create the user account
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
@@ -115,11 +105,7 @@ export const Register: React.FC = () => {
 
       if (authError) {
         console.error('❌ Auth error:', authError)
-        if (authError.message?.includes('already registered')) {
-          setError('❌ This email is already registered. Please login instead.')
-        } else {
-          throw authError
-        }
+        setError(authError.message || 'Registration failed. Please try again.')
         setLoading(false)
         return
       }
@@ -135,7 +121,7 @@ export const Register: React.FC = () => {
       // Store email for display
       setTempEmail(formData.email)
 
-      // Insert user into users table with ALL fields
+      // Try to insert user into users table
       try {
         const userData = {
           id: authData.user.id,
@@ -156,14 +142,16 @@ export const Register: React.FC = () => {
 
         if (insertError) {
           console.error('❌ Insert error:', insertError)
-          if (insertError.message?.includes('duplicate')) {
-            setError('❌ This email is already registered. Please login instead.')
-            setLoading(false)
-            return
+          // If the error is a duplicate, the user might already exist
+          if (insertError.code === '23505') {
+            // Duplicate key - user might already exist
+            console.log('User already exists in users table')
+          } else {
+            // Continue - the trigger might handle it
+            console.log('Insert error but continuing...')
           }
-          // Continue even if insert fails - the trigger might handle it
         } else {
-          console.log('✅ User inserted into users table')
+          console.log('✅ User inserted into users table successfully')
         }
       } catch (insertErr) {
         console.error('❌ Insert error:', insertErr)
