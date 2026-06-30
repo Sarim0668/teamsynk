@@ -20,22 +20,22 @@ export const Register: React.FC = () => {
     confirm_password: '',
     sport_interests: '',
     location: '',
-    role: 'Player',
-    university: ''
+    role: 'Player'
   })
 
-  // ─── University options ──────────────────────────────────────────────────────
-  const universities = [
-    'FAST University',
-    'NUST',
-    'IIUI',
-    'Bahria University',
-    'Air University',
-    'COMSATS',
-    'GIKI',
-    'LUMS',
-    'Other'
-  ]
+  // ─── Check if email already exists ───────────────────────────────────────
+  const checkEmailExists = async (email: string): Promise<boolean> => {
+    try {
+      const { data } = await supabase
+        .from('users')
+        .select('id')
+        .eq('email', email)
+        .single()
+      return !!data
+    } catch {
+      return false
+    }
+  }
 
   // ─── Handle registration ──────────────────────────────────────────────────
   const handleRegister = async (e: React.FormEvent) => {
@@ -44,20 +44,8 @@ export const Register: React.FC = () => {
     setError('')
 
     // Validation
-    if (!formData.full_name.trim()) {
-      setError('Please enter your full name')
-      setLoading(false)
-      return
-    }
-
-    if (!formData.email.trim()) {
-      setError('Please enter your email')
-      setLoading(false)
-      return
-    }
-
-    if (!formData.password) {
-      setError('Please enter a password')
+    if (!formData.full_name || !formData.email || !formData.password) {
+      setError('Please fill in all required fields')
       setLoading(false)
       return
     }
@@ -74,19 +62,14 @@ export const Register: React.FC = () => {
       return
     }
 
-    if (!formData.university) {
-      setError('Please select your university')
-      setLoading(false)
-      return
-    }
-
     try {
-      console.log('📝 Registering user with data:', {
-        full_name: formData.full_name,
-        email: formData.email,
-        university: formData.university,
-        sport: formData.sport_interests
-      })
+      // Check if email already exists
+      const exists = await checkEmailExists(formData.email)
+      if (exists) {
+        setError('❌ This email is already registered. Please login instead.')
+        setLoading(false)
+        return
+      }
 
       // Create the user account
       const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -97,15 +80,17 @@ export const Register: React.FC = () => {
             full_name: formData.full_name,
             sport_interests: formData.sport_interests,
             location: formData.location,
-            role: formData.role,
-            university: formData.university
+            role: formData.role
           }
         }
       })
 
       if (authError) {
-        console.error('❌ Auth error:', authError)
-        setError(authError.message || 'Registration failed. Please try again.')
+        if (authError.message?.includes('already registered')) {
+          setError('❌ This email is already registered. Please login instead.')
+        } else {
+          throw authError
+        }
         setLoading(false)
         return
       }
@@ -116,46 +101,24 @@ export const Register: React.FC = () => {
         return
       }
 
-      console.log('✅ Auth user created:', authData.user.id)
-
       // Store email for display
       setTempEmail(formData.email)
 
-      // Try to insert user into users table
+      // Insert user into users table
       try {
-        const userData = {
-          id: authData.user.id,
-          full_name: formData.full_name,
-          email: formData.email,
-          sport_interests: formData.sport_interests,
-          location: formData.location,
-          role: formData.role,
-          university: formData.university,
-          status: 'pending'
-        }
-        
-        console.log('📝 Inserting user data:', userData)
-
-        const { error: insertError } = await supabase
+        await supabase
           .from('users')
-          .insert(userData)
-
-        if (insertError) {
-          console.error('❌ Insert error:', insertError)
-          // If the error is a duplicate, the user might already exist
-          if (insertError.code === '23505') {
-            // Duplicate key - user might already exist
-            console.log('User already exists in users table')
-          } else {
-            // Continue - the trigger might handle it
-            console.log('Insert error but continuing...')
-          }
-        } else {
-          console.log('✅ User inserted into users table successfully')
-        }
+          .insert({
+            id: authData.user.id,
+            full_name: formData.full_name,
+            email: formData.email,
+            sport_interests: formData.sport_interests,
+            location: formData.location,
+            role: formData.role,
+            status: 'pending'
+          })
       } catch (insertErr) {
-        console.error('❌ Insert error:', insertErr)
-        // Continue - the user might still be created by trigger
+        console.error('Insert error:', insertErr)
       }
 
       // Show confirmation screen
@@ -175,7 +138,7 @@ export const Register: React.FC = () => {
       setLoading(false)
 
     } catch (err: any) {
-      console.error('❌ Registration error:', err)
+      console.error('Registration error:', err)
       setError(err.message || 'Registration failed. Please try again.')
       setLoading(false)
     }
@@ -527,35 +490,6 @@ export const Register: React.FC = () => {
               }}
               required
             />
-          </div>
-
-          {/* ─── UNIVERSITY FIELD ─── */}
-          <div style={{ marginBottom: '16px' }}>
-            <label style={{ color: '#aaa', fontSize: '14px', display: 'block', marginBottom: '6px' }}>
-              University *
-            </label>
-            <select
-              value={formData.university}
-              onChange={(e) => setFormData({ ...formData, university: e.target.value })}
-              style={{
-                width: '100%',
-                padding: '12px',
-                background: '#1a1a1a',
-                border: '1px solid #333',
-                borderRadius: '8px',
-                color: 'white',
-                fontSize: '16px'
-              }}
-              required
-            >
-              <option value="">Select your university</option>
-              {universities.map(uni => (
-                <option key={uni} value={uni}>{uni}</option>
-              ))}
-            </select>
-            <div style={{ color: '#555', fontSize: '11px', marginTop: '4px' }}>
-              🎓 Your university helps you find teammates and sessions near you
-            </div>
           </div>
 
           <div style={{ marginBottom: '16px' }}>
