@@ -530,18 +530,15 @@ const handleGoogleLogin = async () => {
           }}
         >
           {/* Logo */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 48 }}>
-            <div style={{
-              width: 48, height: 48, borderRadius: 12,
-              background: 'linear-gradient(135deg,#c8a200,#FFD700)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 20, fontWeight: 800, color: '#0a0800',
-              boxShadow: '0 0 30px rgba(200,162,0,0.4)',
-            }}>TS</div>
-            <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '0.5px' }}>
-              Team<span style={{ color: '#FFD700' }}>Synk</span>
-            </div>
-          </div>
+        <img 
+  src="/images/logo.png" 
+  alt="TeamSynk Logo" 
+  style={{
+    height: '48px',
+    width: 'auto',
+    objectFit: 'contain',
+  }}
+/>
 
           {/* Tagline */}
           <div style={{ display: 'flex', gap: 10, marginBottom: 52, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -641,17 +638,39 @@ const handleGoogleLogin = async () => {
             }}
           >
             {/* Card logo */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 28, justifyContent: 'center' }}>
-              <div style={{
-                width: 34, height: 34, borderRadius: 9,
-                background: 'linear-gradient(135deg,#c8a200,#FFD700)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 14, fontWeight: 800, color: '#0a0800',
-              }}>TS</div>
-              <div style={{ fontSize: 17, fontWeight: 700 }}>
-                Team<span style={{ color: '#FFD700' }}>Synk</span>
-              </div>
-            </div>
+// src/components/auth/Login.tsx
+
+// Replace the TS logo in the left panel (around line 550-560):
+<div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 48 }}>
+  <img 
+    src="/images/logo.png" 
+    alt="TeamSynk Logo" 
+    style={{
+      height: '48px',
+      width: 'auto',
+      objectFit: 'contain',
+    }}
+  />
+  <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '0.5px' }}>
+    Team<span style={{ color: '#FFD700' }}>Synk</span>
+  </div>
+</div>
+
+// Replace the TS logo in the card (around line 630-640):
+<div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 28, justifyContent: 'center' }}>
+  <img 
+    src="/images/logo.png" 
+    alt="TeamSynk Logo" 
+    style={{
+      height: '34px',
+      width: 'auto',
+      objectFit: 'contain',
+    }}
+  />
+  <div style={{ fontSize: 17, fontWeight: 700 }}>
+    Team<span style={{ color: '#FFD700' }}>Synk</span>
+  </div>
+</div>
 
             {/* Heading */}
             <div style={{ fontSize: 26, fontWeight: 700, textAlign: 'center', marginBottom: 6, letterSpacing: '-0.5px' }}>

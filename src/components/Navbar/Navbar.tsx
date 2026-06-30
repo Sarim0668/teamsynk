@@ -341,37 +341,34 @@ export const Navbar: React.FC = () => {
           justifyContent: 'space-between',
         }}>
           {/* ─── Logo ─── */}
-          <Link to="/" style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            textDecoration: 'none',
-          }}>
-            <div style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '8px',
-              background: 'linear-gradient(135deg, #c8a200, #FFD700)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '14px',
-              fontWeight: '900',
-              color: '#0a0a0a',
-              fontFamily: "'Inter', sans-serif",
-            }}>
-              TS
-            </div>
-            <span style={{
-              fontSize: '16px',
-              fontWeight: '900',
-              color: '#FFD700',
-              fontFamily: "'Inter', sans-serif",
-              letterSpacing: '-0.03em',
-            }}>
-              TEAMSYNK
-            </span>
-          </Link>
+// src/components/Navbar/Navbar.tsx
+
+// Replace the logo section in the navbar:
+<Link to="/" style={{
+  display: 'flex',
+  alignItems: 'center',
+  gap: '8px',
+  textDecoration: 'none',
+}}>
+  <img 
+    src="/images/logo.png" 
+    alt="TeamSynk Logo" 
+    style={{
+      height: '32px',
+      width: 'auto',
+      objectFit: 'contain',
+    }}
+  />
+  <span style={{
+    fontSize: '16px',
+    fontWeight: '900',
+    color: '#FFD700',
+    fontFamily: "'Inter', sans-serif",
+    letterSpacing: '-0.03em',
+  }}>
+    TEAMSYNK
+  </span>
+</Link>
 
           {/* ─── Desktop Nav ─── */}
           <div style={{
