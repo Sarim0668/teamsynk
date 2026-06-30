@@ -1,5 +1,6 @@
+// src/components/auth/Login.tsx
 import React, { useState, useEffect, useRef } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 import { IMAGES } from '../../constants/images'
 
@@ -38,17 +39,9 @@ const CSS = `
     from { opacity: 0; transform: translateX(-8px); }
     to   { opacity: 1; transform: translateX(0); }
   }
-  @keyframes ts-pulse-gold {
-    0%,100% { box-shadow: 0 0 24px rgba(200,162,0,0.2); }
-    50%      { box-shadow: 0 0 48px rgba(200,162,0,0.45); }
-  }
   @keyframes ts-spin {
     from { transform: rotate(0deg); }
     to   { transform: rotate(360deg); }
-  }
-  @keyframes ts-particle {
-    0%   { transform: translateY(0) scale(1);   opacity: 0.6; }
-    100% { transform: translateY(-120px) scale(0); opacity: 0; }
   }
   @keyframes ts-tagIn {
     from { opacity: 0; transform: translateY(6px); }
@@ -224,6 +217,38 @@ const SportsSVGScene: React.FC = () => (
   </svg>
 )
 
+/* ─── EmailInput ──────────────────────────────────────────────── */
+const EmailInput: React.FC<{ value: string; onChange: (v: string) => void }> = ({ value, onChange }) => (
+  <div className="ts-field-wrap" style={{ position: 'relative' }}>
+    <svg
+      className="ts-field-icon"
+      style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)', pointerEvents: 'none', transition: 'color 0.2s' }}
+      width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+    >
+      <rect x="2" y="4" width="20" height="16" rx="2" />
+      <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+    </svg>
+    <input
+      type="email"
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      placeholder="your@university.edu.pk"
+      autoComplete="email"
+      required
+      className="ts-input"
+      style={{
+        width: '100%', padding: '13px 14px 13px 42px',
+        background: 'rgba(255,255,255,0.04)',
+        border: '1px solid rgba(255,255,255,0.08)',
+        borderRadius: 10, color: '#fff', fontSize: 14,
+        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        transition: 'all 0.25s ease',
+        boxSizing: 'border-box',
+      }}
+    />
+  </div>
+)
+
 /* ─── PasswordInput ───────────────────────────────────────────── */
 const PasswordInput: React.FC<{
   value: string
@@ -235,7 +260,6 @@ const PasswordInput: React.FC<{
   const [show, setShow] = useState(false)
   return (
     <div className="ts-field-wrap" style={{ position: 'relative' }}>
-      {/* lock icon */}
       <svg
         className="ts-field-icon"
         style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)', pointerEvents: 'none', transition: 'color 0.2s' }}
@@ -291,38 +315,6 @@ const FieldLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   </div>
 )
 
-/* ─── EmailInput ──────────────────────────────────────────────── */
-const EmailInput: React.FC<{ value: string; onChange: (v: string) => void }> = ({ value, onChange }) => (
-  <div className="ts-field-wrap" style={{ position: 'relative' }}>
-    <svg
-      className="ts-field-icon"
-      style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)', pointerEvents: 'none', transition: 'color 0.2s' }}
-      width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-    >
-      <rect x="2" y="4" width="20" height="16" rx="2" />
-      <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
-    </svg>
-    <input
-      type="email"
-      value={value}
-      onChange={e => onChange(e.target.value)}
-      placeholder="your@university.edu.pk"
-      autoComplete="email"
-      required
-      className="ts-input"
-      style={{
-        width: '100%', padding: '13px 14px 13px 42px',
-        background: 'rgba(255,255,255,0.04)',
-        border: '1px solid rgba(255,255,255,0.08)',
-        borderRadius: 10, color: '#fff', fontSize: 14,
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
-        transition: 'all 0.25s ease',
-        boxSizing: 'border-box',
-      }}
-    />
-  </div>
-)
-
 /* ─── Alert ───────────────────────────────────────────────────── */
 const Alert: React.FC<{ message: string; type?: 'error' | 'success' }> = ({ message, type = 'error' }) => (
   <div style={{
@@ -351,52 +343,153 @@ const Spinner: React.FC = () => (
   }} />
 )
 
+/* ─── ParticleBackground ────────────────────────────────────── */
+const ParticleBackground: React.FC = () => {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')!
+    let animId: number
+
+    const resize = () => {
+      canvas.width  = window.innerWidth
+      canvas.height = window.innerHeight
+    }
+    resize()
+    window.addEventListener('resize', resize)
+
+    interface P { x: number; y: number; size: number; speed: number; opacity: number; hue: number; drift: number; life: number; maxLife: number }
+    const rnd = (a: number, b: number) => Math.random() * (b - a) + a
+
+    const make = (init = false): P => ({
+      x: rnd(0, canvas.width),
+      y: init ? rnd(0, canvas.height) : canvas.height + 10,
+      size:    rnd(0.5, 2.5),
+      speed:   rnd(0.2, 0.8),
+      opacity: rnd(0.2, 0.7),
+      hue:     rnd(40, 60),
+      drift:   rnd(-0.3, 0.3),
+      life: 0, maxLife: rnd(200, 600),
+    })
+
+    const particles: P[] = Array.from({ length: 80 }, () => make(true))
+
+    const orbs = [
+      { x: 0.15, y: 0.4, r: 200, c: 'rgba(200,162,0,0.06)' },
+      { x: 0.85, y: 0.6, r: 250, c: 'rgba(200,162,0,0.04)' },
+      { x: 0.5,  y: 0.1, r: 150, c: 'rgba(255,215,0,0.05)' },
+    ]
+
+    const loop = () => {
+      const W = canvas.width, H = canvas.height
+      ctx.fillStyle = '#060608'
+      ctx.fillRect(0, 0, W, H)
+
+      orbs.forEach(o => {
+        const g = ctx.createRadialGradient(o.x * W, o.y * H, 0, o.x * W, o.y * H, o.r)
+        g.addColorStop(0, o.c); g.addColorStop(1, 'transparent')
+        ctx.fillStyle = g; ctx.fillRect(0, 0, W, H)
+      })
+
+      ctx.strokeStyle = 'rgba(200,162,0,0.035)'; ctx.lineWidth = 1
+      for (let x = 0; x < W; x += 80) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke() }
+      for (let y = 0; y < H; y += 80) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke() }
+
+      particles.forEach(p => {
+        p.y -= p.speed; p.x += p.drift; p.life++
+        if (p.life > p.maxLife || p.y < -10) Object.assign(p, make())
+        ctx.beginPath()
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2)
+        ctx.fillStyle = `hsla(${p.hue},90%,65%,${p.opacity * (1 - p.life / p.maxLife)})`
+        ctx.fill()
+      })
+
+      animId = requestAnimationFrame(loop)
+    }
+    loop()
+
+    return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', resize) }
+  }, [])
+
+  return (
+    <canvas
+      ref={canvasRef}
+      style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', zIndex: 0, pointerEvents: 'none' }}
+    />
+  )
+}
+
 /* ═══════════════════════════════════════════════════════════════
-   LOGIN COMPONENT
+   LOGIN COMPONENT - WITH GOOGLE SIGN-IN
 ═══════════════════════════════════════════════════════════════ */
 export const Login: React.FC = () => {
-  const [email,    setEmail]    = useState('')
+  const location = useLocation()
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [loading,  setLoading]  = useState(false)
-  const [error,    setError]    = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [message, setMessage] = useState('')
   const cardRef = useRef<HTMLDivElement>(null)
 
-  /* ── original Supabase auth logic — untouched ── */
+  // ─── Check if already logged in ─────────────────────────────────────────
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        window.location.href = '/'
+      }
+    })
+  }, [])
+
+  // ─── Email/Password Login ──────────────────────────────────────────────
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError('')
+    setMessage('')
 
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-      if (error) throw error
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
 
-      if (data.user) {
-        const { data: profile, error: profileError } = await supabase
-          .from('users')
-          .select('status')
-          .eq('id', data.user.id)
-          .single()
-
-        if (profileError) throw profileError
-
-        if (profile?.status === 'suspended') {
-          await supabase.auth.signOut()
-          setError('⚠️ Your account has been suspended. Please contact support.')
-          setLoading(false)
-          return
-        }
-
-        window.location.href = '/'
-      }
-    } catch (err: any) {
-      setError(err.message || 'Login failed')
-    } finally {
-      setLoading(false)
+    if (error) {
+      setError(error.message)
+    } else {
+      setMessage('✅ Login successful! Redirecting...')
+      setTimeout(() => window.location.href = '/', 1500)
     }
+    setLoading(false)
   }
 
-  /* ── 3-D card tilt on mouse move ── */
+  // ─── Google Sign-In ──────────────────────────────────────────────────────
+  const handleGoogleLogin = async () => {
+    setLoading(true)
+    setError('')
+    setMessage('')
+
+    const redirectUrl = window.location.origin + '/auth/callback'
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: redirectUrl,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        },
+      },
+    })
+
+    if (error) {
+      setError(error.message)
+      setLoading(false)
+    }
+    // The redirect will happen automatically
+  }
+
+  // ─── 3-D card tilt ──────────────────────────────────────────────────────
   const handleMouseMove = (e: React.MouseEvent) => {
     const card = cardRef.current
     if (!card) return
@@ -568,16 +661,71 @@ export const Login: React.FC = () => {
 
             {/* Alert */}
             {error && <Alert message={error} type="error" />}
+            {message && <Alert message={message} type="success" />}
 
-            {/* Form */}
+            {/* ─── GOOGLE SIGN-IN BUTTON ─── */}
+            <button
+              onClick={handleGoogleLogin}
+              disabled={loading}
+              style={{
+                width: '100%',
+                padding: '12px',
+                background: 'white',
+                border: 'none',
+                borderRadius: '10px',
+                color: '#1a1a1a',
+                fontSize: '15px',
+                fontWeight: '600',
+                fontFamily: "'Inter', sans-serif",
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '10px',
+                transition: 'all 0.3s ease',
+                opacity: loading ? 0.7 : 1,
+              }}
+              onMouseEnter={(e) => {
+                if (!loading) {
+                  e.currentTarget.style.transform = 'scale(1.02)'
+                  e.currentTarget.style.boxShadow = '0 4px 20px rgba(255,255,255,0.15)'
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'scale(1)'
+                e.currentTarget.style.boxShadow = 'none'
+              }}
+            >
+              <svg width="20" height="20" viewBox="0 0 48 48">
+                <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+                <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+                <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+                <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+              </svg>
+              Continue with Google
+            </button>
+
+            {/* ─── DIVIDER ─── */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '16px',
+              margin: '20px 0'
+            }}>
+              <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.08)' }} />
+              <span style={{ color: '#4b5563', fontSize: '12px', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
+                OR
+              </span>
+              <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.08)' }} />
+            </div>
+
+            {/* ─── EMAIL/PASSWORD FORM ─── */}
             <form onSubmit={handleLogin} noValidate>
-              {/* Email field */}
               <div style={{ marginBottom: 16 }}>
                 <FieldLabel>Email</FieldLabel>
                 <EmailInput value={email} onChange={setEmail} />
               </div>
 
-              {/* Password field */}
               <div style={{ marginBottom: 28 }}>
                 <FieldLabel>Password</FieldLabel>
                 <PasswordInput
@@ -587,7 +735,6 @@ export const Login: React.FC = () => {
                 />
               </div>
 
-              {/* CTA button */}
               <button
                 type="submit"
                 disabled={loading}
@@ -618,83 +765,5 @@ export const Login: React.FC = () => {
         </div>
       </div>
     </>
-  )
-}
-
-/* ─── Canvas particle background ────────────────────────────── */
-const ParticleBackground: React.FC = () => {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-
-  useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const ctx = canvas.getContext('2d')!
-    let animId: number
-
-    const resize = () => {
-      canvas.width  = window.innerWidth
-      canvas.height = window.innerHeight
-    }
-    resize()
-    window.addEventListener('resize', resize)
-
-    interface P { x: number; y: number; size: number; speed: number; opacity: number; hue: number; drift: number; life: number; maxLife: number }
-    const rnd = (a: number, b: number) => Math.random() * (b - a) + a
-
-    const make = (init = false): P => ({
-      x: rnd(0, canvas.width),
-      y: init ? rnd(0, canvas.height) : canvas.height + 10,
-      size:    rnd(0.5, 2.5),
-      speed:   rnd(0.2, 0.8),
-      opacity: rnd(0.2, 0.7),
-      hue:     rnd(40, 60),
-      drift:   rnd(-0.3, 0.3),
-      life: 0, maxLife: rnd(200, 600),
-    })
-
-    const particles: P[] = Array.from({ length: 80 }, () => make(true))
-
-    const orbs = [
-      { x: 0.15, y: 0.4, r: 200, c: 'rgba(200,162,0,0.06)' },
-      { x: 0.85, y: 0.6, r: 250, c: 'rgba(200,162,0,0.04)' },
-      { x: 0.5,  y: 0.1, r: 150, c: 'rgba(255,215,0,0.05)' },
-    ]
-
-    const loop = () => {
-      const W = canvas.width, H = canvas.height
-      ctx.fillStyle = '#060608'
-      ctx.fillRect(0, 0, W, H)
-
-      orbs.forEach(o => {
-        const g = ctx.createRadialGradient(o.x * W, o.y * H, 0, o.x * W, o.y * H, o.r)
-        g.addColorStop(0, o.c); g.addColorStop(1, 'transparent')
-        ctx.fillStyle = g; ctx.fillRect(0, 0, W, H)
-      })
-
-      ctx.strokeStyle = 'rgba(200,162,0,0.035)'; ctx.lineWidth = 1
-      for (let x = 0; x < W; x += 80) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke() }
-      for (let y = 0; y < H; y += 80) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke() }
-
-      particles.forEach(p => {
-        p.y -= p.speed; p.x += p.drift; p.life++
-        if (p.life > p.maxLife || p.y < -10) Object.assign(p, make())
-        ctx.beginPath()
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2)
-        ctx.fillStyle = `hsla(${p.hue},90%,65%,${p.opacity * (1 - p.life / p.maxLife)})`
-        ctx.fill()
-      })
-
-      animId = requestAnimationFrame(loop)
-    }
-    loop()
-
-    return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', resize) }
-  }, [])
-
-  return (
-    <canvas
-      ref={canvasRef}
-      style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', zIndex: 0, pointerEvents: 'none' }}
-    />
   )
 }
