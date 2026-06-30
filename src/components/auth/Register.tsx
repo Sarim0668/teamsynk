@@ -38,111 +38,88 @@ export const Register: React.FC = () => {
   }
 
   // ─── Handle registration ──────────────────────────────────────────────────
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setError('')
+ // src/components/auth/Register.tsx - Remove the manual insert
 
-    // Validation
-    if (!formData.full_name || !formData.email || !formData.password) {
-      setError('Please fill in all required fields')
-      setLoading(false)
-      return
-    }
+const handleRegister = async (e: React.FormEvent) => {
+  e.preventDefault()
+  setLoading(true)
+  setError('')
 
-    if (formData.password.length < 8) {
-      setError('Password must be at least 8 characters')
-      setLoading(false)
-      return
-    }
-
-    if (formData.password !== formData.confirm_password) {
-      setError('Passwords do not match')
-      setLoading(false)
-      return
-    }
-
-    try {
-      // Check if email already exists
-      const exists = await checkEmailExists(formData.email)
-      if (exists) {
-        setError('❌ This email is already registered. Please login instead.')
-        setLoading(false)
-        return
-      }
-
-      // Create the user account
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-        options: {
-          data: {
-            full_name: formData.full_name,
-            sport_interests: formData.sport_interests,
-            location: formData.location,
-            role: formData.role
-          }
-        }
-      })
-
-      if (authError) {
-        if (authError.message?.includes('already registered')) {
-          setError('❌ This email is already registered. Please login instead.')
-        } else {
-          throw authError
-        }
-        setLoading(false)
-        return
-      }
-
-      if (!authData.user) {
-        setError('Registration failed. Please try again.')
-        setLoading(false)
-        return
-      }
-
-      // Store email for display
-      setTempEmail(formData.email)
-
-      // Insert user into users table
-      try {
-        await supabase
-          .from('users')
-          .insert({
-            id: authData.user.id,
-            full_name: formData.full_name,
-            email: formData.email,
-            sport_interests: formData.sport_interests,
-            location: formData.location,
-            role: formData.role,
-            status: 'pending'
-          })
-      } catch (insertErr) {
-        console.error('Insert error:', insertErr)
-      }
-
-      // Show confirmation screen
-      setShowConfirmation(true)
-      setResendTimer(60)
-      
-      const interval = setInterval(() => {
-        setResendTimer(prev => {
-          if (prev <= 1) {
-            clearInterval(interval)
-            return 0
-          }
-          return prev - 1
-        })
-      }, 1000)
-
-      setLoading(false)
-
-    } catch (err: any) {
-      console.error('Registration error:', err)
-      setError(err.message || 'Registration failed. Please try again.')
-      setLoading(false)
-    }
+  // Validation
+  if (!formData.full_name || !formData.email || !formData.password) {
+    setError('Please fill in all required fields')
+    setLoading(false)
+    return
   }
+
+  if (formData.password.length < 8) {
+    setError('Password must be at least 8 characters')
+    setLoading(false)
+    return
+  }
+
+  if (formData.password !== formData.confirm_password) {
+    setError('Passwords do not match')
+    setLoading(false)
+    return
+  }
+
+  try {
+    // Create the user account - trigger will handle users table
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email: formData.email,
+      password: formData.password,
+      options: {
+        data: {
+          full_name: formData.full_name,
+          sport_interests: formData.sport_interests,
+          location: formData.location,
+          role: formData.role
+        }
+      }
+    })
+
+    if (authError) {
+      if (authError.message?.includes('already registered')) {
+        setError('❌ This email is already registered. Please login instead.')
+      } else {
+        throw authError
+      }
+      setLoading(false)
+      return
+    }
+
+    if (!authData.user) {
+      setError('Registration failed. Please try again.')
+      setLoading(false)
+      return
+    }
+
+    // Store email for display
+    setTempEmail(formData.email)
+
+    // Show confirmation screen
+    setShowConfirmation(true)
+    setResendTimer(60)
+    
+    const interval = setInterval(() => {
+      setResendTimer(prev => {
+        if (prev <= 1) {
+          clearInterval(interval)
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+
+    setLoading(false)
+
+  } catch (err: any) {
+    console.error('Registration error:', err)
+    setError(err.message || 'Registration failed. Please try again.')
+    setLoading(false)
+  }
+}
 
   // ─── Resend Confirmation Email ──────────────────────────────────────────
   const handleResendEmail = async () => {
