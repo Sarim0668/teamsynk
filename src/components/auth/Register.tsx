@@ -13,7 +13,7 @@ export const Register: React.FC = () => {
   const [otp, setOtp] = useState('')
   const [resendTimer, setResendTimer] = useState(0)
   const [tempEmail, setTempEmail] = useState('')
-  const [tempUserId, setTempUserId] = useState<string | null>(null)
+  const [storedOTP, setStoredOTP] = useState('')
 
   const [formData, setFormData] = useState({
     full_name: '',
@@ -31,25 +31,40 @@ export const Register: React.FC = () => {
     return Math.floor(100000 + Math.random() * 900000).toString()
   }
 
-  // ─── Send OTP via email ──────────────────────────────────────────────────
-  const sendOTPEmail = async (email: string, otpCode: string) => {
-    // Using Supabase's built-in email functionality
-    // You can also use a custom email service
+  // ─── Send OTP via EmailJS (Free) ──────────────────────────────────────────
+  const sendOTPEmail = async (email: string, otpCode: string, name: string) => {
     try {
-      const { error } = await supabase.auth.signInWithOtp({
-        email: email,
-        options: {
-          shouldCreateUser: false,
-          data: {
-            otp: otpCode
+      // Option 1: Use EmailJS (Free - 200 emails/month)
+      // Sign up at https://www.emailjs.com/
+      const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          service_id: 'YOUR_SERVICE_ID',
+          template_id: 'YOUR_TEMPLATE_ID',
+          user_id: 'YOUR_USER_ID',
+          template_params: {
+            to_email: email,
+            otp: otpCode,
+            user_name: name,
+            app_name: 'TeamSynk'
           }
-        }
+        })
       })
       
-      if (error) throw error
+      if (!response.ok) throw new Error('Email sending failed')
       return true
     } catch (error) {
       console.error('Error sending OTP:', error)
+      
+      // Fallback: Show OTP in console for testing
+      console.log('📧 ===== OTP CODE (TESTING) =====')
+      console.log(`📧 OTP for ${email}: ${otpCode}`)
+      console.log('📧 ================================')
+      
+      // Show alert with OTP for testing
+      alert(`⚠️ Email sending failed. For testing, your OTP is: ${otpCode}\n\nIn production, this will be sent to your email.`)
+      
       return false
     }
   }
@@ -74,7 +89,6 @@ export const Register: React.FC = () => {
     e.preventDefault()
     setLoading(true)
     setError('')
-    setSuccess(false)
 
     // Validation
     if (!formData.full_name || !formData.email || !formData.password) {
@@ -107,34 +121,10 @@ export const Register: React.FC = () => {
       // Generate OTP
       const otpCode = generateOTP()
       setTempEmail(formData.email)
+      setStoredOTP(otpCode)
 
-      // Send OTP via email (using Supabase's built-in email)
-      const { error: otpError } = await supabase.auth.signInWithOtp({
-        email: formData.email,
-        options: {
-          shouldCreateUser: false,
-          data: {
-            otp: otpCode,
-            full_name: formData.full_name
-          }
-        }
-      })
-
-      if (otpError) {
-        // Fallback: Show OTP on screen for testing (remove in production)
-        console.log('📧 OTP Code (for testing):', otpCode)
-        setError(`⚠️ OTP sending failed. (Test OTP: ${otpCode})`)
-        setLoading(false)
-        return
-      }
-
-      // Store the OTP and user data temporarily
-      // In production, you'd store this in a session or database
-      sessionStorage.setItem('otp_data', JSON.stringify({
-        email: formData.email,
-        otp: otpCode,
-        userData: formData
-      }))
+      // Send OTP via email
+      await sendOTPEmail(formData.email, otpCode, formData.full_name)
 
       // Show OTP screen
       setShowOTP(true)
@@ -170,16 +160,6 @@ export const Register: React.FC = () => {
     setError('')
 
     try {
-      // Get stored OTP data
-      const storedData = sessionStorage.getItem('otp_data')
-      if (!storedData) {
-        setError('Session expired. Please try again.')
-        setLoading(false)
-        return
-      }
-
-      const { email, otp: storedOTP, userData } = JSON.parse(storedData)
-
       // Verify OTP
       if (otp !== storedOTP) {
         setError('❌ Invalid code. Please try again.')
@@ -189,16 +169,17 @@ export const Register: React.FC = () => {
 
       // ✅ OTP Verified - Create the account
       const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: email,
-        password: userData.password,
+        email: tempEmail,
+        password: formData.password,
         options: {
           data: {
-            full_name: userData.full_name,
-            sport_interests: userData.sport_interests,
-            location: userData.location,
-            role: userData.role,
-            university: userData.university
+            full_name: formData.full_name,
+            sport_interests: formData.sport_interests,
+            location: formData.location,
+            role: formData.role,
+            university: formData.university
           },
+          // IMPORTANT: Set this to false to avoid email confirmation
           emailRedirectTo: window.location.origin + '/login'
         }
       })
@@ -219,20 +200,17 @@ export const Register: React.FC = () => {
           .from('users')
           .insert({
             id: authData.user.id,
-            full_name: userData.full_name,
-            email: userData.email,
-            sport_interests: userData.sport_interests,
-            location: userData.location,
-            role: userData.role,
-            university: userData.university,
+            full_name: formData.full_name,
+            email: formData.email,
+            sport_interests: formData.sport_interests,
+            location: formData.location,
+            role: formData.role,
+            university: formData.university,
             status: 'active'
           })
       } catch (insertErr) {
         console.error('Insert error:', insertErr)
       }
-
-      // Clear stored data
-      sessionStorage.removeItem('otp_data')
 
       setSuccess(true)
       setTimeout(() => navigate('/login'), 2000)
@@ -254,31 +232,9 @@ export const Register: React.FC = () => {
 
     try {
       const otpCode = generateOTP()
+      setStoredOTP(otpCode)
       
-      const { error: otpError } = await supabase.auth.signInWithOtp({
-        email: tempEmail,
-        options: {
-          shouldCreateUser: false,
-          data: {
-            otp: otpCode
-          }
-        }
-      })
-
-      if (otpError) {
-        console.log('📧 New OTP Code (for testing):', otpCode)
-        setError(`⚠️ OTP sending failed. (Test OTP: ${otpCode})`)
-        setLoading(false)
-        return
-      }
-
-      // Update stored OTP
-      const storedData = sessionStorage.getItem('otp_data')
-      if (storedData) {
-        const data = JSON.parse(storedData)
-        data.otp = otpCode
-        sessionStorage.setItem('otp_data', JSON.stringify(data))
-      }
+      await sendOTPEmail(tempEmail, otpCode, formData.full_name)
 
       setResendTimer(60)
       const interval = setInterval(() => {
@@ -427,7 +383,6 @@ export const Register: React.FC = () => {
                 setShowOTP(false)
                 setOtp('')
                 setError('')
-                sessionStorage.removeItem('otp_data')
               }}
               style={{
                 background: 'transparent',
@@ -461,6 +416,21 @@ export const Register: React.FC = () => {
           }}>
             🔐 Check your email spam folder if you don't see the code
           </p>
+
+          {/* Debug: Show OTP in UI for testing (remove in production) */}
+          <div style={{
+            marginTop: '12px',
+            padding: '8px',
+            background: 'rgba(200,162,0,0.1)',
+            borderRadius: '6px',
+            border: '1px dashed rgba(200,162,0,0.3)'
+          }}>
+            <p style={{ color: '#666', fontSize: '11px', margin: 0 }}>
+              🔧 Test OTP: <strong style={{ color: '#c8a200', fontSize: '16px' }}>{storedOTP}</strong>
+              <br />
+              <span style={{ color: '#444', fontSize: '10px' }}>(Remove this in production)</span>
+            </p>
+          </div>
         </div>
       </div>
     )
@@ -714,7 +684,7 @@ export const Register: React.FC = () => {
               opacity: loading ? 0.7 : 1
             }}
           >
-            {loading ? 'Creating account...' : '📧 Create Account'}
+            {loading ? 'Sending code...' : '📧 Create Account'}
           </button>
         </form>
 
