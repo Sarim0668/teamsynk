@@ -12,7 +12,6 @@ export const Register: React.FC = () => {
   const [showOTP, setShowOTP] = useState(false)
   const [otp, setOtp] = useState('')
   const [resendTimer, setResendTimer] = useState(0)
-  const [tempUserId, setTempUserId] = useState<string | null>(null)
   const [tempEmail, setTempEmail] = useState('')
 
   const [formData, setFormData] = useState({
@@ -29,7 +28,6 @@ export const Register: React.FC = () => {
   // ─── Check if email already exists ───────────────────────────────────────
   const checkEmailExists = async (email: string): Promise<boolean> => {
     try {
-      // Check in auth.users via supabase
       const { data, error } = await supabase
         .from('users')
         .select('id')
@@ -69,7 +67,7 @@ export const Register: React.FC = () => {
     }
 
     try {
-      // Check if email already exists
+      // Check if email already exists in users table
       const exists = await checkEmailExists(formData.email)
       if (exists) {
         setError('❌ This email is already registered. Please login instead.')
@@ -77,25 +75,73 @@ export const Register: React.FC = () => {
         return
       }
 
-      // Send OTP to email
+      // ✅ STEP 1: Create the user account with email confirmation disabled
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            full_name: formData.full_name,
+            sport_interests: formData.sport_interests,
+            location: formData.location,
+            role: formData.role,
+            university: formData.university
+          },
+          emailRedirectTo: window.location.origin + '/login'
+        }
+      })
+
+      if (authError) {
+        throw authError
+      }
+
+      if (!authData.user) {
+        setError('Registration failed. Please try again.')
+        setLoading(false)
+        return
+      }
+
+      // ✅ STEP 2: Store email for OTP verification
+      setTempEmail(formData.email)
+      
+      // ✅ STEP 3: Send OTP for verification
       const { error: otpError } = await supabase.auth.signInWithOtp({
         email: formData.email,
         options: {
-          shouldCreateUser: false, // Don't create user yet
-          emailRedirectTo: window.location.origin,
-        },
+          shouldCreateUser: false,
+        }
       })
 
       if (otpError) {
-        throw otpError
+        // If OTP fails, the user is created but not verified
+        console.error('OTP error:', otpError)
+        // Try to insert user manually anyway
+        try {
+          await supabase
+            .from('users')
+            .insert({
+              id: authData.user.id,
+              full_name: formData.full_name,
+              email: formData.email,
+              sport_interests: formData.sport_interests,
+              location: formData.location,
+              role: formData.role,
+              university: formData.university,
+              status: 'active'
+            })
+        } catch (insertErr) {
+          console.error('Insert error:', insertErr)
+        }
+        setSuccess(true)
+        setTimeout(() => navigate('/login'), 2000)
+        setLoading(false)
+        return
       }
 
-      // Store email temporarily
-      setTempEmail(formData.email)
+      // Show OTP screen
       setShowOTP(true)
       setResendTimer(60)
       
-      // Start countdown
       const interval = setInterval(() => {
         setResendTimer(prev => {
           if (prev <= 1) {
@@ -111,12 +157,17 @@ export const Register: React.FC = () => {
 
     } catch (err: any) {
       console.error('Registration error:', err)
-      setError(err.message || 'Registration failed. Please try again.')
+      // Check if it's a duplicate email error from auth
+      if (err.message?.includes('already registered')) {
+        setError('❌ This email is already registered. Please login instead.')
+      } else {
+        setError(err.message || 'Registration failed. Please try again.')
+      }
       setLoading(false)
     }
   }
 
-  // ─── Verify OTP and create account ──────────────────────────────────────
+  // ─── Verify OTP and complete registration ──────────────────────────────
   const handleVerifyOTP = async () => {
     if (!otp || otp.length < 6) {
       setError('Please enter the 6-digit code')
@@ -135,54 +186,39 @@ export const Register: React.FC = () => {
       })
 
       if (verifyError) {
-        throw verifyError
-      }
-
-      // OTP verified - now create the account
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-        options: {
-          data: {
-            full_name: formData.full_name,
-            sport_interests: formData.sport_interests,
-            location: formData.location,
-            role: formData.role,
-            university: formData.university
-          }
-        }
-      })
-
-      if (authError) {
-        throw authError
-      }
-
-      if (!authData.user) {
-        setError('Registration failed. Please try again.')
+        // If verification fails, the user might still be created
+        console.error('OTP verification error:', verifyError)
+        setError('Invalid or expired code. Please try again or check your email.')
         setLoading(false)
         return
       }
 
-      // Manually insert into users table (in case trigger doesn't work)
-      try {
-        const { error: insertError } = await supabase
+      // ✅ OTP verified - now get the user and create profile if not exists
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (user) {
+        // Check if user already has a profile
+        const { data: existingProfile } = await supabase
           .from('users')
-          .insert({
-            id: authData.user.id,
-            full_name: formData.full_name,
-            email: formData.email,
-            sport_interests: formData.sport_interests,
-            location: formData.location,
-            role: formData.role,
-            university: formData.university,
-            status: 'active'
-          })
+          .select('id')
+          .eq('id', user.id)
+          .single()
 
-        if (insertError && !insertError.message.includes('duplicate')) {
-          console.error('Insert error:', insertError)
+        if (!existingProfile) {
+          // Create profile
+          await supabase
+            .from('users')
+            .insert({
+              id: user.id,
+              full_name: formData.full_name,
+              email: formData.email,
+              sport_interests: formData.sport_interests,
+              location: formData.location,
+              role: formData.role,
+              university: formData.university,
+              status: 'active'
+            })
         }
-      } catch (insertErr) {
-        console.error('Manual insert failed:', insertErr)
       }
 
       setSuccess(true)
@@ -208,11 +244,12 @@ export const Register: React.FC = () => {
         email: formData.email,
         options: {
           shouldCreateUser: false,
-          emailRedirectTo: window.location.origin,
-        },
+        }
       })
 
-      if (otpError) throw otpError
+      if (otpError) {
+        throw otpError
+      }
 
       setResendTimer(60)
       const interval = setInterval(() => {
@@ -504,7 +541,7 @@ export const Register: React.FC = () => {
                 opacity: loading ? 0.7 : 1
               }}
             >
-              {loading ? 'Sending verification code...' : '📧 Create Account'}
+              {loading ? 'Creating account...' : '📧 Create Account'}
             </button>
           </form>
         ) : (
