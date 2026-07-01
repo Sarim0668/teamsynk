@@ -116,7 +116,6 @@ const IconClose = () => (
   </svg>
 )
 
-// ─── NEW: Help Icon ──────────────────────────────────────────────────────────
 const IconHelp = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="12" cy="12" r="10"/>
@@ -125,7 +124,6 @@ const IconHelp = () => (
   </svg>
 )
 
-// ─── NEW: Music Icon ──────────────────────────────────────────────────────────
 const IconMusic = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M9 18V5l12-2v13"/>
@@ -135,14 +133,12 @@ const IconMusic = () => (
   </svg>
 )
 
-// ─── NEW: Community Icon ──────────────────────────────────────────────────────
 const IconCommunity = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
   </svg>
 )
 
-// ─── NEW: Tournament Icon ─────────────────────────────────────────────────────
 const IconTournament = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/>
@@ -341,34 +337,39 @@ export const Navbar: React.FC = () => {
           justifyContent: 'space-between',
         }}>
           {/* ─── Logo ─── */}
-// src/components/Navbar/Navbar.tsx
-
-// Replace the logo section in the navbar:
-<Link to="/" style={{
-  display: 'flex',
-  alignItems: 'center',
-  gap: '8px',
-  textDecoration: 'none',
-}}>
-  <img 
-    src="/images/logo.png" 
-    alt="TeamSynk Logo" 
-    style={{
-      height: '32px',
-      width: 'auto',
-      objectFit: 'contain',
-    }}
-  />
-  <span style={{
-    fontSize: '16px',
-    fontWeight: '900',
-    color: '#FFD700',
-    fontFamily: "'Inter', sans-serif",
-    letterSpacing: '-0.03em',
-  }}>
-    TEAMSYNK
-  </span>
-</Link>
+          <Link to="/" style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            textDecoration: 'none',
+          }}>
+            {/* ─── FIX: Use text-based logo instead of image ─── */}
+            <div style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: '8px',
+              background: 'linear-gradient(135deg, #c8a200, #FFD700)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '16px',
+              fontWeight: '900',
+              color: '#0a0a0a',
+              fontFamily: "'Inter', sans-serif",
+              flexShrink: 0,
+            }}>
+              TS
+            </div>
+            <span style={{
+              fontSize: '16px',
+              fontWeight: '900',
+              color: '#FFD700',
+              fontFamily: "'Inter', sans-serif",
+              letterSpacing: '-0.03em',
+            }}>
+              TEAMSYNK
+            </span>
+          </Link>
 
           {/* ─── Desktop Nav ─── */}
           <div style={{
