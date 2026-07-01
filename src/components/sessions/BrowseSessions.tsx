@@ -14,8 +14,9 @@ const SPORT_CONFIG: Record<string, { icon: string; color: string; glow: string }
   Running:     { icon: '🏃', color: '#f43f5e',  glow: 'rgba(244,63,94,0.2)' },
   Cycling:     { icon: '🚴', color: '#10b981',  glow: 'rgba(16,185,129,0.2)' },
   Hockey:      { icon: '🏑', color: '#8b5cf6',  glow: 'rgba(139,92,246,0.2)' },
- 'Table Tennis': { icon: '🏓', color: '#06b6d4', glow: 'rgba(6,182,212,0.2)' },  // ← ADDED
-  'Study Group':  { icon: '📚', color: '#8b5cf6', glow: 'rgba(139,92,246,0.2)' },  // ← ADDED
+ 'Table Tennis': { icon: '🏓', color: '#06b6d4', glow: 'rgba(6,182,212,0.2)' },
+  'Study Group':  { icon: '📚', color: '#8b5cf6', glow: 'rgba(139,92,246,0.2)' },
+  'Group Games':  { icon: '🎯', color: '#c8a200', glow: 'rgba(200,162,0,0.2)' },
 }
 
 const getSport = (type: string) =>
@@ -422,7 +423,7 @@ function EmptyState() {
 // ─── Live stats banner ────────────────────────────────────────────────────────
 function HeroStats({ sessions, participants }: { sessions: any[]; participants: Record<string, number> }) {
   const totalSessions = sessions.length
-  const totalSpots = sessions.reduce((a, s) => a + (s.max_participants - (participants[s.id] || 0)), 0)
+  const totalSpots = sessions.reduce((a, s) => a + (s.max_participants - (s.current_participants || 0)), 0)
   const sports = new Set(sessions.map(s => s.sport_type)).size
 
   const stats = [
@@ -551,7 +552,6 @@ export const BrowseSessions: React.FC = () => {
     
     console.log(`🗑️ Checking for expired sessions (date: ${today}, time: ${now})`)
     
-    // Delete sessions with date < today
     const { data: expiredSessions, error: fetchError } = await supabase
       .from('sports_sessions')
       .select('id')
@@ -577,7 +577,6 @@ export const BrowseSessions: React.FC = () => {
       }
     }
 
-    // Delete sessions that are today but already passed the time
     const { data: todayExpired, error: todayFetchError } = await supabase
       .from('sports_sessions')
       .select('id')
@@ -610,7 +609,6 @@ export const BrowseSessions: React.FC = () => {
     setLoading(true)
     setMessage(null)
 
-    // ─── FIRST: Delete expired sessions ──────────────────────────────────────
     await deleteExpiredSessions()
 
     const { data: { user: currentUser } } = await supabase.auth.getUser()
@@ -635,12 +633,14 @@ export const BrowseSessions: React.FC = () => {
     if (sessionsData && sessionsData.length > 0) {
       const counts: Record<string, number> = {}
       const joined: Set<string> = new Set()
+      
       for (const session of sessionsData) {
-        const { count } = await supabase
-          .from('session_participants')
-          .select('*', { count: 'exact', head: true })
-          .eq('session_id', session.id)
-        counts[session.id] = count || 0
+        // ─── FIX: Use current_participants from the session ──────────────
+        // This is the count that was set when the session was created
+        // It includes the creator and any "already have" players
+        counts[session.id] = session.current_participants || 1
+        
+        // Also verify with actual participants count (for joined status)
         if (currentUser) {
           const { data: joinedData } = await supabase
             .from('session_participants')
@@ -656,12 +656,10 @@ export const BrowseSessions: React.FC = () => {
     setLoading(false)
   }
 
-  // src/components/sessions/BrowseSessions.tsx - Add this useEffect
-
+  // ─── Real-time subscriptions ──────────────────────────────────────────────
   useEffect(() => {
     loadData()
 
-    // ─── REAL-TIME SUBSCRIPTION ──────────────────────────────────────────
     const sessionSubscription = supabase
       .channel('sessions-changes')
       .on(
@@ -700,7 +698,7 @@ export const BrowseSessions: React.FC = () => {
     }
   }, [])
 
-  // ─── Auto-refresh every 60 seconds to clean up expired sessions ──────────
+  // ─── Auto-refresh every 60 seconds ──────────────────────────────────────────
   useEffect(() => {
     const interval = setInterval(() => {
       console.log('🔄 Auto-refreshing sessions...')
@@ -717,11 +715,32 @@ export const BrowseSessions: React.FC = () => {
     if (!session) { setJoiningId(null); return }
     if (joinedSessions.has(sessionId)) { setMessage({ text: 'You already joined this session', type: 'info' }); setJoiningId(null); return }
     if (session.created_by === user.id) { setMessage({ text: 'You cannot join your own session', type: 'error' }); setJoiningId(null); return }
-    const currentCount = participants[sessionId] || 0
-    if (currentCount >= session.max_participants) { setMessage({ text: 'This session is full', type: 'error' }); setJoiningId(null); return }
+    
+    // ─── FIX: Use current_participants from the session ──────────────────
+    const currentCount = session.current_participants || 1
+    if (currentCount >= session.max_participants) { 
+      setMessage({ text: 'This session is full', type: 'error' }); 
+      setJoiningId(null); 
+      return 
+    }
+    
     const { error } = await supabase.from('session_participants').insert({ session_id: sessionId, user_id: user.id })
-    if (error) { setMessage({ text: 'Failed to join: ' + error.message, type: 'error' }) }
-    else { setMessage({ text: 'You have joined the session', type: 'success' }); await loadData() }
+    if (error) { 
+      setMessage({ text: 'Failed to join: ' + error.message, type: 'error' }) 
+    } else {
+      // ─── FIX: Increment current_participants ─────────────────────────────
+      const { error: updateError } = await supabase
+        .from('sports_sessions')
+        .update({ current_participants: currentCount + 1 })
+        .eq('id', sessionId)
+      
+      if (updateError) {
+        console.error('Failed to update participant count:', updateError)
+      }
+      
+      setMessage({ text: 'You have joined the session', type: 'success' }); 
+      await loadData() 
+    }
     setJoiningId(null)
   }
 
@@ -729,9 +748,29 @@ export const BrowseSessions: React.FC = () => {
     if (!user) return
     if (!window.confirm('Are you sure you want to leave this session?')) return
     setLeavingId(sessionId)
+    
+    const session = sessions.find(s => s.id === sessionId)
+    const currentCount = session?.current_participants || 1
+    
     const { error } = await supabase.from('session_participants').delete().eq('session_id', sessionId).eq('user_id', user.id)
-    if (error) { setMessage({ text: 'Failed to leave: ' + error.message, type: 'error' }) }
-    else { setMessage({ text: 'You have left the session', type: 'success' }); await loadData() }
+    if (error) { 
+      setMessage({ text: 'Failed to leave: ' + error.message, type: 'error' }) 
+    } else {
+      // ─── FIX: Decrement current_participants ─────────────────────────────
+      if (currentCount > 1) {
+        const { error: updateError } = await supabase
+          .from('sports_sessions')
+          .update({ current_participants: currentCount - 1 })
+          .eq('id', sessionId)
+        
+        if (updateError) {
+          console.error('Failed to update participant count:', updateError)
+        }
+      }
+      
+      setMessage({ text: 'You have left the session', type: 'success' }); 
+      await loadData() 
+    }
     setLeavingId(null)
   }
 
@@ -757,7 +796,6 @@ export const BrowseSessions: React.FC = () => {
 
         {/* ══════════ HERO ══════════ */}
         <section style={{ marginBottom: '48px', animation: 'fadeSlideUp 0.55s ease both' }}>
-          {/* Eyebrow */}
           <div style={{
             display: 'inline-flex', alignItems: 'center', gap: '8px',
             padding: '5px 14px 5px 8px',
@@ -774,7 +812,6 @@ export const BrowseSessions: React.FC = () => {
             </span>
           </div>
 
-          {/* Headline */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '16px' }}>
             <div>
               <h1 style={{
@@ -795,11 +832,9 @@ export const BrowseSessions: React.FC = () => {
               </p>
             </div>
 
-            {/* CTA */}
             <CreateSessionButton />
           </div>
 
-          {/* Live stats */}
           {sessions.length > 0 && <HeroStats sessions={sessions} participants={participants} />}
         </section>
 
@@ -811,7 +846,6 @@ export const BrowseSessions: React.FC = () => {
           <EmptyState />
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            {/* Section label */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
               <div style={{ width: '16px', height: '1px', background: 'rgba(200,162,0,0.4)' }} />
               <span style={{ color: '#374151', fontSize: '10px', fontWeight: '700', letterSpacing: '0.14em', textTransform: 'uppercase', fontFamily: "'Inter', sans-serif" }}>
@@ -822,9 +856,10 @@ export const BrowseSessions: React.FC = () => {
 
             {sessions.map((session, i) => {
               const isCreator = session.created_by === user?.id
-              const currentCount = participants[session.id] || 0
-              const isFull = currentCount >= session.max_participants
               const hasJoined = joinedSessions.has(session.id)
+              // ─── FIX: Use current_participants from session ──────────────
+              const currentCount = session.current_participants || 1
+              const isFull = currentCount >= session.max_participants
 
               return (
                 <SessionCard
@@ -860,7 +895,6 @@ export const BrowseSessions: React.FC = () => {
         </div>
       </div>
 
-      {/* ── Global keyframes ── */}
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
         * { box-sizing: border-box; }
