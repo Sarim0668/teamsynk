@@ -335,7 +335,6 @@ const InviteModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       setCopied(true)
       setTimeout(() => setCopied(false), 3000)
     } catch (err) {
-      // Fallback
       const textArea = document.createElement('textarea')
       textArea.value = shareUrl
       document.body.appendChild(textArea)
@@ -737,7 +736,7 @@ function SessionCard({ session, index }: { session:any; index:number }) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   QUICK ACTIONS (FIXED)
+   QUICK ACTIONS
 ═══════════════════════════════════════════════════════════════════ */
 const QUICK_ACTIONS = [
   {icon:'➕', label:'Create Session',   to:'/create-session'},
@@ -801,139 +800,111 @@ export const Dashboard: React.FC = () => {
     }
   }, [])
 
-// src/components/dashboard/Dashboard.tsx - Updated loadData function
+  const loadData = async () => {
+    setLoading(true)
+    const { data: { user } } = await supabase.auth.getUser()
 
-const loadData = async () => {
-  setLoading(true)
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (user) {
-    const { data: profileData } = await supabase
-      .from('users').select('*').eq('id', user.id).single()
-    setProfile(profileData)
-    setUserUniversity(profileData?.university || '')
-  }
-
-  // ─── FIXED: Load University Leaderboard ──────────────────────────────────
-  try {
-    // Try to get from view first
-    let { data: uniData, error: uniError } = await supabase
-      .from('university_overall_leaderboard')
-      .select('*')
-      .order('total_points', { ascending: false })
-
-    // If view fails or returns empty, calculate manually
-    if (uniError || !uniData || uniData.length === 0) {
-      console.log('View not available, calculating manually...')
-      
-      // Get all universities
-      const { data: uniGroups } = await supabase
-        .from('university_groups')
-        .select('*')
-
-      if (uniGroups && uniGroups.length > 0) {
-        const manualData = await Promise.all(uniGroups.map(async (uni) => {
-          // Get member count
-          const { count: members } = await supabase
-            .from('users')
-            .select('*', { count: 'exact', head: true })
-            .eq('university', uni.name)
-            .eq('status', 'active')
-
-          // Get sessions created
-          const { count: sessionsCreated } = await supabase
-            .from('sports_sessions')
-            .select('*, users!created_by(university)', { count: 'exact', head: true })
-            .eq('users.university', uni.name)
-
-          // Get sessions joined
-          const { count: sessionsJoined } = await supabase
-            .from('session_participants')
-            .select('*, users!user_id(university)', { count: 'exact', head: true })
-            .eq('users.university', uni.name)
-
-          // Get competitions participated
-          const { count: competitions } = await supabase
-            .from('competition_participants')
-            .select('*, users!user_id(university)', { count: 'exact', head: true })
-            .eq('users.university', uni.name)
-
-          // Get competitions won
-          const { count: wins } = await supabase
-            .from('competition_matches')
-            .select('*, competition_participants!winner_id(user_id), users!user_id(university)', { count: 'exact', head: true })
-            .eq('users.university', uni.name)
-
-          const totalMembers = members || 0
-          const totalSessionsCreated = sessionsCreated || 0
-          const totalSessionsJoined = sessionsJoined || 0
-          const totalCompetitions = competitions || 0
-          const totalWins = wins || 0
-          const totalPoints = (totalMembers * 5) + (totalSessionsCreated * 10) + (totalSessionsJoined * 5) + (totalWins * 50)
-
-          return {
-            ...uni,
-            total_members: totalMembers,
-            total_sessions_created: totalSessionsCreated,
-            total_sessions_joined: totalSessionsJoined,
-            total_competitions_participated: totalCompetitions,
-            competitions_won: totalWins,
-            total_points: totalPoints,
-            rank: 0
-          }
-        }))
-
-        // Sort and assign ranks
-        manualData.sort((a, b) => b.total_points - a.total_points)
-        manualData.forEach((item, index) => {
-          item.rank = index + 1
-        })
-
-        uniData = manualData
-      }
+    if (user) {
+      const { data: profileData } = await supabase
+        .from('users').select('*').eq('id', user.id).single()
+      setProfile(profileData)
+      setUserUniversity(profileData?.university || '')
     }
 
-    if (uniData) {
-      setUniversityStats(uniData)
-    } else {
+    try {
+      let { data: uniData, error: uniError } = await supabase
+        .from('university_overall_leaderboard')
+        .select('*')
+        .order('total_points', { ascending: false })
+
+      if (uniError || !uniData || uniData.length === 0) {
+        console.log('View not available, calculating manually...')
+        
+        const { data: uniGroups } = await supabase
+          .from('university_groups')
+          .select('*')
+
+        if (uniGroups && uniGroups.length > 0) {
+          const manualData = await Promise.all(uniGroups.map(async (uni) => {
+            const { count: members } = await supabase
+              .from('users')
+              .select('*', { count: 'exact', head: true })
+              .eq('university', uni.name)
+              .eq('status', 'active')
+
+            const { count: sessionsCreated } = await supabase
+              .from('sports_sessions')
+              .select('*, users!created_by(university)', { count: 'exact', head: true })
+              .eq('users.university', uni.name)
+
+            const { count: sessionsJoined } = await supabase
+              .from('session_participants')
+              .select('*, users!user_id(university)', { count: 'exact', head: true })
+              .eq('users.university', uni.name)
+
+            const totalMembers = members || 0
+            const totalSessionsCreated = sessionsCreated || 0
+            const totalSessionsJoined = sessionsJoined || 0
+            const totalPoints = (totalMembers * 5) + (totalSessionsCreated * 10) + (totalSessionsJoined * 5)
+
+            return {
+              ...uni,
+              total_members: totalMembers,
+              total_sessions_created: totalSessionsCreated,
+              total_sessions_joined: totalSessionsJoined,
+              total_competitions_participated: 0,
+              competitions_won: 0,
+              total_points: totalPoints,
+              rank: 0
+            }
+          }))
+
+          manualData.sort((a, b) => b.total_points - a.total_points)
+          manualData.forEach((item, index) => {
+            item.rank = index + 1
+          })
+
+          uniData = manualData
+        }
+      }
+
+      if (uniData) {
+        setUniversityStats(uniData)
+      } else {
+        setUniversityStats([])
+      }
+    } catch (error) {
+      console.error('Error loading university stats:', error)
       setUniversityStats([])
     }
-  } catch (error) {
-    console.error('Error loading university stats:', error)
-    setUniversityStats([])
+
+    const today = new Date().toISOString().split('T')[0]
+    const { data: sessions, error: sessionsError } = await supabase
+      .from('sports_sessions').select('*')
+      .gte('session_date', today)
+      .order('session_date', {ascending:true})
+      .limit(4)
+    if (!sessionsError && sessions) setUpcomingSessions(sessions)
+    else { console.error('Error loading sessions:', sessionsError); setUpcomingSessions([]) }
+
+    const { data: compData, error: compError } = await supabase
+      .from('competitions')
+      .select('*, competition_participants(count)')
+      .in('status', ['upcoming','active'])
+      .order('start_date', {ascending:true})
+      .limit(4)
+    if (!compError && compData) {
+      setCompetitions(compData.map((c:any) => ({...c, participants_count: c.competition_participants?.[0]?.count||0})))
+    } else { console.error('Error loading competitions:', compError); setCompetitions([]) }
+
+    setLoading(false)
   }
 
-  // ─── Load Sessions ──────────────────────────────────────────────────────
-  const today = new Date().toISOString().split('T')[0]
-  const { data: sessions, error: sessionsError } = await supabase
-    .from('sports_sessions').select('*')
-    .gte('session_date', today)
-    .order('session_date', {ascending:true})
-    .limit(4)
-  if (!sessionsError && sessions) setUpcomingSessions(sessions)
-  else { console.error('Error loading sessions:', sessionsError); setUpcomingSessions([]) }
-
-  // ─── Load Competitions ──────────────────────────────────────────────────
-  const { data: compData, error: compError } = await supabase
-    .from('competitions')
-    .select('*, competition_participants(count)')
-    .in('status', ['upcoming','active'])
-    .order('start_date', {ascending:true})
-    .limit(4)
-  if (!compError && compData) {
-    setCompetitions(compData.map((c:any) => ({...c, participants_count: c.competition_participants?.[0]?.count||0})))
-  } else { console.error('Error loading competitions:', compError); setCompetitions([]) }
-
-  setLoading(false)
-}
-
-  // Handle quick action click
   const handleQuickAction = (action: {icon:string; label:string; to:string}) => {
     if (action.to === '#invite') {
       setShowInviteModal(true)
       return
     }
-    // Navigation handled by Link component
   }
 
   if (loading) {
@@ -971,7 +942,6 @@ const loadData = async () => {
       <style>{GLOBAL_CSS}</style>
       <CanvasBackground />
 
-      {/* Invite Modal */}
       {showInviteModal && (
         <InviteModal onClose={() => setShowInviteModal(false)} />
       )}
@@ -981,7 +951,7 @@ const loadData = async () => {
         fontFamily:'Sora,sans-serif', position:'relative', zIndex:1,
       }}>
 
-        {/* LEFT SIDEBAR */}
+        {/* ─── LEFT SIDEBAR ─── */}
         <aside className="ts-left-sidebar" style={{
           width:220, flexShrink:0, position:'fixed', top:0, left:0, bottom:0,
           background:'rgba(6,6,10,0.9)',
@@ -992,6 +962,7 @@ const loadData = async () => {
           padding:'28px 12px', zIndex:100,
           overflowY:'auto',
         }}>
+          {/* ─── LOGO ─── */}
           <div style={{display:'flex', alignItems:'center', gap:10, padding:'0 4px', marginBottom:32}}>
             <div style={{
               width:34, height:34, borderRadius:9,
@@ -1035,14 +1006,14 @@ const loadData = async () => {
           )}
         </aside>
 
-        {/* MAIN CONTENT */}
+        {/* ─── MAIN CONTENT ─── */}
         <main className="ts-main-content" style={{
           marginLeft:220, flex:1,
           padding:'40px 32px 80px',
           maxWidth:'100%', overflowX:'hidden',
         }}>
 
-          {/* HERO */}
+          {/* ─── HERO ─── */}
           <section className="ts-stagger-1" style={{marginBottom:40}}>
             <div style={{
               position:'relative',
@@ -1116,7 +1087,7 @@ const loadData = async () => {
             </div>
           </section>
 
-          {/* QUICK ACTIONS */}
+          {/* ─── QUICK ACTIONS ─── */}
           <section className="ts-stagger-2" style={{marginBottom:40}}>
             <SectionHeader eyebrow="⚡ Quick Actions" title="What do you want to do?" />
             <div className="ts-grid-qa">
@@ -1144,7 +1115,7 @@ const loadData = async () => {
 
           <Divider />
 
-          {/* UNIVERSITY LEADERBOARD */}
+          {/* ─── UNIVERSITY LEADERBOARD ─── */}
           <section className="ts-stagger-3" style={{marginBottom:40}}>
             <SectionHeader
               eyebrow="🏆 University Rankings"
@@ -1183,7 +1154,7 @@ const loadData = async () => {
 
           <Divider />
 
-          {/* UPCOMING SESSIONS */}
+          {/* ─── UPCOMING SESSIONS ─── */}
           <section className="ts-stagger-4" style={{marginBottom:40}}>
             <SectionHeader
               eyebrow="⚡ Live Arena"
@@ -1213,7 +1184,7 @@ const loadData = async () => {
 
           <Divider />
 
-          {/* COMPETITIONS */}
+          {/* ─── COMPETITIONS ─── */}
           <section className="ts-stagger-5" style={{marginBottom:40}}>
             <SectionHeader
               eyebrow="🏅 Competitions"
@@ -1253,7 +1224,7 @@ const loadData = async () => {
             )}
           </section>
 
-          {/* FOOTER */}
+          {/* ─── FOOTER ─── */}
           <div style={{display:'flex', justifyContent:'center', marginTop:56}}>
             <div style={{
               display:'inline-flex', alignItems:'center', gap:10,

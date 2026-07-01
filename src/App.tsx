@@ -1,5 +1,4 @@
-// src/App.tsx - Updated Navbar section
-
+// src/App.tsx
 import React, { useState, useEffect, useRef } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
@@ -27,6 +26,7 @@ import { CreateTournament } from './components/tournaments/CreateTournament'
 import { TournamentDetail } from './components/tournaments/TournamentDetail'
 import { TournamentsList } from './components/tournaments/TournamentsList'
 import { HelpSupport } from './components/support/HelpSupport'
+import { AuthCallback } from './components/auth/AuthCallback'
 import './premiumMotion.css'
 
 // ─── Placeholder page ─────────────────────────────────────────────────────────
@@ -354,21 +354,18 @@ function AppInner({ user }: { user: any }) {
           <Route path="/register" element={!user ? <Register /> : <Navigate to="/" />} />
           <Route path="/" element={user ? <Dashboard /> : <Navigate to="/login" />} />
           
-          {/* ─── Sessions ─── */}
           <Route path="/create-session" element={user ? <CreateSession /> : <Navigate to="/login" />} />
           <Route path="/browse-sessions" element={user ? <BrowseSessions /> : <Navigate to="/login" />} />
           <Route path="/session/:id" element={user ? <SessionDetail /> : <Navigate to="/login" />} />
           
-          {/* ─── Tournaments & Competitions (Unified) ─── */}
           <Route path="/competition/:id" element={user ? <CompetitionDetail /> : <Navigate to="/login" />} />
           <Route path="/create-competition" element={user ? <CreateCompetition /> : <Navigate to="/login" />} />
           <Route path="/leaderboard" element={user ? <Leaderboard /> : <Navigate to="/login" />} />
           
-          {/* ─── Tournaments ─── */}
-<Route path="/tournaments" element={user ? <TournamentsList /> : <Navigate to="/login" />} />
-<Route path="/create-tournament" element={user ? <CreateTournament /> : <Navigate to="/login" />} />
-<Route path="/tournament/:id" element={user ? <TournamentDetail /> : <Navigate to="/login" />} />
-          {/* ─── Other ─── */}
+          <Route path="/tournaments" element={user ? <TournamentsList /> : <Navigate to="/login" />} />
+          <Route path="/create-tournament" element={user ? <CreateTournament /> : <Navigate to="/login" />} />
+          <Route path="/tournament/:id" element={user ? <TournamentDetail /> : <Navigate to="/login" />} />
+          
           <Route path="/find-players" element={user ? <FindPlayers /> : <Navigate to="/login" />} />
           <Route path="/marketplace" element={user ? <Marketplace /> : <Navigate to="/login" />} />
           <Route path="/profile" element={user ? <Profile /> : <Navigate to="/login" />} />
@@ -379,6 +376,7 @@ function AppInner({ user }: { user: any }) {
           <Route path="/community" element={user ? <CommunityHub /> : <Navigate to="/login" />} />
           <Route path="/community/:id" element={user ? <CommunityChat /> : <Navigate to="/login" />} />
           <Route path="/help" element={user ? <HelpSupport /> : <Navigate to="/login" />} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
         </Routes>
       </main>
     </>
@@ -394,7 +392,6 @@ function App() {
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) {
-        // Check if user is suspended
         const { data: profile } = await supabase
           .from('users')
           .select('status')
