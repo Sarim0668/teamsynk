@@ -18,11 +18,12 @@ export const CreateSession: React.FC = () => {
     session_time: '',
     location: '',
     max_participants: 10,
+    current_participants: 1, // ← NEW: Current players already have
     description: '',
     whatsapp_link: ''
   })
 
-  // ─── SPORT TYPES WITH ICONS (INCLUDING GROUP GAMES) ────────────────────
+  // ─── SPORT TYPES WITH ICONS ──────────────────────────────────────────────
   const sportTypes = [
     // ─── Sports ──────────────────────────────────────────────────────────────
     { value: 'Football', icon: '⚽' },
@@ -98,7 +99,14 @@ export const CreateSession: React.FC = () => {
       return
     }
 
+    if (formData.current_participants < 1 || formData.current_participants > formData.max_participants) {
+      setError(`Current players must be between 1 and ${formData.max_participants}`)
+      setLoading(false)
+      return
+    }
+
     try {
+      // Create the session
       const { data: sessionData, error: sessionError } = await supabase
         .from('sports_sessions')
         .insert({
@@ -121,6 +129,8 @@ export const CreateSession: React.FC = () => {
         throw new Error('Failed to create session')
       }
 
+      // ─── Add current participants (including creator) ───────────────────
+      // First, add the creator
       const { error: joinError } = await supabase
         .from('session_participants')
         .insert({
@@ -135,7 +145,14 @@ export const CreateSession: React.FC = () => {
         return
       }
 
-      console.log('✅ Session created and creator auto-joined!')
+      // ─── If there are additional players to add ─────────────────────────
+      // Note: In a real scenario, you'd add other players by their user IDs
+      // For now, we'll just add the creator and show the current count
+      // The actual participant count will be tracked in the session_participants table
+
+      console.log('✅ Session created!')
+      console.log(`📊 Current players: ${formData.current_participants}/${formData.max_participants}`)
+      
       setSuccess(true)
       setTimeout(() => navigate('/browse-sessions'), 1500)
       
@@ -181,6 +198,9 @@ export const CreateSession: React.FC = () => {
           <p style={{ color: '#888' }}>Your session has been created successfully.</p>
           <p style={{ color: '#52c07a', fontSize: '14px', marginTop: '8px' }}>
             👑 You have been added as the first participant!
+          </p>
+          <p style={{ color: '#888', fontSize: '13px', marginTop: '4px' }}>
+            📊 {formData.current_participants} / {formData.max_participants} players
           </p>
           <p style={{ color: '#666', fontSize: '14px', marginTop: '4px' }}>Redirecting...</p>
         </div>
@@ -354,29 +374,107 @@ export const CreateSession: React.FC = () => {
             />
           </div>
 
-          <div style={{ marginBottom: '16px' }}>
-            <label style={{ color: '#aaa', fontSize: '14px', display: 'block', marginBottom: '6px' }}>
-              Max Participants (2-50) *
-            </label>
-            <input
-              type="number"
-              value={formData.max_participants}
-              onChange={(e) => setFormData({ ...formData, max_participants: parseInt(e.target.value) || 10 })}
-              min="2"
-              max="50"
-              style={{
-                width: '100%',
-                padding: '12px',
-                background: '#1a1a1a',
-                border: '1px solid #333',
-                borderRadius: '8px',
-                color: 'white',
-                fontSize: '16px'
-              }}
-              required
-            />
-            <div style={{ color: '#555', fontSize: '12px', marginTop: '4px' }}>
-              👑 You will take 1 slot automatically
+          {/* ─── PLAYER COUNT SECTION ─── */}
+          <div style={{
+            background: 'rgba(200,162,0,0.05)',
+            border: '1px solid rgba(200,162,0,0.15)',
+            borderRadius: '10px',
+            padding: '16px',
+            marginBottom: '16px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+              <span style={{ fontSize: '18px' }}>👥</span>
+              <span style={{ color: '#FFD700', fontSize: '14px', fontWeight: 'bold' }}>
+                Player Count
+              </span>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div>
+                <label style={{ color: '#aaa', fontSize: '12px', display: 'block', marginBottom: '4px' }}>
+                  Total Players *
+                </label>
+                <input
+                  type="number"
+                  value={formData.max_participants}
+                  onChange={(e) => setFormData({ ...formData, max_participants: parseInt(e.target.value) || 10 })}
+                  min="2"
+                  max="50"
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    background: '#1a1a1a',
+                    border: '1px solid #333',
+                    borderRadius: '8px',
+                    color: 'white',
+                    fontSize: '16px'
+                  }}
+                  required
+                />
+              </div>
+              <div>
+                <label style={{ color: '#aaa', fontSize: '12px', display: 'block', marginBottom: '4px' }}>
+                  Already Have (including you) *
+                </label>
+                <input
+                  type="number"
+                  value={formData.current_participants}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value) || 1
+                    if (val <= formData.max_participants) {
+                      setFormData({ ...formData, current_participants: val })
+                    }
+                  }}
+                  min="1"
+                  max={formData.max_participants}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    background: '#1a1a1a',
+                    border: '1px solid #333',
+                    borderRadius: '8px',
+                    color: 'white',
+                    fontSize: '16px'
+                  }}
+                  required
+                />
+              </div>
+            </div>
+
+            {/* ─── Progress bar ─── */}
+            <div style={{ marginTop: '10px' }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                color: '#6b7280',
+                fontSize: '12px',
+                marginBottom: '4px'
+              }}>
+                <span>{formData.current_participants} players have joined</span>
+                <span>{formData.max_participants - formData.current_participants} spots left</span>
+              </div>
+              <div style={{
+                height: '4px',
+                background: 'rgba(255,255,255,0.05)',
+                borderRadius: '99px',
+                overflow: 'hidden'
+              }}>
+                <div style={{
+                  height: '100%',
+                  width: `${(formData.current_participants / formData.max_participants) * 100}%`,
+                  background: (formData.current_participants / formData.max_participants) >= 0.9 
+                    ? '#ef4444' 
+                    : (formData.current_participants / formData.max_participants) >= 0.7 
+                      ? '#f97316' 
+                      : '#4ade80',
+                  borderRadius: '99px',
+                  transition: 'width 0.3s ease'
+                }} />
+              </div>
+            </div>
+
+            <div style={{ color: '#4b5563', fontSize: '11px', marginTop: '8px' }}>
+              💡 You will be automatically added as a participant
             </div>
           </div>
 
